@@ -3,7 +3,7 @@ import { clamp } from './util.js';
 import { Hardware, deviceKind } from './hardware.js';
 export class Input {
   constructor(canvas) {
-    this.keys = new Set(); this.axes = { elev: 0, ail: 0, rud: 0 };
+    this.keys = new Set(); this.axes = { elev: 0, ail: 0, rud: 0, posElev: null, posAil: null };
     this.kb = { elev: 0, ail: 0, rud: 0 };   // keyboard part, ramped (keys are on/off); hardware and mouse are added unramped
     this.hw = new Hardware();               // every connected yoke, stick, pedals, throttle quadrant and gamepad (js/hardware.js)
     this.thrSet = null;                     // absolute throttle from a bound lever, set only on frames the lever moved
@@ -73,7 +73,8 @@ export class Input {
     this.axes.elev = clamp(this.kb.elev + dE, -1, 1);
     this.axes.ail = clamp(this.kb.ail + dA, -1, 1);
     this.axes.rud = clamp(this.kb.rud + hw.rud, -1, 1);
-    const held = Math.abs(this.axes.elev) > 0.05 || Math.abs(this.axes.ail) > 0.05;
+    this.axes.posElev = hw.posElev; this.axes.posAil = hw.posAil;   // force-feedback stick: column position (js/controls.js)
+    const held = Math.abs(this.axes.elev) > 0.05 || Math.abs(this.axes.ail) > 0.05 || Math.abs(hw.posElev || 0) > 0.05 || Math.abs(hw.posAil || 0) > 0.05;
     let thrIn = hw.thrRate, trimIn = hw.trim;   // -1..1 rate demands: keys are on/off, triggers proportional
     if (hw.thrSet !== null) this.thrSet = hw.thrSet;   // held until the sim takes it (IN.thrSet = null)
     this.trimDelta = 0;

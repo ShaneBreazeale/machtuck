@@ -150,6 +150,7 @@ export class Hardware {
     this.rest = new Map();               // first-seen axis values per pad (gamepad trigger heuristic)
     this.thrLast = null;                 // last lever value handed to the sim (pickup: only a moved lever takes over)
     this.capture = null;
+    this.isFfb = null;                   // (gp) => true for a force-feedback stick: its pitch / roll are column POSITION
   }
   pads() { return padsOf(this.getPads); }
   save() { if (this.store) this.store.setItem(KEY, JSON.stringify(this.bind)); }
@@ -213,13 +214,17 @@ export class Hardware {
   // ---- per-frame poll: everything every connected device is doing ----
   // returns { elev, ail, rud } (-1..1, summed over devices, positive = pull / right / right pedal),
   //         thrRate (-1..1, gamepad triggers), thrSet (0..1 when a bound lever has moved, else null),
-  //         trim (-1..1, nose-up positive), events [] (edge-triggered actions, same names as the keyboard's)
+  //         trim (-1..1, nose-up positive), events [] (edge-triggered actions, same names as the keyboard's),
+  //         posElev / posAil: pitch and roll from a force-feedback stick (column position), null without one
   poll() {
-    const pads = this.pads(), o = { elev: 0, ail: 0, rud: 0, thrRate: 0, thrSet: null, trim: 0, events: [], active: pads.length > 0 };
+    const pads = this.pads(), o = { elev: 0, ail: 0, rud: 0, thrRate: 0, thrSet: null, trim: 0, events: [], active: pads.length > 0, posElev: null, posAil: null };
     const B = (fn) => this.bound(fn, pads);
+    const ffb = (gp) => !!(this.isFfb && gp && this.isFfb(gp));
+    const addE = (gp, v) => { if (ffb(gp)) o.posElev = (o.posElev || 0) + v; else o.elev += v; };
+    const addA = (gp, v) => { if (ffb(gp)) o.posAil = (o.posAil || 0) + v; else o.ail += v; };
     // bound axes
-    if (B('pitch')) o.elev += this.value('pitch', pads);
-    if (B('roll')) o.ail += this.value('roll', pads);
+    if (B('pitch')) addE(this.padFor(this.bind.pitch.id, pads), this.value('pitch', pads));
+    if (B('roll')) addA(this.padFor(this.bind.roll.id, pads), this.value('roll', pads));
     if (B('rudder')) o.rud += this.value('rudder', pads);
     if (B('throttle')) {
       const v = this.value('throttle', pads);
@@ -238,13 +243,13 @@ export class Hardware {
     const dz = (v) => Math.abs(v) < 0.08 ? 0 : v;
     for (const gp of pads) {
       // a default applies only if its function is unbound everywhere and its input is not bound to something else
-      const ax = (fn, i) => !B(fn) && !this.axisUsed(gp, i) ? dz(gp.axes[i] || 0) : 0;
+      const ax = (fn, i) => !B(fn) && !this.axisUsed(gp, i) ? (ffb(gp) ? gp.axes[i] || 0 : dz(gp.axes[i] || 0)) : 0;   // a position stick: no dead-zone step
       const free = (i) => !this.buttonUsed(gp, i);
       const key = gp.id + '#' + gp.index;
       if (!this.rest.has(key)) this.rest.set(key, [...gp.axes]);
       const kind = deviceKind(gp);
       if (kind === 'gamepad' && gp.mapping === 'standard') {
-        o.ail += ax('roll', 0); o.elev += ax('pitch', 1); o.rud += ax('rudder', 2);   // left stick; right stick X = rudder
+        addA(gp, ax('roll', 0)); addE(gp, ax('pitch', 1)); o.rud += ax('rudder', 2);   // left stick; right stick X = rudder
         const trig = (i) => { const v = free(i) && gp.buttons[i] ? gp.buttons[i].value : 0; return v > 0.1 ? v : 0; };
         if (!B('throttle')) o.thrRate += trig(7) - trig(6);         // R2 / L2
         const b = (i) => free(i) && !!(gp.buttons[i] && gp.buttons[i].pressed), prev = this.padPrev.get(key) || [];
@@ -254,7 +259,7 @@ export class Hardware {
         if (b(5)) o.trim += 1; if (b(4)) o.trim -= 1;               // R1 nose-up, L1 nose-down
       } else if (kind === 'gamepad') {
         // no standard layout (e.g. Firefox on macOS): axes resting near -1 are analog triggers, a centred third axis is the right stick
-        o.ail += ax('roll', 0); o.elev += ax('pitch', 1);
+        addA(gp, ax('roll', 0)); addE(gp, ax('pitch', 1));
         const rest = this.rest.get(key), trigAx = [];
         for (let i = 2; i < gp.axes.length; i++) if ((rest[i] ?? 0) < -0.9 && !this.axisUsed(gp, i)) trigAx.push(i);
         const rx = [2, 3].find((i) => !trigAx.includes(i) && Math.abs(rest[i] ?? 1) < 0.2);
@@ -263,11 +268,12 @@ export class Hardware {
         if (trigAx.length >= 2 && !B('throttle')) o.thrRate += tv(trigAx[1]) - tv(trigAx[0]);
       } else if (kind === 'stick') {
         // an unbound yoke or joystick: X = roll, Y = pitch (DirectInput convention, Y grows toward the pilot = pull)
-        o.ail += ax('roll', 0); o.elev += ax('pitch', 1);
+        addA(gp, ax('roll', 0)); addE(gp, ax('pitch', 1));
       }
       // unbound pedals and throttle quadrants do nothing until bound: their axes (toe brakes, levers) have no safe default
     }
     const c = (x) => Math.max(-1, Math.min(1, x));
+    if (o.posElev !== null) o.posElev = c(o.posElev); if (o.posAil !== null) o.posAil = c(o.posAil);
     o.elev = c(o.elev); o.ail = c(o.ail); o.rud = c(o.rud); o.thrRate = c(o.thrRate); o.trim = c(o.trim);
     return o;
   }

@@ -76,7 +76,17 @@ its travel is the calibration. Bindings are saved per device name in the browser
 and Y axes; pedals and quadrants do nothing until bound. A moved throttle lever sets the thrust levers directly, and
 hardware axes skip the keyboard's smoothing ramp. Each device appears only after you press one of its buttons.
 
-Your inputs are force on the column, not surface position. At high speed full deflection may take more than you can
+**Force feedback.** A USB PID force-feedback joystick (the DirectInput force-feedback standard) can drive the column in
+Chrome or Edge over WebHID. Open the controls panel (`/`), choose **Connect force-feedback stick**, and pick the stick in
+the browser's prompt. The stick's position then becomes the column's position, and its motor supplies the elevator
+and aileron hinge moment. The stick gets stiffer with airspeed and transonic Mach, and goes light and pulses with a
+stalled iced tail. With the autopilot engaged the stick follows the servo, and pushing past the clutch force makes it
+slip. The stick shaker and buffet shake the stick. Your simulated strength still limits how far the elevator goes.
+**Test** pulls the stick back, then moves it right, then shakes it; use invert or swap if the directions are wrong.
+Start with low strength. The driver reads the report layout from each stick's HID descriptor, so no per-model profile
+is needed. It has been tested only against simulated sticks, so behaviour on real hardware is unverified.
+
+Without a force-feedback stick, your inputs are force on the column, not surface position. At high speed full deflection may take more than you can
 hold, and nose-up trim is how you take the load off. The help screen (`H`) has the AFM upset-recovery card.
 
 ## How it works
@@ -188,10 +198,11 @@ node tools/bench.mjs 2560x1320 8080
 | `js/aircraft.js`, `js/aero.js`, `js/engine.js` | Flight model, aerodynamics, engine cycle |
 | `js/controls.js` | Column and wheel forces, pilot strength, autopilot clutches |
 | `js/input.js`, `js/hardware.js`, `js/hwui.js` | Keyboard and mouse, all connected flight hardware, the binding panel |
+| `js/ffb.js` | USB PID force-feedback driver over WebHID |
 | `js/scenario.js` | Storm environment, ADS-B reconstruction, ATC timeline, autopilot, hypotheses |
 | `js/render.js`, `js/shaders.js` | WebGL2 renderer |
 | `js/hud.js`, `js/cockpit.js`, `js/vcgauges.js` | Instruments, 3D cockpit, standby gauges |
-| `test/` | Flight-test card, AFM table validation, upset, recovery and force checks |
+| `test/` | Flight-test card, AFM table validation, upset, recovery, force, hardware and force-feedback checks |
 | `tools/` | Data fetchers, model and livery converters, benchmark |
 
 Debug views load the reconstruction paused at a given time:

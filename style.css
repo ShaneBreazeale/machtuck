@@ -41,6 +41,12 @@ button.alt:hover { background: #3a4656; }
 .hwdev .axes { color: #bcd; margin-top: 4px; white-space: pre-wrap; word-break: break-word; }
 .hwprompt { background: #2a2410; border: 1px solid #ffe34d55; border-radius: 6px; padding: 10px 12px; margin: 10px 0; font-size: 13px; }
 .hwprompt .hwpsub { color: #cdb; margin-right: 10px; }
+.hwffb { background: #171a20; border-radius: 6px; padding: 8px 10px; margin: 10px 0; font-size: 12px; }
+.hwffb .ffbst { color: #9ab; margin-left: 6px; }
+.hwffb .ffbrow { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; margin-top: 6px; }
+.hwffb label { color: #bcd; display: inline-flex; gap: 4px; align-items: center; }
+.hwffb input[type=range] { width: 110px; }
+.hwffb button:disabled { opacity: 0.4; cursor: default; }
 #hwpanel .hidden { display: none !important; }
 .hwtab td { vertical-align: middle; }
 .hwtab td.hwb { color: #ddd; font-size: 12px; }
