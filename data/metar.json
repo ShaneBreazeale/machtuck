@@ -1,0 +1,2493 @@
+{
+ "source": "https://mesonet.agron.iastate.edu/cgi-bin/request/asos.py?station=DJT&station=LNA&station=F45&station=BCT&station=FXE&station=SUA&data=metar&data=tmpf&data=dwpf&data=drct&data=sknt&data=gust&data=vsby&data=alti&data=skyc1&data=skyc2&data=skyc3&data=skyc4&data=skyl1&data=skyl2&data=skyl3&data=skyl4&data=wxcodes&year1=2026&month1=11&day1=1&hour1=16&minute1=30&year2=2026&month2=11&day2=1&hour2=18&minute2=31&tz=Etc%2FUTC&format=onlycomma&latlon=no&missing=M&trace=T",
+ "licence": "NWS/FAA METAR via Iowa Environmental Mesonet ASOS archive; US Government data, public domain",
+ "note": "KPBI reports as KDJT (IEM id DJT). t_sim_s relative to 17:47:00Z. hf = MADIS 5-min high-frequency AUTO report (wind direction often missing). Cloud bases metres AGL.",
+ "stations": {
+  "KPBI": {
+   "report_id": "KDJT",
+   "iem_id": "DJT",
+   "obs": [
+    {
+     "valid": "2026-11-01T16:30Z",
+     "t_sim_s": -4620,
+     "raw": "KDJT 011630Z AUTO /////KT 3SM RA SCT021 BKN035 OVC050 26/23 A3009 RMK P0002 T02600230 LTG DSNT SE-W! OCNL LTGICCG SW-W TS SW-W MOV NW MADISHF",
+     "hf": true,
+     "t_c": 26.0,
+     "td_c": 23.0,
+     "wdir_deg": null,
+     "wspd_kt": null,
+     "gust_kt": null,
+     "vsby_sm": 4.0,
+     "vsby_m": 6437,
+     "altim_inhg": 30.09,
+     "wx": "RA",
+     "clouds": [
+      {
+       "cover": "SCT",
+       "base_ft": 2100.0,
+       "base_m_agl": 640
+      },
+      {
+       "cover": "BKN",
+       "base_ft": 3500.0,
+       "base_m_agl": 1067
+      },
+      {
+       "cover": "OVC",
+       "base_ft": 5000.0,
+       "base_m_agl": 1524
+      }
+     ],
+     "ltg": "LTG DSNT SE-W OCNL LTGICCG SW-W"
+    },
+    {
+     "valid": "2026-11-01T16:35Z",
+     "t_sim_s": -4320,
+     "raw": "KDJT 011635Z AUTO /////G27KT 5SM RA SCT021 BKN030 OVC050 26/23 A3009 RMK P0002 T02600230 LTG DSNT SE-W! MADISHF",
+     "hf": true,
+     "t_c": 26.0,
+     "td_c": 23.0,
+     "wdir_deg": null,
+     "wspd_kt": null,
+     "gust_kt": 27.0,
+     "vsby_sm": 5.0,
+     "vsby_m": 8047,
+     "altim_inhg": 30.09,
+     "wx": "RA",
+     "clouds": [
+      {
+       "cover": "SCT",
+       "base_ft": 2100.0,
+       "base_m_agl": 640
+      },
+      {
+       "cover": "BKN",
+       "base_ft": 3000.0,
+       "base_m_agl": 914
+      },
+      {
+       "cover": "OVC",
+       "base_ft": 5000.0,
+       "base_m_agl": 1524
+      }
+     ],
+     "ltg": "LTG DSNT SE-W"
+    },
+    {
+     "valid": "2026-11-01T16:38Z",
+     "t_sim_s": -4140,
+     "raw": "KDJT 011638Z 09017G27KT 8SM -RA SCT021 SCT028 OVC055 26/23 A3009 RMK AO2 PK WND 08031/1554 TSB11E38 P0002 T02610228 $",
+     "hf": false,
+     "t_c": 26.1,
+     "td_c": 22.8,
+     "wdir_deg": 90.0,
+     "wspd_kt": 17.0,
+     "gust_kt": 27.0,
+     "vsby_sm": 8.0,
+     "vsby_m": 12875,
+     "altim_inhg": 30.09,
+     "wx": "-RA",
+     "clouds": [
+      {
+       "cover": "SCT",
+       "base_ft": 2100.0,
+       "base_m_agl": 640
+      },
+      {
+       "cover": "SCT",
+       "base_ft": 2800.0,
+       "base_m_agl": 853
+      },
+      {
+       "cover": "OVC",
+       "base_ft": 5500.0,
+       "base_m_agl": 1676
+      }
+     ],
+     "peak_wind": {
+      "dir": 80,
+      "kt": 31,
+      "time": "1554"
+     }
+    },
+    {
+     "valid": "2026-11-01T16:40Z",
+     "t_sim_s": -4020,
+     "raw": "KDJT 011640Z AUTO /////G26KT 7SM -RA SCT021 SCT028 OVC055 26/23 A3009 RMK P0002 T02600230 LTG DSNT SE-W! MADISHF",
+     "hf": true,
+     "t_c": 26.0,
+     "td_c": 23.0,
+     "wdir_deg": null,
+     "wspd_kt": null,
+     "gust_kt": 26.0,
+     "vsby_sm": 8.0,
+     "vsby_m": 12875,
+     "altim_inhg": 30.09,
+     "wx": "-RA",
+     "clouds": [
+      {
+       "cover": "SCT",
+       "base_ft": 2100.0,
+       "base_m_agl": 640
+      },
+      {
+       "cover": "SCT",
+       "base_ft": 2800.0,
+       "base_m_agl": 853
+      },
+      {
+       "cover": "OVC",
+       "base_ft": 5500.0,
+       "base_m_agl": 1676
+      }
+     ],
+     "ltg": "LTG DSNT SE-W"
+    },
+    {
+     "valid": "2026-11-01T16:45Z",
+     "t_sim_s": -3720,
+     "raw": "KDJT 011645Z AUTO /////G22KT 10SM -RA SCT021 SCT028 OVC055 27/23 A3008 RMK P0002 T02700230 LTG DSNT ALQDS! MADISHF",
+     "hf": true,
+     "t_c": 27.0,
+     "td_c": 23.0,
+     "wdir_deg": null,
+     "wspd_kt": null,
+     "gust_kt": 22.0,
+     "vsby_sm": 10.0,
+     "vsby_m": 16093,
+     "altim_inhg": 30.08,
+     "wx": "-RA",
+     "clouds": [
+      {
+       "cover": "SCT",
+       "base_ft": 2100.0,
+       "base_m_agl": 640
+      },
+      {
+       "cover": "SCT",
+       "base_ft": 2800.0,
+       "base_m_agl": 853
+      },
+      {
+       "cover": "OVC",
+       "base_ft": 5500.0,
+       "base_m_agl": 1676
+      }
+     ],
+     "ltg": "LTG DSNT ALQDS"
+    },
+    {
+     "valid": "2026-11-01T16:50Z",
+     "t_sim_s": -3420,
+     "raw": "KDJT 011650Z AUTO 08014G19KT 10SM -RA FEW024 OVC055 27/23 A3009 RMK P0002 T02700230 LTG DSNT S-NW! MADISHF",
+     "hf": true,
+     "t_c": 27.0,
+     "td_c": 23.0,
+     "wdir_deg": 80.0,
+     "wspd_kt": 14.0,
+     "gust_kt": 19.0,
+     "vsby_sm": 10.0,
+     "vsby_m": 16093,
+     "altim_inhg": 30.09,
+     "wx": "-RA",
+     "clouds": [
+      {
+       "cover": "FEW",
+       "base_ft": 2400.0,
+       "base_m_agl": 732
+      },
+      {
+       "cover": "OVC",
+       "base_ft": 5500.0,
+       "base_m_agl": 1676
+      }
+     ],
+     "ltg": "LTG DSNT S-NW"
+    },
+    {
+     "valid": "2026-11-01T16:53Z",
+     "t_sim_s": -3240,
+     "raw": "KDJT 011653Z 09020G30KT 10SM -RA SCT021",
+     "hf": false,
+     "t_c": null,
+     "td_c": null,
+     "wdir_deg": 90.0,
+     "wspd_kt": 20.0,
+     "gust_kt": 30.0,
+     "vsby_sm": 10.0,
+     "vsby_m": 16093,
+     "altim_inhg": null,
+     "wx": "-RA",
+     "clouds": [
+      {
+       "cover": "SCT",
+       "base_ft": 2100.0,
+       "base_m_agl": 640
+      }
+     ]
+    },
+    {
+     "valid": "2026-11-01T16:55Z",
+     "t_sim_s": -3120,
+     "raw": "KDJT 011655Z AUTO ///19G26KT 10SM -RA SCT021 SCT028 OVC055 27/22 A3009 RMK T02700220 LTG DSNT S-NW! MADISHF",
+     "hf": true,
+     "t_c": 27.0,
+     "td_c": 22.0,
+     "wdir_deg": null,
+     "wspd_kt": 19.0,
+     "gust_kt": 26.0,
+     "vsby_sm": 10.0,
+     "vsby_m": 16093,
+     "altim_inhg": 30.09,
+     "wx": "-RA",
+     "clouds": [
+      {
+       "cover": "SCT",
+       "base_ft": 2100.0,
+       "base_m_agl": 640
+      },
+      {
+       "cover": "SCT",
+       "base_ft": 2800.0,
+       "base_m_agl": 853
+      },
+      {
+       "cover": "OVC",
+       "base_ft": 5500.0,
+       "base_m_agl": 1676
+      }
+     ],
+     "ltg": "LTG DSNT S-NW"
+    },
+    {
+     "valid": "2026-11-01T17:00Z",
+     "t_sim_s": -2820,
+     "raw": "KDJT 011700Z AUTO /////G26KT 10SM -RA SCT021 SCT028 OVC055 27/22 A3008 RMK T02700220 LTG DSNT S-NW! MADISHF",
+     "hf": true,
+     "t_c": 27.0,
+     "td_c": 22.0,
+     "wdir_deg": null,
+     "wspd_kt": null,
+     "gust_kt": 26.0,
+     "vsby_sm": 10.0,
+     "vsby_m": 16093,
+     "altim_inhg": 30.08,
+     "wx": "-RA",
+     "clouds": [
+      {
+       "cover": "SCT",
+       "base_ft": 2100.0,
+       "base_m_agl": 640
+      },
+      {
+       "cover": "SCT",
+       "base_ft": 2800.0,
+       "base_m_agl": 853
+      },
+      {
+       "cover": "OVC",
+       "base_ft": 5500.0,
+       "base_m_agl": 1676
+      }
+     ],
+     "ltg": "LTG DSNT S-NW"
+    },
+    {
+     "valid": "2026-11-01T17:05Z",
+     "t_sim_s": -2520,
+     "raw": "KDJT 011705Z AUTO 08017G23KT 10SM -RA SCT021 SCT028 OVC055 27/23 A3008 RMK T02700230 LTG DSNT SW-N! MADISHF",
+     "hf": true,
+     "t_c": 27.0,
+     "td_c": 23.0,
+     "wdir_deg": 80.0,
+     "wspd_kt": 17.0,
+     "gust_kt": 23.0,
+     "vsby_sm": 10.0,
+     "vsby_m": 16093,
+     "altim_inhg": 30.08,
+     "wx": "-RA",
+     "clouds": [
+      {
+       "cover": "SCT",
+       "base_ft": 2100.0,
+       "base_m_agl": 640
+      },
+      {
+       "cover": "SCT",
+       "base_ft": 2800.0,
+       "base_m_agl": 853
+      },
+      {
+       "cover": "OVC",
+       "base_ft": 5500.0,
+       "base_m_agl": 1676
+      }
+     ],
+     "ltg": "LTG DSNT SW-N"
+    },
+    {
+     "valid": "2026-11-01T17:10Z",
+     "t_sim_s": -2220,
+     "raw": "KDJT 011710Z AUTO /////G22KT 10SM -RA SCT021 SCT028 OVC055 27/22 A3007 RMK T02700220 LTG DSNT ALQDS! MADISHF",
+     "hf": true,
+     "t_c": 27.0,
+     "td_c": 22.0,
+     "wdir_deg": null,
+     "wspd_kt": null,
+     "gust_kt": 22.0,
+     "vsby_sm": 10.0,
+     "vsby_m": 16093,
+     "altim_inhg": 30.07,
+     "wx": "-RA",
+     "clouds": [
+      {
+       "cover": "SCT",
+       "base_ft": 2100.0,
+       "base_m_agl": 640
+      },
+      {
+       "cover": "SCT",
+       "base_ft": 2800.0,
+       "base_m_agl": 853
+      },
+      {
+       "cover": "OVC",
+       "base_ft": 5500.0,
+       "base_m_agl": 1676
+      }
+     ],
+     "ltg": "LTG DSNT ALQDS"
+    },
+    {
+     "valid": "2026-11-01T17:15Z",
+     "t_sim_s": -1920,
+     "raw": "KDJT 011715Z AUTO /////G22KT 10SM -RA SCT021 SCT028 OVC055 27/23 A3007 RMK T02700230 LTG DSNT ALQDS! MADISHF",
+     "hf": true,
+     "t_c": 27.0,
+     "td_c": 23.0,
+     "wdir_deg": null,
+     "wspd_kt": null,
+     "gust_kt": 22.0,
+     "vsby_sm": 10.0,
+     "vsby_m": 16093,
+     "altim_inhg": 30.07,
+     "wx": "-RA",
+     "clouds": [
+      {
+       "cover": "SCT",
+       "base_ft": 2100.0,
+       "base_m_agl": 640
+      },
+      {
+       "cover": "SCT",
+       "base_ft": 2800.0,
+       "base_m_agl": 853
+      },
+      {
+       "cover": "OVC",
+       "base_ft": 5500.0,
+       "base_m_agl": 1676
+      }
+     ],
+     "ltg": "LTG DSNT ALQDS"
+    },
+    {
+     "valid": "2026-11-01T17:20Z",
+     "t_sim_s": -1620,
+     "raw": "KDJT 011720Z AUTO /////G27KT 10SM -RA SCT021 SCT028 OVC055 27/22 A3007 RMK T02700220 LTG DSNT S-NW! MADISHF",
+     "hf": true,
+     "t_c": 27.0,
+     "td_c": 22.0,
+     "wdir_deg": null,
+     "wspd_kt": null,
+     "gust_kt": 27.0,
+     "vsby_sm": 10.0,
+     "vsby_m": 16093,
+     "altim_inhg": 30.07,
+     "wx": "-RA",
+     "clouds": [
+      {
+       "cover": "SCT",
+       "base_ft": 2100.0,
+       "base_m_agl": 640
+      },
+      {
+       "cover": "SCT",
+       "base_ft": 2800.0,
+       "base_m_agl": 853
+      },
+      {
+       "cover": "OVC",
+       "base_ft": 5500.0,
+       "base_m_agl": 1676
+      }
+     ],
+     "ltg": "LTG DSNT S-NW"
+    },
+    {
+     "valid": "2026-11-01T17:25Z",
+     "t_sim_s": -1320,
+     "raw": "KDJT 011725Z AUTO /////G25KT 10SM -RA SCT021 SCT028 OVC055 27/22 A3007 RMK T02700220 LTG DSNT SW-N! MADISHF",
+     "hf": true,
+     "t_c": 27.0,
+     "td_c": 22.0,
+     "wdir_deg": null,
+     "wspd_kt": null,
+     "gust_kt": 25.0,
+     "vsby_sm": 10.0,
+     "vsby_m": 16093,
+     "altim_inhg": 30.07,
+     "wx": "-RA",
+     "clouds": [
+      {
+       "cover": "SCT",
+       "base_ft": 2100.0,
+       "base_m_agl": 640
+      },
+      {
+       "cover": "SCT",
+       "base_ft": 2800.0,
+       "base_m_agl": 853
+      },
+      {
+       "cover": "OVC",
+       "base_ft": 5500.0,
+       "base_m_agl": 1676
+      }
+     ],
+     "ltg": "LTG DSNT SW-N"
+    },
+    {
+     "valid": "2026-11-01T17:30Z",
+     "t_sim_s": -1020,
+     "raw": "KDJT 011730Z AUTO /////G32KT 10SM -RA SCT021 SCT028 OVC055 27/23 A3007 RMK T02700230 LTG DSNT SW-N! MADISHF",
+     "hf": true,
+     "t_c": 27.0,
+     "td_c": 23.0,
+     "wdir_deg": null,
+     "wspd_kt": null,
+     "gust_kt": 32.0,
+     "vsby_sm": 10.0,
+     "vsby_m": 16093,
+     "altim_inhg": 30.07,
+     "wx": "-RA",
+     "clouds": [
+      {
+       "cover": "SCT",
+       "base_ft": 2100.0,
+       "base_m_agl": 640
+      },
+      {
+       "cover": "SCT",
+       "base_ft": 2800.0,
+       "base_m_agl": 853
+      },
+      {
+       "cover": "OVC",
+       "base_ft": 5500.0,
+       "base_m_agl": 1676
+      }
+     ],
+     "ltg": "LTG DSNT SW-N"
+    },
+    {
+     "valid": "2026-11-01T17:35Z",
+     "t_sim_s": -720,
+     "raw": "KDJT 011735Z AUTO /////G23KT 10SM -RA SCT021 SCT028 OVC055 27/23 A3007 RMK T02700230 LTG DSNT W-N! MADISHF",
+     "hf": true,
+     "t_c": 27.0,
+     "td_c": 23.0,
+     "wdir_deg": null,
+     "wspd_kt": null,
+     "gust_kt": 23.0,
+     "vsby_sm": 10.0,
+     "vsby_m": 16093,
+     "altim_inhg": 30.07,
+     "wx": "-RA",
+     "clouds": [
+      {
+       "cover": "SCT",
+       "base_ft": 2100.0,
+       "base_m_agl": 640
+      },
+      {
+       "cover": "SCT",
+       "base_ft": 2800.0,
+       "base_m_agl": 853
+      },
+      {
+       "cover": "OVC",
+       "base_ft": 5500.0,
+       "base_m_agl": 1676
+      }
+     ],
+     "ltg": "LTG DSNT W-N"
+    },
+    {
+     "valid": "2026-11-01T17:40Z",
+     "t_sim_s": -420,
+     "raw": "KDJT 011740Z AUTO /////G27KT 10SM -RA SCT021 SCT028 OVC055 26/23 A3007 RMK T02600230 LTG DSNT W-N! MADISHF",
+     "hf": true,
+     "t_c": 26.0,
+     "td_c": 23.0,
+     "wdir_deg": null,
+     "wspd_kt": null,
+     "gust_kt": 27.0,
+     "vsby_sm": 10.0,
+     "vsby_m": 16093,
+     "altim_inhg": 30.07,
+     "wx": "-RA",
+     "clouds": [
+      {
+       "cover": "SCT",
+       "base_ft": 2100.0,
+       "base_m_agl": 640
+      },
+      {
+       "cover": "SCT",
+       "base_ft": 2800.0,
+       "base_m_agl": 853
+      },
+      {
+       "cover": "OVC",
+       "base_ft": 5500.0,
+       "base_m_agl": 1676
+      }
+     ],
+     "ltg": "LTG DSNT W-N"
+    },
+    {
+     "valid": "2026-11-01T17:45Z",
+     "t_sim_s": -120,
+     "raw": "KDJT 011745Z AUTO ///20KT 10SM -RA SCT021 SCT028 OVC055 26/23 A3007 RMK T02600230 LTG DSNT W-N! MADISHF",
+     "hf": true,
+     "t_c": 26.0,
+     "td_c": 23.0,
+     "wdir_deg": null,
+     "wspd_kt": 20.0,
+     "gust_kt": null,
+     "vsby_sm": 10.0,
+     "vsby_m": 16093,
+     "altim_inhg": 30.07,
+     "wx": "-RA",
+     "clouds": [
+      {
+       "cover": "SCT",
+       "base_ft": 2100.0,
+       "base_m_agl": 640
+      },
+      {
+       "cover": "SCT",
+       "base_ft": 2800.0,
+       "base_m_agl": 853
+      },
+      {
+       "cover": "OVC",
+       "base_ft": 5500.0,
+       "base_m_agl": 1676
+      }
+     ],
+     "ltg": "LTG DSNT W-N"
+    },
+    {
+     "valid": "2026-11-01T17:50Z",
+     "t_sim_s": 180,
+     "raw": "KDJT 011750Z AUTO /////G23KT 10SM -RA SCT024 SCT043 BKN055 26/23 A3006 RMK T02600230 LTG DSNT SW-N! MADISHF",
+     "hf": true,
+     "t_c": 26.0,
+     "td_c": 23.0,
+     "wdir_deg": null,
+     "wspd_kt": null,
+     "gust_kt": 23.0,
+     "vsby_sm": 10.0,
+     "vsby_m": 16093,
+     "altim_inhg": 30.06,
+     "wx": "-RA",
+     "clouds": [
+      {
+       "cover": "SCT",
+       "base_ft": 2400.0,
+       "base_m_agl": 732
+      },
+      {
+       "cover": "SCT",
+       "base_ft": 4300.0,
+       "base_m_agl": 1311
+      },
+      {
+       "cover": "BKN",
+       "base_ft": 5500.0,
+       "base_m_agl": 1676
+      }
+     ],
+     "ltg": "LTG DSNT SW-N"
+    },
+    {
+     "valid": "2026-11-01T17:53Z",
+     "t_sim_s": 360,
+     "raw": "KDJT 011753Z 08016G28KT 10SM -RA SCT026 SCT050 OVC060 26/23 A3006 RMK AO2 PK WND 07033/1730 SLP180 P0000 60005 T02610228 10267 20261 58014 $",
+     "hf": false,
+     "t_c": 26.1,
+     "td_c": 22.8,
+     "wdir_deg": 80.0,
+     "wspd_kt": 16.0,
+     "gust_kt": 28.0,
+     "vsby_sm": 10.0,
+     "vsby_m": 16093,
+     "altim_inhg": 30.06,
+     "wx": "-RA",
+     "clouds": [
+      {
+       "cover": "SCT",
+       "base_ft": 2600.0,
+       "base_m_agl": 792
+      },
+      {
+       "cover": "SCT",
+       "base_ft": 5000.0,
+       "base_m_agl": 1524
+      },
+      {
+       "cover": "OVC",
+       "base_ft": 6000.0,
+       "base_m_agl": 1829
+      }
+     ],
+     "peak_wind": {
+      "dir": 70,
+      "kt": 33,
+      "time": "1730"
+     }
+    },
+    {
+     "valid": "2026-11-01T17:55Z",
+     "t_sim_s": 480,
+     "raw": "KDJT 011755Z AUTO /////G24KT 10SM -RA SCT026 SCT050 OVC060 26/23 A3007 RMK T02600230 LTG DSNT SW-N! MADISHF",
+     "hf": true,
+     "t_c": 26.0,
+     "td_c": 23.0,
+     "wdir_deg": null,
+     "wspd_kt": null,
+     "gust_kt": 24.0,
+     "vsby_sm": 10.0,
+     "vsby_m": 16093,
+     "altim_inhg": 30.07,
+     "wx": "-RA",
+     "clouds": [
+      {
+       "cover": "SCT",
+       "base_ft": 2600.0,
+       "base_m_agl": 792
+      },
+      {
+       "cover": "SCT",
+       "base_ft": 5000.0,
+       "base_m_agl": 1524
+      },
+      {
+       "cover": "OVC",
+       "base_ft": 6000.0,
+       "base_m_agl": 1829
+      }
+     ],
+     "ltg": "LTG DSNT SW-N"
+    },
+    {
+     "valid": "2026-11-01T18:00Z",
+     "t_sim_s": 780,
+     "raw": "KDJT 011800Z AUTO ///18G23KT 10SM -RA SCT026 SCT050 OVC060 26/23 A3007 RMK T02600230 LTG DSNT SW-N! MADISHF",
+     "hf": true,
+     "t_c": 26.0,
+     "td_c": 23.0,
+     "wdir_deg": null,
+     "wspd_kt": 18.0,
+     "gust_kt": 23.0,
+     "vsby_sm": 10.0,
+     "vsby_m": 16093,
+     "altim_inhg": 30.07,
+     "wx": "-RA",
+     "clouds": [
+      {
+       "cover": "SCT",
+       "base_ft": 2600.0,
+       "base_m_agl": 792
+      },
+      {
+       "cover": "SCT",
+       "base_ft": 5000.0,
+       "base_m_agl": 1524
+      },
+      {
+       "cover": "OVC",
+       "base_ft": 6000.0,
+       "base_m_agl": 1829
+      }
+     ],
+     "ltg": "LTG DSNT SW-N"
+    },
+    {
+     "valid": "2026-11-01T18:02Z",
+     "t_sim_s": 900,
+     "raw": "KDJT 011802Z 08018G24KT 8SM -TSRA SCT026",
+     "hf": false,
+     "t_c": null,
+     "td_c": null,
+     "wdir_deg": 80.0,
+     "wspd_kt": 18.0,
+     "gust_kt": 24.0,
+     "vsby_sm": 8.0,
+     "vsby_m": 12875,
+     "altim_inhg": null,
+     "wx": "-TSRA",
+     "clouds": [
+      {
+       "cover": "SCT",
+       "base_ft": 2600.0,
+       "base_m_agl": 792
+      }
+     ]
+    },
+    {
+     "valid": "2026-11-01T18:05Z",
+     "t_sim_s": 1080,
+     "raw": "KDJT 011805Z AUTO 08012KT 7SM -RA SCT026 BKN048 OVC110 26/23 A3007 RMK P0001 T02600230 LTG DSNT SW-N! OCNL LTGICCG S-NW TS S-NW MOV NW MADISHF",
+     "hf": true,
+     "t_c": 26.0,
+     "td_c": 23.0,
+     "wdir_deg": 80.0,
+     "wspd_kt": 12.0,
+     "gust_kt": null,
+     "vsby_sm": 8.0,
+     "vsby_m": 12875,
+     "altim_inhg": 30.07,
+     "wx": "-RA",
+     "clouds": [
+      {
+       "cover": "SCT",
+       "base_ft": 2600.0,
+       "base_m_agl": 792
+      },
+      {
+       "cover": "BKN",
+       "base_ft": 4800.0,
+       "base_m_agl": 1463
+      },
+      {
+       "cover": "OVC",
+       "base_ft": 11000.0,
+       "base_m_agl": 3353
+      }
+     ],
+     "ltg": "LTG DSNT SW-N OCNL LTGICCG S-NW"
+    },
+    {
+     "valid": "2026-11-01T18:10Z",
+     "t_sim_s": 1380,
+     "raw": "KDJT 011810Z AUTO 07011KT 7SM -RA SCT026 BKN048 OVC110 26/23 A3007 RMK P0001 T02600230 LTG DSNT ALQDS! OCNL LTGICCG S-NW TS S-NW MOV NW MADISHF",
+     "hf": true,
+     "t_c": 26.0,
+     "td_c": 23.0,
+     "wdir_deg": 70.0,
+     "wspd_kt": 11.0,
+     "gust_kt": null,
+     "vsby_sm": 8.0,
+     "vsby_m": 12875,
+     "altim_inhg": 30.07,
+     "wx": "-RA",
+     "clouds": [
+      {
+       "cover": "SCT",
+       "base_ft": 2600.0,
+       "base_m_agl": 792
+      },
+      {
+       "cover": "BKN",
+       "base_ft": 4800.0,
+       "base_m_agl": 1463
+      },
+      {
+       "cover": "OVC",
+       "base_ft": 11000.0,
+       "base_m_agl": 3353
+      }
+     ],
+     "ltg": "LTG DSNT ALQDS OCNL LTGICCG S-NW"
+    },
+    {
+     "valid": "2026-11-01T18:15Z",
+     "t_sim_s": 1680,
+     "raw": "KDJT 011815Z AUTO 08011KT 7SM -RA SCT022 BKN030 OVC055 26/23 A3007 RMK P0001 T02600230 LTG DSNT ALQDS! OCNL LTGICCG S-NW TS S-NW MOV NW MADISHF",
+     "hf": true,
+     "t_c": 26.0,
+     "td_c": 23.0,
+     "wdir_deg": 80.0,
+     "wspd_kt": 11.0,
+     "gust_kt": null,
+     "vsby_sm": 8.0,
+     "vsby_m": 12875,
+     "altim_inhg": 30.07,
+     "wx": "-RA",
+     "clouds": [
+      {
+       "cover": "SCT",
+       "base_ft": 2200.0,
+       "base_m_agl": 671
+      },
+      {
+       "cover": "BKN",
+       "base_ft": 3000.0,
+       "base_m_agl": 914
+      },
+      {
+       "cover": "OVC",
+       "base_ft": 5500.0,
+       "base_m_agl": 1676
+      }
+     ],
+     "ltg": "LTG DSNT ALQDS OCNL LTGICCG S-NW"
+    },
+    {
+     "valid": "2026-11-01T18:20Z",
+     "t_sim_s": 1980,
+     "raw": "KDJT 011820Z AUTO 08012KT 7SM -RA SCT022 BKN030 OVC055 26/23 A3007 RMK P0001 T02600230 LTG DSNT ALQDS! OCNL LTGICCG S-NW TS S-NW MOV NW MADISHF",
+     "hf": true,
+     "t_c": 26.0,
+     "td_c": 23.0,
+     "wdir_deg": 80.0,
+     "wspd_kt": 12.0,
+     "gust_kt": null,
+     "vsby_sm": 8.0,
+     "vsby_m": 12875,
+     "altim_inhg": 30.07,
+     "wx": "-RA",
+     "clouds": [
+      {
+       "cover": "SCT",
+       "base_ft": 2200.0,
+       "base_m_agl": 671
+      },
+      {
+       "cover": "BKN",
+       "base_ft": 3000.0,
+       "base_m_agl": 914
+      },
+      {
+       "cover": "OVC",
+       "base_ft": 5500.0,
+       "base_m_agl": 1676
+      }
+     ],
+     "ltg": "LTG DSNT ALQDS OCNL LTGICCG S-NW"
+    },
+    {
+     "valid": "2026-11-01T18:25Z",
+     "t_sim_s": 2280,
+     "raw": "KDJT 011825Z AUTO 08013KT 3SM +RA SCT022 BKN030 OVC055 26/23 A3007 RMK P0002 T02600230 LTG DSNT SW-NW! OCNL LTGICCG S-NW TS S-NW MOV NW MADISHF",
+     "hf": true,
+     "t_c": 26.0,
+     "td_c": 23.0,
+     "wdir_deg": 80.0,
+     "wspd_kt": 13.0,
+     "gust_kt": null,
+     "vsby_sm": 4.0,
+     "vsby_m": 6437,
+     "altim_inhg": 30.07,
+     "wx": "+RA",
+     "clouds": [
+      {
+       "cover": "SCT",
+       "base_ft": 2200.0,
+       "base_m_agl": 671
+      },
+      {
+       "cover": "BKN",
+       "base_ft": 3000.0,
+       "base_m_agl": 914
+      },
+      {
+       "cover": "OVC",
+       "base_ft": 5500.0,
+       "base_m_agl": 1676
+      }
+     ],
+     "ltg": "LTG DSNT SW-NW OCNL LTGICCG S-NW"
+    },
+    {
+     "valid": "2026-11-01T18:28Z",
+     "t_sim_s": 2460,
+     "raw": "KDJT 011828Z 10016G22KT 2SM +TSRA BR SCT022 BKN030CB OVC040 26/23 A3007 RMK AO2 TSB02 OCNL LTGICCG OHD TS OHD MOV NW P0005 T02560233 $",
+     "hf": false,
+     "t_c": 25.6,
+     "td_c": 23.3,
+     "wdir_deg": 100.0,
+     "wspd_kt": 16.0,
+     "gust_kt": 22.0,
+     "vsby_sm": 2.0,
+     "vsby_m": 3219,
+     "altim_inhg": 30.07,
+     "wx": "+TSRA BR",
+     "clouds": [
+      {
+       "cover": "SCT",
+       "base_ft": 2200.0,
+       "base_m_agl": 671
+      },
+      {
+       "cover": "BKN",
+       "base_ft": 3000.0,
+       "base_m_agl": 914
+      },
+      {
+       "cover": "OVC",
+       "base_ft": 4000.0,
+       "base_m_agl": 1219
+      }
+     ],
+     "ltg": "OCNL LTGICCG OHD"
+    },
+    {
+     "valid": "2026-11-01T18:30Z",
+     "t_sim_s": 2580,
+     "raw": "KDJT 011830Z AUTO ///15KT 2SM +RA BR SCT022 BKN030 OVC040 26/23 A3007 RMK P0005 T02600230 LTG DSNT SW-NW! OCNL LTGICCG OHD TS OHD MOV NW MADISHF",
+     "hf": true,
+     "t_c": 26.0,
+     "td_c": 23.0,
+     "wdir_deg": null,
+     "wspd_kt": 15.0,
+     "gust_kt": null,
+     "vsby_sm": 2.0,
+     "vsby_m": 3219,
+     "altim_inhg": 30.07,
+     "wx": "+RA BR",
+     "clouds": [
+      {
+       "cover": "SCT",
+       "base_ft": 2200.0,
+       "base_m_agl": 671
+      },
+      {
+       "cover": "BKN",
+       "base_ft": 3000.0,
+       "base_m_agl": 914
+      },
+      {
+       "cover": "OVC",
+       "base_ft": 4000.0,
+       "base_m_agl": 1219
+      }
+     ],
+     "ltg": "LTG DSNT SW-NW OCNL LTGICCG OHD"
+    }
+   ]
+  },
+  "KLNA": {
+   "report_id": "KLNA",
+   "iem_id": "LNA",
+   "obs": [
+    {
+     "valid": "2026-11-01T16:35Z",
+     "t_sim_s": -4320,
+     "raw": "KLNA 011635Z AUTO 09016G22KT 7SM TS SCT024 BKN039 OVC046 27/21 A3010 RMK AO2 LTG DSNT SE THRU NW T02680211",
+     "hf": false,
+     "t_c": 26.8,
+     "td_c": 21.1,
+     "wdir_deg": 90.0,
+     "wspd_kt": 16.0,
+     "gust_kt": 22.0,
+     "vsby_sm": 7.0,
+     "vsby_m": 11265,
+     "altim_inhg": 30.1,
+     "wx": "TS",
+     "clouds": [
+      {
+       "cover": "SCT",
+       "base_ft": 2400.0,
+       "base_m_agl": 732
+      },
+      {
+       "cover": "BKN",
+       "base_ft": 3900.0,
+       "base_m_agl": 1189
+      },
+      {
+       "cover": "OVC",
+       "base_ft": 4600.0,
+       "base_m_agl": 1402
+      }
+     ],
+     "ltg": "LTG DSNT SE THRU NW"
+    },
+    {
+     "valid": "2026-11-01T16:55Z",
+     "t_sim_s": -3120,
+     "raw": "KLNA 011655Z AUTO 10014G21KT 10SM TS SCT024 BKN040 OVC049 27/21 A3008 RMK AO2 LTG DSNT ALQDS T02700214",
+     "hf": false,
+     "t_c": 27.0,
+     "td_c": 21.4,
+     "wdir_deg": 100.0,
+     "wspd_kt": 14.0,
+     "gust_kt": 21.0,
+     "vsby_sm": 10.0,
+     "vsby_m": 16093,
+     "altim_inhg": 30.08,
+     "wx": "TS",
+     "clouds": [
+      {
+       "cover": "SCT",
+       "base_ft": 2400.0,
+       "base_m_agl": 732
+      },
+      {
+       "cover": "BKN",
+       "base_ft": 4000.0,
+       "base_m_agl": 1219
+      },
+      {
+       "cover": "OVC",
+       "base_ft": 4900.0,
+       "base_m_agl": 1494
+      }
+     ],
+     "ltg": "LTG DSNT ALQDS"
+    },
+    {
+     "valid": "2026-11-01T17:15Z",
+     "t_sim_s": -1920,
+     "raw": "KLNA 011715Z AUTO 09012G22KT 7SM VCTS SCT030 BKN036 OVC055 27/21 A3008 RMK AO2 LTG DSNT SW THRU N T02670213",
+     "hf": false,
+     "t_c": 26.7,
+     "td_c": 21.3,
+     "wdir_deg": 90.0,
+     "wspd_kt": 12.0,
+     "gust_kt": 22.0,
+     "vsby_sm": 7.0,
+     "vsby_m": 11265,
+     "altim_inhg": 30.08,
+     "wx": "VCTS",
+     "clouds": [
+      {
+       "cover": "SCT",
+       "base_ft": 3000.0,
+       "base_m_agl": 914
+      },
+      {
+       "cover": "BKN",
+       "base_ft": 3600.0,
+       "base_m_agl": 1097
+      },
+      {
+       "cover": "OVC",
+       "base_ft": 5500.0,
+       "base_m_agl": 1676
+      }
+     ],
+     "ltg": "LTG DSNT SW THRU N"
+    },
+    {
+     "valid": "2026-11-01T17:35Z",
+     "t_sim_s": -720,
+     "raw": "KLNA 011735Z AUTO 12007G19KT 3SM VCTS SCT023 BKN029 OVC037 26/22 A3008 RMK AO2 LTG DSNT W THRU N T02620215",
+     "hf": false,
+     "t_c": 26.2,
+     "td_c": 21.5,
+     "wdir_deg": 120.0,
+     "wspd_kt": 7.0,
+     "gust_kt": 19.0,
+     "vsby_sm": 3.0,
+     "vsby_m": 4828,
+     "altim_inhg": 30.08,
+     "wx": "VCTS",
+     "clouds": [
+      {
+       "cover": "SCT",
+       "base_ft": 2300.0,
+       "base_m_agl": 701
+      },
+      {
+       "cover": "BKN",
+       "base_ft": 2900.0,
+       "base_m_agl": 884
+      },
+      {
+       "cover": "OVC",
+       "base_ft": 3700.0,
+       "base_m_agl": 1128
+      }
+     ],
+     "ltg": "LTG DSNT W THRU N"
+    },
+    {
+     "valid": "2026-11-01T17:55Z",
+     "t_sim_s": 480,
+     "raw": "KLNA 011755Z AUTO 09012G19KT 7SM VCTS OVC021 27/22 A3007 RMK AO2 LTG DSNT ALQDS T02660218 10277 20260",
+     "hf": false,
+     "t_c": 26.6,
+     "td_c": 21.8,
+     "wdir_deg": 90.0,
+     "wspd_kt": 12.0,
+     "gust_kt": 19.0,
+     "vsby_sm": 7.0,
+     "vsby_m": 11265,
+     "altim_inhg": 30.07,
+     "wx": "VCTS",
+     "clouds": [
+      {
+       "cover": "OVC",
+       "base_ft": 2100.0,
+       "base_m_agl": 640
+      }
+     ],
+     "ltg": "LTG DSNT ALQDS"
+    },
+    {
+     "valid": "2026-11-01T18:15Z",
+     "t_sim_s": 1680,
+     "raw": "KLNA 011815Z AUTO 10013G16KT 7SM VCTS SCT021 BKN025 OVC050 27/22 A3008 RMK AO2 LTG DSNT W THRU NE T02660218",
+     "hf": false,
+     "t_c": 26.6,
+     "td_c": 21.8,
+     "wdir_deg": 100.0,
+     "wspd_kt": 13.0,
+     "gust_kt": 16.0,
+     "vsby_sm": 7.0,
+     "vsby_m": 11265,
+     "altim_inhg": 30.08,
+     "wx": "VCTS",
+     "clouds": [
+      {
+       "cover": "SCT",
+       "base_ft": 2100.0,
+       "base_m_agl": 640
+      },
+      {
+       "cover": "BKN",
+       "base_ft": 2500.0,
+       "base_m_agl": 762
+      },
+      {
+       "cover": "OVC",
+       "base_ft": 5000.0,
+       "base_m_agl": 1524
+      }
+     ],
+     "ltg": "LTG DSNT W THRU NE"
+    }
+   ]
+  },
+  "KF45": {
+   "report_id": "KF45",
+   "iem_id": "F45",
+   "obs": [
+    {
+     "valid": "2026-11-01T16:35Z",
+     "t_sim_s": -4320,
+     "raw": "KF45 011635Z AUTO 10019G26KT 10SM VCTS SCT028 BKN050 OVC070 27/22 A3009 RMK AO2 LTG DSNT ALQDS",
+     "hf": false,
+     "t_c": 27.0,
+     "td_c": 22.0,
+     "wdir_deg": 100.0,
+     "wspd_kt": 19.0,
+     "gust_kt": 26.0,
+     "vsby_sm": 10.0,
+     "vsby_m": 16093,
+     "altim_inhg": 30.09,
+     "wx": "VCTS",
+     "clouds": [
+      {
+       "cover": "SCT",
+       "base_ft": 2800.0,
+       "base_m_agl": 853
+      },
+      {
+       "cover": "BKN",
+       "base_ft": 5000.0,
+       "base_m_agl": 1524
+      },
+      {
+       "cover": "OVC",
+       "base_ft": 7000.0,
+       "base_m_agl": 2134
+      }
+     ],
+     "ltg": "LTG DSNT ALQDS"
+    },
+    {
+     "valid": "2026-11-01T16:55Z",
+     "t_sim_s": -3120,
+     "raw": "KF45 011655Z AUTO 09013G24KT 10SM VCTS -RA FEW025 OVC060 27/23 A3009 RMK AO2 PK WND 10028/21 LTG DSNT ALQDS",
+     "hf": false,
+     "t_c": 27.0,
+     "td_c": 23.0,
+     "wdir_deg": 90.0,
+     "wspd_kt": 13.0,
+     "gust_kt": 24.0,
+     "vsby_sm": 10.0,
+     "vsby_m": 16093,
+     "altim_inhg": 30.09,
+     "wx": "VCTS -RA",
+     "clouds": [
+      {
+       "cover": "FEW",
+       "base_ft": 2500.0,
+       "base_m_agl": 762
+      },
+      {
+       "cover": "OVC",
+       "base_ft": 6000.0,
+       "base_m_agl": 1829
+      }
+     ],
+     "peak_wind": {
+      "dir": 100,
+      "kt": 28,
+      "time": "21"
+     },
+     "ltg": "LTG DSNT ALQDS"
+    },
+    {
+     "valid": "2026-11-01T17:15Z",
+     "t_sim_s": -1920,
+     "raw": "KF45 011715Z AUTO 09010KT 10SM VCTS FEW026 OVC055 26/23 A3008 RMK AO2 LTG DSNT SW-N",
+     "hf": false,
+     "t_c": 26.0,
+     "td_c": 23.0,
+     "wdir_deg": 90.0,
+     "wspd_kt": 10.0,
+     "gust_kt": null,
+     "vsby_sm": 10.0,
+     "vsby_m": 16093,
+     "altim_inhg": 30.08,
+     "wx": "VCTS",
+     "clouds": [
+      {
+       "cover": "FEW",
+       "base_ft": 2600.0,
+       "base_m_agl": 792
+      },
+      {
+       "cover": "OVC",
+       "base_ft": 5500.0,
+       "base_m_agl": 1676
+      }
+     ],
+     "ltg": "LTG DSNT SW-N"
+    },
+    {
+     "valid": "2026-11-01T17:35Z",
+     "t_sim_s": -720,
+     "raw": "KF45 011735Z AUTO 09013G20KT 4SM VCTS -RA HZ SCT028 BKN044 OVC055 26/23 A3008 RMK AO2 LTG DSNT ALQDS",
+     "hf": false,
+     "t_c": 26.0,
+     "td_c": 23.0,
+     "wdir_deg": 90.0,
+     "wspd_kt": 13.0,
+     "gust_kt": 20.0,
+     "vsby_sm": 4.0,
+     "vsby_m": 6437,
+     "altim_inhg": 30.08,
+     "wx": "VCTS -RA HZ",
+     "clouds": [
+      {
+       "cover": "SCT",
+       "base_ft": 2800.0,
+       "base_m_agl": 853
+      },
+      {
+       "cover": "BKN",
+       "base_ft": 4400.0,
+       "base_m_agl": 1341
+      },
+      {
+       "cover": "OVC",
+       "base_ft": 5500.0,
+       "base_m_agl": 1676
+      }
+     ],
+     "ltg": "LTG DSNT ALQDS"
+    },
+    {
+     "valid": "2026-11-01T17:55Z",
+     "t_sim_s": 480,
+     "raw": "KF45 011755Z AUTO 09008KT 5SM VCTS -RA BR FEW003 OVC027 25/23 A3008 RMK AO2 LTG DSNT ALQDS 10269 20248",
+     "hf": false,
+     "t_c": 25.0,
+     "td_c": 23.0,
+     "wdir_deg": 90.0,
+     "wspd_kt": 8.0,
+     "gust_kt": null,
+     "vsby_sm": 5.0,
+     "vsby_m": 8047,
+     "altim_inhg": 30.08,
+     "wx": "VCTS -RA BR",
+     "clouds": [
+      {
+       "cover": "FEW",
+       "base_ft": 300.0,
+       "base_m_agl": 91
+      },
+      {
+       "cover": "OVC",
+       "base_ft": 2700.0,
+       "base_m_agl": 823
+      }
+     ],
+     "ltg": "LTG DSNT ALQDS"
+    },
+    {
+     "valid": "2026-11-01T18:15Z",
+     "t_sim_s": 1680,
+     "raw": "KF45 011815Z AUTO 10009KT 10SM VCTS -RA OVC028 25/24 A3008 RMK AO2 LTG DSNT ALQDS",
+     "hf": false,
+     "t_c": 25.0,
+     "td_c": 24.0,
+     "wdir_deg": 100.0,
+     "wspd_kt": 9.0,
+     "gust_kt": null,
+     "vsby_sm": 10.0,
+     "vsby_m": 16093,
+     "altim_inhg": 30.08,
+     "wx": "VCTS -RA",
+     "clouds": [
+      {
+       "cover": "OVC",
+       "base_ft": 2800.0,
+       "base_m_agl": 853
+      }
+     ],
+     "ltg": "LTG DSNT ALQDS"
+    }
+   ]
+  },
+  "KBCT": {
+   "report_id": "KBCT",
+   "iem_id": "BCT",
+   "obs": [
+    {
+     "valid": "2026-11-01T16:53Z",
+     "t_sim_s": -3240,
+     "raw": "KBCT 011653Z 10014G24KT 7SM VCTS RA BKN023 BKN031 BKN042 26/24 A3009 RMK TS W MOV W",
+     "hf": false,
+     "t_c": 26.0,
+     "td_c": 24.0,
+     "wdir_deg": 100.0,
+     "wspd_kt": 14.0,
+     "gust_kt": 24.0,
+     "vsby_sm": 7.0,
+     "vsby_m": 11265,
+     "altim_inhg": 30.09,
+     "wx": "VCTS RA",
+     "clouds": [
+      {
+       "cover": "BKN",
+       "base_ft": 2300.0,
+       "base_m_agl": 701
+      },
+      {
+       "cover": "BKN",
+       "base_ft": 3100.0,
+       "base_m_agl": 945
+      },
+      {
+       "cover": "BKN",
+       "base_ft": 4200.0,
+       "base_m_agl": 1280
+      }
+     ]
+    },
+    {
+     "valid": "2026-11-01T17:53Z",
+     "t_sim_s": 360,
+     "raw": "KBCT 011753Z 10015G20KT 7SM RA BKN020 BKN065 26/24 A3007 RMK LTG DSNT ALQDS",
+     "hf": false,
+     "t_c": 26.0,
+     "td_c": 24.0,
+     "wdir_deg": 100.0,
+     "wspd_kt": 15.0,
+     "gust_kt": 20.0,
+     "vsby_sm": 7.0,
+     "vsby_m": 11265,
+     "altim_inhg": 30.07,
+     "wx": "RA",
+     "clouds": [
+      {
+       "cover": "BKN",
+       "base_ft": 2000.0,
+       "base_m_agl": 610
+      },
+      {
+       "cover": "BKN",
+       "base_ft": 6500.0,
+       "base_m_agl": 1981
+      }
+     ],
+     "ltg": "LTG DSNT ALQDS"
+    }
+   ]
+  },
+  "KFXE": {
+   "report_id": "KFXE",
+   "iem_id": "FXE",
+   "obs": [
+    {
+     "valid": "2026-11-01T16:30Z",
+     "t_sim_s": -4620,
+     "raw": "KFXE 011630Z AUTO 13012KT 6SM RA BR BKN010 BKN020 OVC026 26/24 A3008 RMK P0008 T02600240 LTG DSNT ALQDS! MADISHF",
+     "hf": true,
+     "t_c": 26.0,
+     "td_c": 24.0,
+     "wdir_deg": 130.0,
+     "wspd_kt": 12.0,
+     "gust_kt": null,
+     "vsby_sm": 6.0,
+     "vsby_m": 9656,
+     "altim_inhg": 30.08,
+     "wx": "RA BR",
+     "clouds": [
+      {
+       "cover": "BKN",
+       "base_ft": 1000.0,
+       "base_m_agl": 305
+      },
+      {
+       "cover": "BKN",
+       "base_ft": 2000.0,
+       "base_m_agl": 610
+      },
+      {
+       "cover": "OVC",
+       "base_ft": 2600.0,
+       "base_m_agl": 792
+      }
+     ],
+     "ltg": "LTG DSNT ALQDS"
+    },
+    {
+     "valid": "2026-11-01T16:35Z",
+     "t_sim_s": -4320,
+     "raw": "KFXE 011635Z AUTO 13015KT 7SM RA BKN010 BKN020 OVC026 26/24 A3008 RMK P0008 T02600240 LTG DSNT ALQDS! MADISHF",
+     "hf": true,
+     "t_c": 26.0,
+     "td_c": 24.0,
+     "wdir_deg": 130.0,
+     "wspd_kt": 15.0,
+     "gust_kt": null,
+     "vsby_sm": 7.0,
+     "vsby_m": 11265,
+     "altim_inhg": 30.08,
+     "wx": "RA",
+     "clouds": [
+      {
+       "cover": "BKN",
+       "base_ft": 1000.0,
+       "base_m_agl": 305
+      },
+      {
+       "cover": "BKN",
+       "base_ft": 2000.0,
+       "base_m_agl": 610
+      },
+      {
+       "cover": "OVC",
+       "base_ft": 2600.0,
+       "base_m_agl": 792
+      }
+     ],
+     "ltg": "LTG DSNT ALQDS"
+    },
+    {
+     "valid": "2026-11-01T16:40Z",
+     "t_sim_s": -4020,
+     "raw": "KFXE 011640Z AUTO 12015KT 6SM RA BR BKN010 BKN020 OVC026 26/24 A3008 RMK P0008 T02600240 LTG DSNT ALQDS! MADISHF",
+     "hf": true,
+     "t_c": 26.0,
+     "td_c": 24.0,
+     "wdir_deg": 120.0,
+     "wspd_kt": 15.0,
+     "gust_kt": null,
+     "vsby_sm": 6.0,
+     "vsby_m": 9656,
+     "altim_inhg": 30.08,
+     "wx": "RA BR",
+     "clouds": [
+      {
+       "cover": "BKN",
+       "base_ft": 1000.0,
+       "base_m_agl": 305
+      },
+      {
+       "cover": "BKN",
+       "base_ft": 2000.0,
+       "base_m_agl": 610
+      },
+      {
+       "cover": "OVC",
+       "base_ft": 2600.0,
+       "base_m_agl": 792
+      }
+     ],
+     "ltg": "LTG DSNT ALQDS"
+    },
+    {
+     "valid": "2026-11-01T16:45Z",
+     "t_sim_s": -3720,
+     "raw": "KFXE 011645Z AUTO 11014KT 7SM RA BKN010 BKN020 OVC026 25/23 A3008 RMK P0008 T02500230 LTG DSNT ALQDS! MADISHF",
+     "hf": true,
+     "t_c": 25.0,
+     "td_c": 23.0,
+     "wdir_deg": 110.0,
+     "wspd_kt": 14.0,
+     "gust_kt": null,
+     "vsby_sm": 7.0,
+     "vsby_m": 11265,
+     "altim_inhg": 30.08,
+     "wx": "RA",
+     "clouds": [
+      {
+       "cover": "BKN",
+       "base_ft": 1000.0,
+       "base_m_agl": 305
+      },
+      {
+       "cover": "BKN",
+       "base_ft": 2000.0,
+       "base_m_agl": 610
+      },
+      {
+       "cover": "OVC",
+       "base_ft": 2600.0,
+       "base_m_agl": 792
+      }
+     ],
+     "ltg": "LTG DSNT ALQDS"
+    },
+    {
+     "valid": "2026-11-01T16:50Z",
+     "t_sim_s": -3420,
+     "raw": "KFXE 011650Z AUTO 10013KT 8SM RA BKN010 BKN020 OVC026 25/23 A3008 RMK P0008 T02500230 LTG DSNT ALQDS! MADISHF",
+     "hf": true,
+     "t_c": 25.0,
+     "td_c": 23.0,
+     "wdir_deg": 100.0,
+     "wspd_kt": 13.0,
+     "gust_kt": null,
+     "vsby_sm": 9.0,
+     "vsby_m": 14484,
+     "altim_inhg": 30.08,
+     "wx": "RA",
+     "clouds": [
+      {
+       "cover": "BKN",
+       "base_ft": 1000.0,
+       "base_m_agl": 305
+      },
+      {
+       "cover": "BKN",
+       "base_ft": 2000.0,
+       "base_m_agl": 610
+      },
+      {
+       "cover": "OVC",
+       "base_ft": 2600.0,
+       "base_m_agl": 792
+      }
+     ],
+     "ltg": "LTG DSNT ALQDS"
+    },
+    {
+     "valid": "2026-11-01T16:53Z",
+     "t_sim_s": -3240,
+     "raw": "KFXE 011653Z 10013KT 9SM VCTS RA BKN010 BKN020 OVC026 25/23 A3007 RMK AO2 LTG DSNT ALQDS SLP186 P0008 T02500233 $",
+     "hf": false,
+     "t_c": 25.0,
+     "td_c": 23.3,
+     "wdir_deg": 100.0,
+     "wspd_kt": 13.0,
+     "gust_kt": null,
+     "vsby_sm": 9.0,
+     "vsby_m": 14484,
+     "altim_inhg": 30.07,
+     "wx": "VCTS RA",
+     "clouds": [
+      {
+       "cover": "BKN",
+       "base_ft": 1000.0,
+       "base_m_agl": 305
+      },
+      {
+       "cover": "BKN",
+       "base_ft": 2000.0,
+       "base_m_agl": 610
+      },
+      {
+       "cover": "OVC",
+       "base_ft": 2600.0,
+       "base_m_agl": 792
+      }
+     ],
+     "ltg": "LTG DSNT ALQDS"
+    },
+    {
+     "valid": "2026-11-01T16:55Z",
+     "t_sim_s": -3120,
+     "raw": "KFXE 011655Z AUTO 10012KT 8SM RA FEW031 SCT095 BKN110 26/23 A3007 RMK T02600230 LTG DSNT ALQDS! MADISHF",
+     "hf": true,
+     "t_c": 26.0,
+     "td_c": 23.0,
+     "wdir_deg": 100.0,
+     "wspd_kt": 12.0,
+     "gust_kt": null,
+     "vsby_sm": 9.0,
+     "vsby_m": 14484,
+     "altim_inhg": 30.07,
+     "wx": "RA",
+     "clouds": [
+      {
+       "cover": "FEW",
+       "base_ft": 3100.0,
+       "base_m_agl": 945
+      },
+      {
+       "cover": "SCT",
+       "base_ft": 9500.0,
+       "base_m_agl": 2896
+      },
+      {
+       "cover": "BKN",
+       "base_ft": 11000.0,
+       "base_m_agl": 3353
+      }
+     ],
+     "ltg": "LTG DSNT ALQDS"
+    },
+    {
+     "valid": "2026-11-01T17:00Z",
+     "t_sim_s": -2820,
+     "raw": "KFXE 011700Z 10012KT 5SM VCTS RA BR SCT027 SCT045 BKN080 26/24 A3007 RMK AO2 LTG DSNT ALQDS P0002 T02560239 $",
+     "hf": false,
+     "t_c": 25.6,
+     "td_c": 23.9,
+     "wdir_deg": 100.0,
+     "wspd_kt": 12.0,
+     "gust_kt": null,
+     "vsby_sm": 5.0,
+     "vsby_m": 8047,
+     "altim_inhg": 30.07,
+     "wx": "VCTS RA BR",
+     "clouds": [
+      {
+       "cover": "SCT",
+       "base_ft": 2700.0,
+       "base_m_agl": 823
+      },
+      {
+       "cover": "SCT",
+       "base_ft": 4500.0,
+       "base_m_agl": 1372
+      },
+      {
+       "cover": "BKN",
+       "base_ft": 8000.0,
+       "base_m_agl": 2438
+      }
+     ],
+     "ltg": "LTG DSNT ALQDS"
+    },
+    {
+     "valid": "2026-11-01T17:00Z",
+     "t_sim_s": -2820,
+     "raw": "KFXE 011700Z AUTO 10012KT 5SM RA BR SCT027 SCT045 BKN080 26/24 A3007 RMK P0002 T02600240 LTG DSNT ALQDS! MADISHF",
+     "hf": true,
+     "t_c": 26.0,
+     "td_c": 24.0,
+     "wdir_deg": 100.0,
+     "wspd_kt": 12.0,
+     "gust_kt": null,
+     "vsby_sm": 5.0,
+     "vsby_m": 8047,
+     "altim_inhg": 30.07,
+     "wx": "RA BR",
+     "clouds": [
+      {
+       "cover": "SCT",
+       "base_ft": 2700.0,
+       "base_m_agl": 823
+      },
+      {
+       "cover": "SCT",
+       "base_ft": 4500.0,
+       "base_m_agl": 1372
+      },
+      {
+       "cover": "BKN",
+       "base_ft": 8000.0,
+       "base_m_agl": 2438
+      }
+     ],
+     "ltg": "LTG DSNT ALQDS"
+    },
+    {
+     "valid": "2026-11-01T17:03Z",
+     "t_sim_s": -2640,
+     "raw": "KFXE 011703Z 10011KT 2 1/2SM VCTS RA BR OVC016 26/24 A3007 RMK AO2 LTG DSNT S-NW P0004 T02560239 $",
+     "hf": false,
+     "t_c": 25.6,
+     "td_c": 23.9,
+     "wdir_deg": 100.0,
+     "wspd_kt": 11.0,
+     "gust_kt": null,
+     "vsby_sm": 2.5,
+     "vsby_m": 4023,
+     "altim_inhg": 30.07,
+     "wx": "VCTS RA BR",
+     "clouds": [
+      {
+       "cover": "OVC",
+       "base_ft": 1600.0,
+       "base_m_agl": 488
+      }
+     ],
+     "ltg": "LTG DSNT S-NW"
+    },
+    {
+     "valid": "2026-11-01T17:05Z",
+     "t_sim_s": -2520,
+     "raw": "KFXE 011705Z AUTO 10010KT 2 1/2SM RA BR OVC016 26/24 A3007 RMK P0005 T02600240 LTG DSNT S-NW! MADISHF",
+     "hf": true,
+     "t_c": 26.0,
+     "td_c": 24.0,
+     "wdir_deg": 100.0,
+     "wspd_kt": 10.0,
+     "gust_kt": null,
+     "vsby_sm": 2.5,
+     "vsby_m": 4023,
+     "altim_inhg": 30.07,
+     "wx": "RA BR",
+     "clouds": [
+      {
+       "cover": "OVC",
+       "base_ft": 1600.0,
+       "base_m_agl": 488
+      }
+     ],
+     "ltg": "LTG DSNT S-NW"
+    },
+    {
+     "valid": "2026-11-01T17:10Z",
+     "t_sim_s": -2220,
+     "raw": "KFXE 011710Z AUTO 13007KT 2 1/2SM RA BR OVC016 26/24 A3007 RMK P0006 T02600240 LTG DSNT E AND S AND NW! MADISHF",
+     "hf": true,
+     "t_c": 26.0,
+     "td_c": 24.0,
+     "wdir_deg": 130.0,
+     "wspd_kt": 7.0,
+     "gust_kt": null,
+     "vsby_sm": 2.5,
+     "vsby_m": 4023,
+     "altim_inhg": 30.07,
+     "wx": "RA BR",
+     "clouds": [
+      {
+       "cover": "OVC",
+       "base_ft": 1600.0,
+       "base_m_agl": 488
+      }
+     ],
+     "ltg": "LTG DSNT E"
+    },
+    {
+     "valid": "2026-11-01T17:15Z",
+     "t_sim_s": -1920,
+     "raw": "KFXE 011715Z AUTO 11011KT 2 1/2SM RA BR OVC016 26/24 A3006 RMK P0008 T02600240 LTG DSNT E AND S AND NW! MADISHF",
+     "hf": true,
+     "t_c": 26.0,
+     "td_c": 24.0,
+     "wdir_deg": 110.0,
+     "wspd_kt": 11.0,
+     "gust_kt": null,
+     "vsby_sm": 2.5,
+     "vsby_m": 4023,
+     "altim_inhg": 30.06,
+     "wx": "RA BR",
+     "clouds": [
+      {
+       "cover": "OVC",
+       "base_ft": 1600.0,
+       "base_m_agl": 488
+      }
+     ],
+     "ltg": "LTG DSNT E"
+    },
+    {
+     "valid": "2026-11-01T17:20Z",
+     "t_sim_s": -1620,
+     "raw": "KFXE 011720Z AUTO 11014KT 2 1/2SM RA BR OVC016 26/24 A3006 RMK P0009 T02600240 LTG DSNT E AND S AND NW! MADISHF",
+     "hf": true,
+     "t_c": 26.0,
+     "td_c": 24.0,
+     "wdir_deg": 110.0,
+     "wspd_kt": 14.0,
+     "gust_kt": null,
+     "vsby_sm": 2.5,
+     "vsby_m": 4023,
+     "altim_inhg": 30.06,
+     "wx": "RA BR",
+     "clouds": [
+      {
+       "cover": "OVC",
+       "base_ft": 1600.0,
+       "base_m_agl": 488
+      }
+     ],
+     "ltg": "LTG DSNT E"
+    },
+    {
+     "valid": "2026-11-01T17:25Z",
+     "t_sim_s": -1320,
+     "raw": "KFXE 011725Z AUTO 11012KT 2 1/2SM RA BR OVC016 26/23 A3006 RMK P0010 T02600230 LTG DSNT S AND NW! MADISHF",
+     "hf": true,
+     "t_c": 26.0,
+     "td_c": 23.0,
+     "wdir_deg": 110.0,
+     "wspd_kt": 12.0,
+     "gust_kt": null,
+     "vsby_sm": 2.5,
+     "vsby_m": 4023,
+     "altim_inhg": 30.06,
+     "wx": "RA BR",
+     "clouds": [
+      {
+       "cover": "OVC",
+       "base_ft": 1600.0,
+       "base_m_agl": 488
+      }
+     ],
+     "ltg": "LTG DSNT S"
+    },
+    {
+     "valid": "2026-11-01T17:30Z",
+     "t_sim_s": -1020,
+     "raw": "KFXE 011730Z AUTO 11012KT 2 1/2SM RA BR OVC016 26/23 A3005 RMK P0011 T02600230 LTG DSNT S AND NW! MADISHF",
+     "hf": true,
+     "t_c": 26.0,
+     "td_c": 23.0,
+     "wdir_deg": 110.0,
+     "wspd_kt": 12.0,
+     "gust_kt": null,
+     "vsby_sm": 2.5,
+     "vsby_m": 4023,
+     "altim_inhg": 30.05,
+     "wx": "RA BR",
+     "clouds": [
+      {
+       "cover": "OVC",
+       "base_ft": 1600.0,
+       "base_m_agl": 488
+      }
+     ],
+     "ltg": "LTG DSNT S"
+    },
+    {
+     "valid": "2026-11-01T17:35Z",
+     "t_sim_s": -720,
+     "raw": "KFXE 011735Z AUTO 11012KT 2 1/2SM RA BR OVC016 26/23 A3005 RMK P0012 T02600230 LTG DSNT SE AND S AND NW! MADISHF",
+     "hf": true,
+     "t_c": 26.0,
+     "td_c": 23.0,
+     "wdir_deg": 110.0,
+     "wspd_kt": 12.0,
+     "gust_kt": null,
+     "vsby_sm": 2.5,
+     "vsby_m": 4023,
+     "altim_inhg": 30.05,
+     "wx": "RA BR",
+     "clouds": [
+      {
+       "cover": "OVC",
+       "base_ft": 1600.0,
+       "base_m_agl": 488
+      }
+     ],
+     "ltg": "LTG DSNT SE"
+    },
+    {
+     "valid": "2026-11-01T17:40Z",
+     "t_sim_s": -420,
+     "raw": "KFXE 011740Z AUTO 10011KT 2 1/2SM RA BR OVC016 26/23 A3005 RMK P0013 T02600230 LTG DSNT ALQDS! MADISHF",
+     "hf": true,
+     "t_c": 26.0,
+     "td_c": 23.0,
+     "wdir_deg": 100.0,
+     "wspd_kt": 11.0,
+     "gust_kt": null,
+     "vsby_sm": 2.5,
+     "vsby_m": 4023,
+     "altim_inhg": 30.05,
+     "wx": "RA BR",
+     "clouds": [
+      {
+       "cover": "OVC",
+       "base_ft": 1600.0,
+       "base_m_agl": 488
+      }
+     ],
+     "ltg": "LTG DSNT ALQDS"
+    },
+    {
+     "valid": "2026-11-01T17:45Z",
+     "t_sim_s": -120,
+     "raw": "KFXE 011745Z AUTO 10011KT 2 1/2SM RA BR OVC016 26/24 A3005 RMK P0014 T02600240 LTG DSNT ALQDS! MADISHF",
+     "hf": true,
+     "t_c": 26.0,
+     "td_c": 24.0,
+     "wdir_deg": 100.0,
+     "wspd_kt": 11.0,
+     "gust_kt": null,
+     "vsby_sm": 2.5,
+     "vsby_m": 4023,
+     "altim_inhg": 30.05,
+     "wx": "RA BR",
+     "clouds": [
+      {
+       "cover": "OVC",
+       "base_ft": 1600.0,
+       "base_m_agl": 488
+      }
+     ],
+     "ltg": "LTG DSNT ALQDS"
+    },
+    {
+     "valid": "2026-11-01T17:50Z",
+     "t_sim_s": 180,
+     "raw": "KFXE 011750Z AUTO 10014KT 2 1/2SM RA BR OVC016 26/24 A3005 RMK P0014 T02600240 LTG DSNT N AND S! MADISHF",
+     "hf": true,
+     "t_c": 26.0,
+     "td_c": 24.0,
+     "wdir_deg": 100.0,
+     "wspd_kt": 14.0,
+     "gust_kt": null,
+     "vsby_sm": 2.5,
+     "vsby_m": 4023,
+     "altim_inhg": 30.05,
+     "wx": "RA BR",
+     "clouds": [
+      {
+       "cover": "OVC",
+       "base_ft": 1600.0,
+       "base_m_agl": 488
+      }
+     ],
+     "ltg": "LTG DSNT N"
+    },
+    {
+     "valid": "2026-11-01T17:53Z",
+     "t_sim_s": 360,
+     "raw": "KFXE 011753Z 10014KT 2 1/2SM VCTS RA BR OVC016 26/24 A3005 RMK AO2 LTG DSNT N AND S AND NW SLP179 P0014 60076 T02560239 10261 20244 58011 $",
+     "hf": false,
+     "t_c": 25.6,
+     "td_c": 23.9,
+     "wdir_deg": 100.0,
+     "wspd_kt": 14.0,
+     "gust_kt": null,
+     "vsby_sm": 2.5,
+     "vsby_m": 4023,
+     "altim_inhg": 30.05,
+     "wx": "VCTS RA BR",
+     "clouds": [
+      {
+       "cover": "OVC",
+       "base_ft": 1600.0,
+       "base_m_agl": 488
+      }
+     ],
+     "ltg": "LTG DSNT N"
+    },
+    {
+     "valid": "2026-11-01T17:55Z",
+     "t_sim_s": 480,
+     "raw": "KFXE 011755Z AUTO 10012KT 7SM RA SCT019 BKN036 OVC100 26/24 A3005 RMK T02600240 LTG DSNT N AND S AND NW! MADISHF",
+     "hf": true,
+     "t_c": 26.0,
+     "td_c": 24.0,
+     "wdir_deg": 100.0,
+     "wspd_kt": 12.0,
+     "gust_kt": null,
+     "vsby_sm": 8.0,
+     "vsby_m": 12875,
+     "altim_inhg": 30.05,
+     "wx": "RA",
+     "clouds": [
+      {
+       "cover": "SCT",
+       "base_ft": 1900.0,
+       "base_m_agl": 579
+      },
+      {
+       "cover": "BKN",
+       "base_ft": 3600.0,
+       "base_m_agl": 1097
+      },
+      {
+       "cover": "OVC",
+       "base_ft": 10000.0,
+       "base_m_agl": 3048
+      }
+     ],
+     "ltg": "LTG DSNT N"
+    },
+    {
+     "valid": "2026-11-01T18:00Z",
+     "t_sim_s": 780,
+     "raw": "KFXE 011800Z AUTO 09011KT 7SM RA SCT019 BKN034 OVC070 26/24 A3005 RMK T02600240 LTG DSNT N AND S AND NW! MADISHF",
+     "hf": true,
+     "t_c": 26.0,
+     "td_c": 24.0,
+     "wdir_deg": 90.0,
+     "wspd_kt": 11.0,
+     "gust_kt": null,
+     "vsby_sm": 7.0,
+     "vsby_m": 11265,
+     "altim_inhg": 30.05,
+     "wx": "RA",
+     "clouds": [
+      {
+       "cover": "SCT",
+       "base_ft": 1900.0,
+       "base_m_agl": 579
+      },
+      {
+       "cover": "BKN",
+       "base_ft": 3400.0,
+       "base_m_agl": 1036
+      },
+      {
+       "cover": "OVC",
+       "base_ft": 7000.0,
+       "base_m_agl": 2134
+      }
+     ],
+     "ltg": "LTG DSNT N"
+    },
+    {
+     "valid": "2026-11-01T18:00Z",
+     "t_sim_s": 780,
+     "raw": "KFXE 011800Z 09011KT 7SM VCTS RA SCT019 BKN034 OVC070 26/24 A3005 RMK AO2 LTG DSNT N AND S AND NW P0000 T02560239 $",
+     "hf": false,
+     "t_c": 25.6,
+     "td_c": 23.9,
+     "wdir_deg": 90.0,
+     "wspd_kt": 11.0,
+     "gust_kt": null,
+     "vsby_sm": 7.0,
+     "vsby_m": 11265,
+     "altim_inhg": 30.05,
+     "wx": "VCTS RA",
+     "clouds": [
+      {
+       "cover": "SCT",
+       "base_ft": 1900.0,
+       "base_m_agl": 579
+      },
+      {
+       "cover": "BKN",
+       "base_ft": 3400.0,
+       "base_m_agl": 1036
+      },
+      {
+       "cover": "OVC",
+       "base_ft": 7000.0,
+       "base_m_agl": 2134
+      }
+     ],
+     "ltg": "LTG DSNT N"
+    },
+    {
+     "valid": "2026-11-01T18:04Z",
+     "t_sim_s": 1020,
+     "raw": "KFXE 011804Z 08012KT 7SM VCTS RA BKN009 BKN028 OVC060 26/24 A3005 RMK AO2 LTG DSNT N AND S AND NW P0001 T02610239 $",
+     "hf": false,
+     "t_c": 26.1,
+     "td_c": 23.9,
+     "wdir_deg": 80.0,
+     "wspd_kt": 12.0,
+     "gust_kt": null,
+     "vsby_sm": 7.0,
+     "vsby_m": 11265,
+     "altim_inhg": 30.05,
+     "wx": "VCTS RA",
+     "clouds": [
+      {
+       "cover": "BKN",
+       "base_ft": 900.0,
+       "base_m_agl": 274
+      },
+      {
+       "cover": "BKN",
+       "base_ft": 2800.0,
+       "base_m_agl": 853
+      },
+      {
+       "cover": "OVC",
+       "base_ft": 6000.0,
+       "base_m_agl": 1829
+      }
+     ],
+     "ltg": "LTG DSNT N"
+    },
+    {
+     "valid": "2026-11-01T18:05Z",
+     "t_sim_s": 1080,
+     "raw": "KFXE 011805Z AUTO 08011KT 7SM RA BKN009 BKN028 OVC060 26/24 A3005 RMK P0001 T02600240 LTG DSNT N AND S AND NW! MADISHF",
+     "hf": true,
+     "t_c": 26.0,
+     "td_c": 24.0,
+     "wdir_deg": 80.0,
+     "wspd_kt": 11.0,
+     "gust_kt": null,
+     "vsby_sm": 7.0,
+     "vsby_m": 11265,
+     "altim_inhg": 30.05,
+     "wx": "RA",
+     "clouds": [
+      {
+       "cover": "BKN",
+       "base_ft": 900.0,
+       "base_m_agl": 274
+      },
+      {
+       "cover": "BKN",
+       "base_ft": 2800.0,
+       "base_m_agl": 853
+      },
+      {
+       "cover": "OVC",
+       "base_ft": 6000.0,
+       "base_m_agl": 1829
+      }
+     ],
+     "ltg": "LTG DSNT N"
+    },
+    {
+     "valid": "2026-11-01T18:10Z",
+     "t_sim_s": 1380,
+     "raw": "KFXE 011810Z AUTO 08013KT 7SM RA BKN009 BKN028 OVC060 26/24 A3005 RMK P0001 T02600240 LTG DSNT S AND NW! MADISHF",
+     "hf": true,
+     "t_c": 26.0,
+     "td_c": 24.0,
+     "wdir_deg": 80.0,
+     "wspd_kt": 13.0,
+     "gust_kt": null,
+     "vsby_sm": 8.0,
+     "vsby_m": 12875,
+     "altim_inhg": 30.05,
+     "wx": "RA",
+     "clouds": [
+      {
+       "cover": "BKN",
+       "base_ft": 900.0,
+       "base_m_agl": 274
+      },
+      {
+       "cover": "BKN",
+       "base_ft": 2800.0,
+       "base_m_agl": 853
+      },
+      {
+       "cover": "OVC",
+       "base_ft": 6000.0,
+       "base_m_agl": 1829
+      }
+     ],
+     "ltg": "LTG DSNT S"
+    },
+    {
+     "valid": "2026-11-01T18:15Z",
+     "t_sim_s": 1680,
+     "raw": "KFXE 011815Z AUTO 08013KT 7SM RA BKN009 BKN028 OVC060 26/24 A3005 RMK P0001 T02600240 LTG DSNT N AND S! MADISHF",
+     "hf": true,
+     "t_c": 26.0,
+     "td_c": 24.0,
+     "wdir_deg": 80.0,
+     "wspd_kt": 13.0,
+     "gust_kt": null,
+     "vsby_sm": 8.0,
+     "vsby_m": 12875,
+     "altim_inhg": 30.05,
+     "wx": "RA",
+     "clouds": [
+      {
+       "cover": "BKN",
+       "base_ft": 900.0,
+       "base_m_agl": 274
+      },
+      {
+       "cover": "BKN",
+       "base_ft": 2800.0,
+       "base_m_agl": 853
+      },
+      {
+       "cover": "OVC",
+       "base_ft": 6000.0,
+       "base_m_agl": 1829
+      }
+     ],
+     "ltg": "LTG DSNT N"
+    },
+    {
+     "valid": "2026-11-01T18:20Z",
+     "t_sim_s": 1980,
+     "raw": "KFXE 011820Z AUTO 09012KT 8SM RA BKN009 BKN028 OVC060 26/24 A3005 RMK P0001 T02600240 LTG DSNT N AND S! MADISHF",
+     "hf": true,
+     "t_c": 26.0,
+     "td_c": 24.0,
+     "wdir_deg": 90.0,
+     "wspd_kt": 12.0,
+     "gust_kt": null,
+     "vsby_sm": 9.0,
+     "vsby_m": 14484,
+     "altim_inhg": 30.05,
+     "wx": "RA",
+     "clouds": [
+      {
+       "cover": "BKN",
+       "base_ft": 900.0,
+       "base_m_agl": 274
+      },
+      {
+       "cover": "BKN",
+       "base_ft": 2800.0,
+       "base_m_agl": 853
+      },
+      {
+       "cover": "OVC",
+       "base_ft": 6000.0,
+       "base_m_agl": 1829
+      }
+     ],
+     "ltg": "LTG DSNT N"
+    },
+    {
+     "valid": "2026-11-01T18:25Z",
+     "t_sim_s": 2280,
+     "raw": "KFXE 011825Z AUTO 08010KT 8SM RA BKN009 BKN028 OVC060 26/24 A3005 RMK P0001 T02600240 LTG DSNT N AND S! MADISHF",
+     "hf": true,
+     "t_c": 26.0,
+     "td_c": 24.0,
+     "wdir_deg": 80.0,
+     "wspd_kt": 10.0,
+     "gust_kt": null,
+     "vsby_sm": 9.0,
+     "vsby_m": 14484,
+     "altim_inhg": 30.05,
+     "wx": "RA",
+     "clouds": [
+      {
+       "cover": "BKN",
+       "base_ft": 900.0,
+       "base_m_agl": 274
+      },
+      {
+       "cover": "BKN",
+       "base_ft": 2800.0,
+       "base_m_agl": 853
+      },
+      {
+       "cover": "OVC",
+       "base_ft": 6000.0,
+       "base_m_agl": 1829
+      }
+     ],
+     "ltg": "LTG DSNT N"
+    },
+    {
+     "valid": "2026-11-01T18:30Z",
+     "t_sim_s": 2580,
+     "raw": "KFXE 011830Z AUTO 08011KT 8SM RA BKN009 BKN028 OVC060 26/23 A3005 RMK P0002 T02600230 LTG DSNT ALQDS! MADISHF",
+     "hf": true,
+     "t_c": 26.0,
+     "td_c": 23.0,
+     "wdir_deg": 80.0,
+     "wspd_kt": 11.0,
+     "gust_kt": null,
+     "vsby_sm": 9.0,
+     "vsby_m": 14484,
+     "altim_inhg": 30.05,
+     "wx": "RA",
+     "clouds": [
+      {
+       "cover": "BKN",
+       "base_ft": 900.0,
+       "base_m_agl": 274
+      },
+      {
+       "cover": "BKN",
+       "base_ft": 2800.0,
+       "base_m_agl": 853
+      },
+      {
+       "cover": "OVC",
+       "base_ft": 6000.0,
+       "base_m_agl": 1829
+      }
+     ],
+     "ltg": "LTG DSNT ALQDS"
+    }
+   ]
+  },
+  "KSUA": {
+   "report_id": "KSUA",
+   "iem_id": "SUA",
+   "obs": [
+    {
+     "valid": "2026-11-01T16:47Z",
+     "t_sim_s": -3600,
+     "raw": "KSUA 011647Z 08016G24KT 5SM -TSRA BKN024 OVC041 26/24 A3009 RMK GPS RWY 12 ATIS Q",
+     "hf": false,
+     "t_c": 26.0,
+     "td_c": 24.0,
+     "wdir_deg": 80.0,
+     "wspd_kt": 16.0,
+     "gust_kt": 24.0,
+     "vsby_sm": 5.0,
+     "vsby_m": 8047,
+     "altim_inhg": 30.09,
+     "wx": "-TSRA",
+     "clouds": [
+      {
+       "cover": "BKN",
+       "base_ft": 2400.0,
+       "base_m_agl": 732
+      },
+      {
+       "cover": "OVC",
+       "base_ft": 4100.0,
+       "base_m_agl": 1250
+      }
+     ]
+    },
+    {
+     "valid": "2026-11-01T17:47Z",
+     "t_sim_s": 0,
+     "raw": "KSUA 011747Z 09018KT 4SM -TSRA FEW004 BKN022 OVC070 25/24 A3008 RMK GPS RWY 12 ATIS R",
+     "hf": false,
+     "t_c": 25.0,
+     "td_c": 24.0,
+     "wdir_deg": 90.0,
+     "wspd_kt": 18.0,
+     "gust_kt": null,
+     "vsby_sm": 4.0,
+     "vsby_m": 6437,
+     "altim_inhg": 30.08,
+     "wx": "-TSRA",
+     "clouds": [
+      {
+       "cover": "FEW",
+       "base_ft": 400.0,
+       "base_m_agl": 122
+      },
+      {
+       "cover": "BKN",
+       "base_ft": 2200.0,
+       "base_m_agl": 671
+      },
+      {
+       "cover": "OVC",
+       "base_ft": 7000.0,
+       "base_m_agl": 2134
+      }
+     ]
+    },
+    {
+     "valid": "2026-11-01T18:11Z",
+     "t_sim_s": 1440,
+     "raw": "KSUA 011811Z 07014G21KT 1 1/2SM -TSRA BKN006 OVC022 25/24 A3007 RMK GPS RWY 12 ATIS S",
+     "hf": false,
+     "t_c": 25.0,
+     "td_c": 24.0,
+     "wdir_deg": 70.0,
+     "wspd_kt": 14.0,
+     "gust_kt": 21.0,
+     "vsby_sm": 1.5,
+     "vsby_m": 2414,
+     "altim_inhg": 30.07,
+     "wx": "-TSRA",
+     "clouds": [
+      {
+       "cover": "BKN",
+       "base_ft": 600.0,
+       "base_m_agl": 183
+      },
+      {
+       "cover": "OVC",
+       "base_ft": 2200.0,
+       "base_m_agl": 671
+      }
+     ]
+    }
+   ]
+  }
+ },
+ "summary_kpbi_1747z": {
+  "nearest_any": {
+   "valid": "2026-11-01T17:45Z",
+   "t_sim_s": -120,
+   "raw": "KDJT 011745Z AUTO ///20KT 10SM -RA SCT021 SCT028 OVC055 26/23 A3007 RMK T02600230 LTG DSNT W-N! MADISHF",
+   "wdir_deg": null,
+   "wspd_kt": 20.0,
+   "gust_kt": null,
+   "vsby_sm": 10.0,
+   "vsby_m": 16093,
+   "wx": "-RA",
+   "clouds": [
+    {
+     "cover": "SCT",
+     "base_ft": 2100.0,
+     "base_m_agl": 640
+    },
+    {
+     "cover": "SCT",
+     "base_ft": 2800.0,
+     "base_m_agl": 853
+    },
+    {
+     "cover": "OVC",
+     "base_ft": 5500.0,
+     "base_m_agl": 1676
+    }
+   ],
+   "t_c": 26.0,
+   "td_c": 23.0,
+   "altim_inhg": 30.07
+  },
+  "nearest_routine_metar": {
+   "valid": "2026-11-01T17:53Z",
+   "t_sim_s": 360,
+   "raw": "KDJT 011753Z 08016G28KT 10SM -RA SCT026 SCT050 OVC060 26/23 A3006 RMK AO2 PK WND 07033/1730 SLP180 P0000 60005 T02610228 10267 20261 58014 $",
+   "wdir_deg": 80.0,
+   "wspd_kt": 16.0,
+   "gust_kt": 28.0,
+   "vsby_sm": 10.0,
+   "vsby_m": 16093,
+   "wx": "-RA",
+   "clouds": [
+    {
+     "cover": "SCT",
+     "base_ft": 2600.0,
+     "base_m_agl": 792
+    },
+    {
+     "cover": "SCT",
+     "base_ft": 5000.0,
+     "base_m_agl": 1524
+    },
+    {
+     "cover": "OVC",
+     "base_ft": 6000.0,
+     "base_m_agl": 1829
+    }
+   ],
+   "t_c": 26.1,
+   "td_c": 22.8,
+   "altim_inhg": 30.06
+  }
+ }
+}

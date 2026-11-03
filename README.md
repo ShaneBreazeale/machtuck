@@ -11,8 +11,47 @@ python3 -m http.server 8080
 # open http://localhost:8080
 ```
 
-Needs a WebGL2 browser. Rendering is a single raymarched fragment shader (sky, Florida coast, storm cell,
-SDF Learjet) so a discrete GPU or Apple Silicon is recommended; press `K` to cycle quality.
+Needs a WebGL2 browser with `EXT_color_buffer_float` (all current desktop browsers). A discrete GPU or Apple Silicon is
+recommended; press `K` to cycle quality (scene resolution and cloud steps).
+
+## Rendering
+
+`js/render.js` + `js/shaders.js`, HDR and physically based throughout:
+
+- **Atmosphere**: precomputed transmittance and multiple-scattering LUTs (Bruneton/Hillaire), a per-frame sky-view LUT,
+  spherical Earth, per-pixel aerial perspective that is shadowed by the clouds (god rays, dark air under the storm).
+  Sun position from a solar ephemeris for the scenario clock (`js/sun.js`: 47° elevation, azimuth 195° at 12:47 EST).
+- **Clouds**: volumetric raymarch shaped by real data (below), eroded with GPU-baked tileable Perlin-Worley / Worley
+  noise, lit by a sun light-march plus a 1024² cloud-shadow map, multiple-scattering octaves, dual-lobe phase, and a
+  diffuse-transmission model for light under and inside the deck.
+- **Ground**: USGS orthoimagery (30 m around Palm Beach, 4 m over the impact area, 290 m to 300 km out) on a spherical
+  Earth, water from a mask with wind-driven waves, Fresnel sky reflection and sun glint, cloud shadows. Below 1.8 km the
+  photo also drives 3D detail: each 16 m cell's colour makes it a hip-roofed house (roof colour from the photo) or a tree
+  (trunk + lobed canopy placed on the photo's own canopy), generated into a GPU cell map around the camera and ray-traced
+  out to 6 km.
+  Over the impact area (16 x 16 km around Greenacres) nothing is guessed: 62,192 real building footprints with measured
+  heights (Overture Maps: OpenStreetMap + Microsoft ML Buildings, `tools/fetch_buildings.py`), extruded with hip roofs
+  for houses and flat roofs otherwise, roof colours from the aerial photo; and 511,964 individual trees at their
+  measured positions, heights and crown widths from Meta/WRI's 1 m canopy height map (`tools/fetch_canopy_trees.py`, the
+  method of vibevoga's `chm_tree_points.py`), GPU-instanced in two LODs. Forms follow the measured shape (proxies, not a survey): narrow-crowned 6-24 m tops as
+  palms (~9,300), tall (>= 15 m) narrow crowns as slash pines, the rest as rounded or spreading broadleaf crowns. Around the reconstructed impact point a 2.4 m USGS image
+  (`detail.jpg`, z16) sharpens the ground for the replay ground camera. Both are drawn at full resolution with 4x MSAA.
+- **Aircraft**: the textured exterior of the PAD Learjet 60 (`data/ext`, `tools/fs9_ext.py`) with live ailerons,
+  elevator, rudder, flaps, spoilers and gear, a flashing beacon, N722BD in white with gold and brown stripes (`tools/livery.py`:
+  colours from a 2017 sales listing for the aircraft; the stripe layout is the model's own cheat line, so approximate), drawn at full resolution with 4x MSAA and shaded with the same
+  lighting as the clouds, fogged by the cloud between it and the camera.
+- **Weather effects**: rain / ice streaks from the radar reflectivity at the aircraft, lightning from GLM with
+  in-cloud illumination and cloud-to-ground channels.
+- **Comparison** with MSFS 2024 and X-Plane 12, feature by feature with sources: `docs/visual_comparison.md`.
+- **Performance**: dynamic resolution (the raymarch drops to as little as 45% of its normal resolution when the frame
+  rate falls under ~50 fps; TAA upsamples), optical-depth-adaptive cloud steps. `node tools/bench.mjs 2560x1320` measures
+  real-time fps in headless Chrome; on a loaded Apple Silicon Mac the six benchmark views ran at roughly 38-104 fps at that size across repeated runs, 51-106 fps in the latest run with the real buildings, trees and palms (heaviest: low over Greenacres and the breakout under the deck).
+- **Post**: temporal anti-aliasing/upsampling, bloom, sun glare and lens ghosts (only when the sun disk is unoccluded),
+  eye adaptation (snaps on camera cuts), ACES filmic tonemap. Wet, darker ground under radar-indicated rain.
+
+Debug: `#view=t,cam,orbitYaw,orbitPitch` starts the reconstruction paused at `t` with a sim camera (0 cockpit, 1 chase, 2 ground);
+`#shot=x,y,z,yaw,pitch,fov,nex,t` starts the reconstruction paused at `t` with a free camera (world metres from
+KPBI, x east, y up, z north); `SIM.R.dbg = {cloudCover: 0.3}` overrides render inputs from the console.
 
 ## Structure
 
@@ -21,9 +60,9 @@ SDF Learjet) so a discrete GPU or Apple Silicon is recommended; press `K` to cyc
   section pressure model for critical Mach, wave drag, buffet onset and the Mach loss of CLmax
 - `js/engine.js` — PW305A two-stream cycle with turbomachinery similarity and the thrust-rating (N1) law
 - `js/scenario.js` — storm environment, ADS-B ghost reconstruction, ATC timeline, autopilot, hypotheses
-- `js/render.js` — WebGL2 raymarcher + line program
+- `js/render.js`, `js/shaders.js` — WebGL2 renderer (see Rendering); `js/sun.js` solar ephemeris; `js/anim.js` model keyframe helpers
 - `js/hud.js` — PFD, system panel, profile chart, comm log
-- `js/cockpit.js`, `js/vcgauges.js` — 3D virtual cockpit and its standby gauges; `tools/fs9_vc.py` converts the FS2004 model
+- `js/cockpit.js`, `js/vcgauges.js` — 3D virtual cockpit and its standby gauges; `tools/fs9_vc.py` / `tools/fs9_ext.py` convert the FS2004 model's cockpit / exterior
 - `js/input.js`, `js/audio.js`, `js/main.js`
 - `test/` — headless Node checks: `sim_test.mjs` (upset scenario), `stab_test.mjs`, `flight_test.mjs` (flight-test
   card), `afm_validate.mjs` (model vs ~1,860 cells of AFM tables in `afm_tables.json`), `recovery_test.mjs` (pass/fail judgement: no credit for an early takeover
@@ -82,6 +121,17 @@ SLD in the core overwhelming stab heat, inlet ice reducing thrust with nacelle h
   (files from `s3://unidata-nexrad-level2/2026/11/01/KAMX/`).
 - `audio/atc_liveatc.mp3` — Miami Center audio as posted publicly (LiveATC recording). Off by default; the clip is edited, so
   playback is piecewise-synced to the clock from its captions (`ATC.map` in `js/main.js`). It contains the crew's final transmissions. Listener discretion.
+- `data/goes/` — GOES-19 ABI CONUS scans at 17:47:52Z and 17:52:52Z (KPBI rows): 0.64 µm reflectance and 10.3 µm
+  brightness temperature, cloud-top height from the KMFL sounding, parallax-corrected (`tools/fetch_goes.py`). Sets the
+  top of the cloud deck (12.9 km median, ~15 km over the storm) and its thickness.
+- `data/glm_flashes.json` — GOES-19 GLM flashes within 80 km, 17:44-17:52Z (`tools/fetch_glm.py`): the lightning you
+  see and hear is played at the real flash times and positions.
+- `data/metar.json`, `data/sounding_kmfl.json` — KPBI METARs (17:53Z: 08016G28KT 10SM -RA SCT026 SCT050 OVC060) set
+  the cumulus layer and the deck base; KMFL 12Z radiosonde: freezing level 4,780 m (rain vs. ice streaks).
+- `data/ground/` — USGS The National Map orthoimagery (NAIP), NASA Blue Marble fill offshore, water from USGS NHD and
+  Natural Earth (`tools/fetch_imagery.py`). All public domain. `buildings.bin`: Overture Maps buildings, © OpenStreetMap
+  contributors and Microsoft, ODbL 1.0. `trees.bin`: tree tops from High Resolution Canopy Height Maps by Meta and
+  World Resources Institute (Tolan et al. 2024), CC BY 4.0.
 - `localStorage['n722bd_fdr']` — flight data recorder of the last run (4 Hz); CSV export in the debrief.
 
 ## Sources

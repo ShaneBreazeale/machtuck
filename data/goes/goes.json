@@ -1,0 +1,93 @@
+{
+ "source": "NOAA GOES-19 ABI L1b CONUS radiances (ABI-L1b-RadC), noaa-goes19 open-data bucket",
+ "licence": "NOAA/NESDIS GOES-R data, US Government work, public domain",
+ "satellite_lon_deg": -75.0,
+ "grid": {
+  "e0": -150000,
+  "e1": 150000,
+  "n0": -150000,
+  "n1": 150000,
+  "width": 1024,
+  "height": 1024,
+  "row0": "north edge",
+  "col0": "west edge",
+  "origin": "KPBI 26.6832 -80.0956",
+  "projection": "north_m=(lat-26.6832)*111320; east_m=(lon+80.0956)*111320*cos(lat_mid)"
+ },
+ "encoding": {
+  "R": "C02 0.64um reflectance factor (kappa0*Rad), 0..1 -> 0..255, gamma 1",
+  "G": "cloud-top height from BT13 vs KMFL 12Z sounding, units of 100 m (0..25.5 km), 0 = clear/surface",
+  "B": "C13 10.3um brightness temperature, BT - 180 K, clamped 0..255",
+  "A": "255 = cloudy: BT13 < Tsfc-8 K or (refl > 0.30 and BT13 < Tsfc-3 K); Tsfc from sounding"
+ },
+ "parallax_corrected": true,
+ "parallax_method": "per-pixel line-of-sight height consistency search (0..18 km, 250 m steps, 750 m tolerance); ground hidden behind tall cloud filled from nearest consistent pixel",
+ "height_lut": {
+  "surface_t_k": 299.15,
+  "tropopause_min_t_k": 198.05,
+  "tropopause_min_z_m": 15879.7,
+  "overshoot_lapse_k_per_km": 7.3,
+  "clear_if_bt_within_k_of_surface": 3
+ },
+ "time_note": "time_utc / t_sim_s estimate when the KPBI rows were imaged (CONUS scans north to south); t_sim_s relative to 17:47:00Z",
+ "scans": [
+  {
+   "file": "goes_1746.png",
+   "time_utc": "2026-11-01T17:47:52Z",
+   "t_sim_s": 52.6,
+   "scan_start_utc": "2026-11-01T17:46:17.60Z",
+   "scan_end_utc": "2026-11-01T17:48:56.10Z",
+   "source_files": [
+    "OR_ABI-L1b-RadC-M6C02_G19_s20263051746176_e20263051748549_c20263051748565.nc",
+    "OR_ABI-L1b-RadC-M6C13_G19_s20263051746176_e20263051748561_c20263051749026.nc"
+   ],
+   "hidden_fraction": 0.0,
+   "storm_check": {
+    "center_e_n_m": [
+     -15000,
+     3000
+    ],
+    "radius_m": 8000,
+    "min_bt_k": 204.0,
+    "max_top_m": 15012,
+    "max_reflectance": 0.765,
+    "coldest_at_e_n_m": [
+     -10107,
+     10986
+    ],
+    "bt_at_center_k": 204.7,
+    "top_at_center_m": 14929,
+    "cloud_fraction": 1.0
+   }
+  },
+  {
+   "file": "goes_1751.png",
+   "time_utc": "2026-11-01T17:52:52Z",
+   "t_sim_s": 352.5,
+   "scan_start_utc": "2026-11-01T17:51:17.60Z",
+   "scan_end_utc": "2026-11-01T17:53:56.00Z",
+   "source_files": [
+    "OR_ABI-L1b-RadC-M6C02_G19_s20263051751176_e20263051753550_c20263051753570.nc",
+    "OR_ABI-L1b-RadC-M6C13_G19_s20263051751176_e20263051753560_c20263051754028.nc"
+   ],
+   "hidden_fraction": 0.0,
+   "storm_check": {
+    "center_e_n_m": [
+     -15000,
+     3000
+    ],
+    "radius_m": 8000,
+    "min_bt_k": 204.1,
+    "max_top_m": 14992,
+    "max_reflectance": 0.845,
+    "coldest_at_e_n_m": [
+     -15967,
+     4834
+    ],
+    "bt_at_center_k": 204.3,
+    "top_at_center_m": 14979,
+    "cloud_fraction": 1.0
+   }
+  }
+ ]
+}
