@@ -1,6 +1,7 @@
 import { Learjet60, hiBuffetMach } from './aircraft.js';
 import { Environment, Autopilot, buildGhost, ghostAt, STORM, TIMELINE, HYPOTHESES, clockStr, NexradField, NEXRAD_VOLUMES, RecoveryJudge, UPSET_T } from './scenario.js';
 import { Renderer } from './render.js';
+import { scenarioSun } from './sun.js';
 import { HUD } from './hud.js';
 import { Cockpit } from './cockpit.js';
 import { Input } from './input.js';
@@ -18,7 +19,7 @@ const ghostLine = new Float32Array(ghost.length * 3);
 ghost.forEach((p, i) => { const w = nedToWorld([p.n, p.e, p.d]); ghostLine.set(w, i * 3); });
 const ghostProfile = ghost.map(p => ({ t: p.t, alt: -p.d / FT }));
 const ghostAlt = (t) => -ghostAt(ghost, t).d / FT;
-const SUN = (() => { const v = [-0.116, 0.743, -0.66]; const l = Math.hypot(...v); return v.map(x => x / l); })();
+let SUN = scenarioSun(0).v;   // real solar position for the scenario clock (js/sun.js), updated each frame
 let G = null;
 let NEX = null;            // [{f: NexradField, t}, {f, t}]
 // The posted clip is edited: silences between transmissions were cut. Piecewise map clip time -> sim time (s after 12:47:00),
@@ -34,6 +35,14 @@ NexradField.load(NEXRAD_VOLUMES[0].base).then(async (a) => {
   R.setNexrad(a, b); if (G) G.env.nex = NEX; buildNexImages();
   console.log('[NEXRAD] loaded', a.file, b.file);
 }).catch(e => console.warn('[NEXRAD] not available', e));
+// Real-world environment beyond the radar: GOES-19 cloud tops, GLM lightning, USGS imagery (see tools/fetch_*.py)
+let GLM = null;
+fetch('data/glm_flashes.json').then(r => r.json()).then(j => { GLM = j.flashes; if (G) { G.env.glm = GLM; } console.log('[GLM]', GLM.length, 'flashes'); }).catch(e => console.warn('[GLM] not available', e));
+R.loadExterior().then(() => console.log('[EXT] exterior model loaded')).catch(e => console.warn('[EXT] exterior model not available, SDF airframe', e));
+R.loadGround().then(() => { console.log('[GROUND] USGS imagery loaded'); return Promise.all([R.loadBuildings().then(r => console.log('[BUILDINGS]', r)).catch(e => console.warn('[BUILDINGS] footprints not available', e)), R.loadTrees().then(r => console.log('[TREES]', r)).catch(e => console.warn('[TREES] canopy trees not available', e))]); }).catch(e => console.warn('[GROUND] imagery not available, procedural ground', e));
+R.loadGoes().then(m => console.log('[GOES] loaded', m.scans.map(s => s.time_utc).join(', '))).catch(e => console.warn('[GOES] not available', e));
+// KPBI 17:53Z METAR: 08016G28KT 10SM -RA SCT026 SCT050 OVC060 -> cumulus 790-1700 m, MCS deck base 1830 m
+const WX = { cuBase: 790, cuTop: 1700, cuCover: 0.14, deckBase: 1830, drift: [STORM.drift[1], STORM.drift[0]] };
 function atcSync() {
   const el = ATC.el; if (!ATC.on || !G || (G.phase !== 'run' && G.phase !== 'replay') || G.paused) { if (!el.paused) el.pause(); return; }
   const ts = G.t + ATC.shift;   // user trim: positive plays the tape earlier relative to the sim
@@ -51,7 +60,7 @@ function newGame(hypKey, hard = true) {
   ac.setState({ n: g0.n, e: g0.e, d: g0.d, psi: g0.hdg, theta: 1.95 * DEG, phi: 0, V: 232 });
   // trimmed M0.77 at FL350, ISA+7 (see test/flight_test.mjs)
   ac.ctl.thr = 0.83; ac.n1 = 0.83; ac.ctl.trim = 0.37; ac.ice = 0.12; ac.iceTail = 0.25; ac.sys.machTrimFail = !!env.hyp.machTrimFail;
-  env.nex = NEX; env.useNex = SETTINGS.nexrad;
+  env.nex = NEX; env.useNex = SETTINGS.nexrad; env.glm = GLM;
   env.wind(ac.pos, 0, 0); ac.step(0, { wind: [0, 0, 0] });   // prime telemetry for the first frame
   ATC.el.pause();
   G = { ac, env, ap, t: 0, phase: 'run', hypKey, hard, hypName: HYPOTHESES[hypKey].name + (hard ? ' · AS FLOWN' : ' · TRAINER'), fdr: [], lastFdr: -1, lastSave: 0, log: [], logIdx: 0, hist: [], trail: [], lastHist: -1, lastTrail: -1,
@@ -370,6 +379,11 @@ function frame(now) {
     const uu = [dir[1] * rr[2] - dir[2] * rr[1], dir[2] * rr[0] - dir[0] * rr[2], dir[0] * rr[1] - dir[1] * rr[0]];
     cam = { pos: G.camPos, right: rr, up: uu, fwd: dir };
   }
+  // debug: SIM.camOverride = {pos:[x,y,z] world m, yaw (deg from north), pitch (deg), fov (deg)} for free inspection shots
+  const CO = window.SIM && window.SIM.camOverride;
+  if (CO) { const y = CO.yaw * DEG, p = CO.pitch * DEG; const f = [Math.sin(y) * Math.cos(p), Math.sin(p), Math.cos(y) * Math.cos(p)];
+    const rr = [Math.cos(y), 0, -Math.sin(y)]; const uu = [f[1] * rr[2] - f[2] * rr[1], f[2] * rr[0] - f[0] * rr[2], f[0] * rr[1] - f[1] * rr[0]];
+    cam = { pos: CO.pos, right: rr, up: uu, fwd: f }; G.ext = true; }
   // ---------- ghost ----------
   const gp = ghostAt(ghost, G.t); const gW = nedToWorld([gp.n, gp.e, gp.d]);
   const bank = (G.t < 70 ? 12 * smoothstep(25, 35, G.t) * (1 - smoothstep(65, 72, G.t)) : 20 + 45 * smoothstep(76, 120, G.t)) * DEG;
@@ -377,13 +391,20 @@ function frame(now) {
   let gr = [Math.cos(gp.hdg), 0, -Math.sin(gp.hdg)]; let gu = [gf[1] * gr[2] - gf[2] * gr[1], gf[2] * gr[0] - gf[0] * gr[2], gf[0] * gr[1] - gf[1] * gr[0]];
   const gr2 = gr.map((v, i) => v * Math.cos(bank) - gu[i] * Math.sin(bank)), gu2 = gr.map((v, i) => v * Math.sin(bank) + gu[i] * Math.cos(bank));
   const stormT = STORM.top(G.t);
+  SUN = scenarioSun(G.t).v;
   const S = {
-    cam, fov: G.camEff === 2 && G.replay ? G.groundFov : G.ext ? 60 * DEG : (CK ? clamp(64 * IN.zoom, 26, 78) : 70) * DEG, time: G.time, sun: SUN, ac: { pos: posW, fwd, right, up }, ext: G.ext, stabGone: ac.broken && ac.brokenWhat === 'stab',
+    cam, dt, simT: G.t, ctl: ac.ctl, fov: CO && CO.fov ? CO.fov * DEG : G.camEff === 2 && G.replay ? G.groundFov : G.ext ? 60 * DEG : (CK ? clamp(64 * IN.zoom, 26, 78) : 70) * DEG, time: G.time, sun: SUN, ac: { pos: posW, fwd, right, up }, ext: G.ext, stabGone: ac.broken && ac.brokenWhat === 'stab',
     ghost: { pos: gW, fwd: gf, right: gr2, up: gu2 }, showGhost: G.showGhost && G.t < ghost[ghost.length - 1].t,
     storm: { pos: [STORM.e + STORM.drift[1] * G.t, stormT, STORM.n + STORM.drift[0] * G.t], r: STORM.rCore, base: STORM.base },
-    flash: env.flash, cloudBase: 6400, cloudTop: 10500, useNex: SETTINGS.nexrad, nexMix: NEX ? clamp((G.t - NEX[0].t) / (NEX[1].t - NEX[0].t), 0, 1) : 0,
+    flash: env.flash, flashPos: env.flashPos, cloudBase: WX.cuBase, cloudTop: WX.cuTop, cloudCover: WX.cuCover, deckBase: WX.deckBase, stormCB: WX.deckBase, windXZ: WX.drift, useNex: SETTINGS.nexrad, useGoes: SETTINGS.nexrad, nexMix: NEX ? clamp((G.t - NEX[0].t) / (NEX[1].t - NEX[0].t), 0, 1) : 0,
     lines: [{ data: ghostLine, color: [1, 0.25, 0.75, G.recon ? 0 : G.showGhost ? 0.9 : 0.25], strip: true }, { data: new Float32Array(G.trail), color: [0.4, 1, 0.4, 0.9], strip: true }],
   };
+  // precipitation around the camera (NEXRAD reflectivity at the aircraft) and cloud-to-ground strokes for ~35% of GLM flashes
+  S.precip = SETTINGS.nexrad ? smoothstep(12, 50, env.L.dbz || -30) : 0.4 * env.L.core;
+  S.precipFall = [WX.drift[0], posW[1] > 4780 ? -1.5 : -7, WX.drift[1]];   // snow/graupel above the freezing level (KMFL 4,780 m), rain below
+  S.precipBright = 0.55 + 0.35 * clamp(posW[1] / 10000, 0, 1);
+  S.camVel = CO || G.camEff === 2 ? [0, 0, 0] : [ac.vel[1], -ac.vel[2], ac.vel[0]];   // attached cameras move with the airplane
+  if (env.flashId !== undefined && env.flashId !== G.lastFlashId) { G.lastFlashId = env.flashId; if (Math.random() < 0.35 && env.flashPos) R.strike(env.flashPos[0], env.flashPos[2], WX.deckBase + 400); else R.bolt = null; }
   R.render(S); G.lastFov = S.fov;
   const HS = { out, ac, ap, t: G.t, log: G.log, inCloud: env.L.cloud, core: env.L.core, updraft: env.L.updraft, ext: G.ext, hist: G.hist, ghostProfile, ghostAlt, recovered: G.recovered, recoveredAlt: G.recoveredAlt, upsetT: UPSET_T,
     apOffAt: G.apOffAt, apOffWall: G.apOffWall, timeScale: G.timeScale, quality: R.quality, help: G.help, paused: G.paused, hypName: G.hypName, endMsg: G.endMsg, antiice: G.antiice, flash: env.flash, fps,
@@ -400,7 +421,7 @@ function frame(now) {
   H.draw(HS);
   atcSync();
   if (G.phase === 'run' && !G.paused) IN.haptics({ shaker: !!ac.shaker && !ac.broken, buffet: !!out.buffet, broken: ac.broken });
-  AU.update(dt, { qbar: out.qbar || 0, V: out.V || 0, n1: ac.n1, overspeed: !!out.overspeed, stall: !!out.stalled && out.alpha > 0, buffet: !!out.buffet, inCloud: env.L.cloud, ext: G.ext, broken: ac.broken, flash: env.flash, flashDist: env.L.r });
+  AU.update(dt, { qbar: out.qbar || 0, V: out.V || 0, n1: ac.n1, overspeed: !!out.overspeed, stall: !!out.stalled && out.alpha > 0, buffet: !!out.buffet, inCloud: env.L.cloud, ext: G.ext, broken: ac.broken, flash: env.flash, flashDist: env.flashDist ?? env.L.r });
   if ((G.phase === 'run' || G.phase === 'replay') && !G.paused) {
     if (Math.abs(out.phi) > 45 * DEG) AU.say('Bank angle', 3);
     if (out.vs < -30 && out.h < 3000) AU.say('Pull up', 2);
@@ -437,5 +458,22 @@ IN.onClick = (x, y) => {
   else h = H.hit(x, y);
   if (!h) return false; toggleSwitch(h.id); return true;
 };
-window.SIM = { get G() { return G; }, ATC, SETTINGS, IN, get NEX() { return NEX; } };   // debug / flight-data access from the console
+window.SIM = { get G() { return G; }, R, ATC, SETTINGS, IN, get NEX() { return NEX; } };   // debug / flight-data access from the console
+// debug inspection shots: #shot=x,y,z,yaw,pitch,fov[,nex 0/1[,t]]  (starts the reconstruction paused at t with a free camera)
+if (location.hash.startsWith('#shot=')) {
+  const v = location.hash.slice(6).split(',').map(Number);
+  document.getElementById('brief').classList.add('hidden'); SETTINGS.nexrad = v[6] !== 0; startReconstruction();
+  if (v[7]) { while (G.t < v[7]) replayStep(1 / 30); }
+  G.paused = true; G.hideHud = true; window.SIM.camOverride = { pos: [v[0], v[1], v[2]], yaw: v[3], pitch: v[4], fov: v[5] || 70 };
+}
+// debug: #view=t,camMode,orbitYaw,orbitPitch[,hud]  (reconstruction paused at t with a sim camera: 0 cockpit, 1 chase, 2 ground)
+if (location.hash.startsWith('#view=')) {
+  const v = location.hash.slice(6).split(',').map(Number);
+  document.getElementById('brief').classList.add('hidden');
+  const go = () => { if (!NEX || !R.goes || !R.ground) return setTimeout(go, 100);   // wait for the weather and imagery
+    startReconstruction(); G.env.nex = NEX;
+    while (G.t < v[0]) replayStep(1 / 30);
+    G.paused = true; G.hideHud = !v[4]; G.camMode = v[1] | 0; IN.orbit.yaw = v[2] || 0; IN.orbit.pitch = v[3] || 0; };
+  go();
+}
 requestAnimationFrame(frame);

@@ -102,6 +102,7 @@ export class Environment {
     this.phases = Array.from({ length: 12 }, () => Math.random() * 6.28);
     this.gust = [0, 0, 0];
     this.nex = null; this.useNex = true;     // set by main once the volumes load
+    this.glm = null; this.glmIdx = 0; this.strokes = []; this.flashPos = null; this.flashDist = null;   // GLM flashes, set by main
   }
   nexDbz(pos, t, which = 'mix') {
     if (!this.nex) return -30;
@@ -163,9 +164,21 @@ export class Environment {
     for (let i = 0; i < 3; i++) this.gust[i] += ((Math.random() * 2 - 1) * 9 * L.turb - this.gust[i] * 1.5) * dt;
     const w = [mean[0] + A * sx + this.gust[0], mean[1] + A * sy + this.gust[1], -L.updraft + A * 1.6 * sz + this.gust[2]];
     // lightning
-    this.nextFlash -= dt * (0.3 + 2.5 * L.core + 0.6 * (L.cloud > 0.3 ? 1 : 0));
     this.flash = Math.max(0, this.flash - dt * 6);
-    if (this.nextFlash <= 0) { this.flash = 1; this.nextFlash = 1.5 + Math.random() * 6; }
+    if (this.glm) {
+      // Real lightning: GOES-19 GLM flashes (data/glm_flashes.json), each played as 2-4 return strokes over its duration.
+      // Brightness falls with distance; position drives the in-cloud illumination in the renderer.
+      while (this.glmIdx < this.glm.length && this.glm[this.glmIdx].t <= t) {
+        const f = this.glm[this.glmIdx++]; const d = Math.hypot(f.n - pos[0], f.e - pos[1]);
+        if (d > 70000 || t - f.t > 1) continue;
+        const n = 2 + Math.floor((f.dur || 0) * 6) % 3; for (let k = 0; k < n; k++) this.strokes.push({ t: f.t + (f.dur || 0.2) * k / Math.max(1, n - 1), f, d });
+      }
+      for (let i = this.strokes.length - 1; i >= 0; i--) { const s = this.strokes[i]; if (s.t <= t) {
+        this.flash = Math.max(this.flash, clamp(1.15 - s.d / 35000, 0.2, 1)); this.flashPos = [s.f.e, 7000 + 3000 * Math.random(), s.f.n]; this.flashDist = s.d; this.flashId = s.f.t; this.strokes.splice(i, 1); } }
+    } else {
+      this.nextFlash -= dt * (0.3 + 2.5 * L.core + 0.6 * (L.cloud > 0.3 ? 1 : 0));
+      if (this.nextFlash <= 0) { this.flash = 1; this.nextFlash = 1.5 + Math.random() * 6; this.flashPos = null; this.flashDist = null; }
+    }
     this.L = L;
     return w;
   }

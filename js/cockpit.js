@@ -7,6 +7,7 @@
 import { HUD } from './hud.js';
 import { clamp, lerp, RAD, wrap360 } from './util.js';
 import { GAUGES, rose } from './vcgauges.js';
+import { I4, mul4, quatM, track } from './anim.js';
 
 const VS = `#version 300 es
 in vec3 aPos; in vec3 aNor; in vec2 aUv;
@@ -68,28 +69,6 @@ const v3 = { sub: (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]], add: (a, b)
   cross: (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]],
   norm: (a) => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; },
   lerp: (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t] };
-// 4x4 row-major, row vectors (p' = p M): exactly the layout WebGL reads as the column-major transpose
-const I4 = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
-const mul4 = (a, b) => { const r = new Array(16); for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) r[i * 4 + j] = a[i * 4] * b[j] + a[i * 4 + 1] * b[4 + j] + a[i * 4 + 2] * b[8 + j] + a[i * 4 + 3] * b[12 + j]; return r; };
-// Keyframe quaternions rotate the other way from D3DX's row-vector matrix (checked on the model: the airstair door
-// swings out, the flap lever is forward at flaps up, the spoiler lever comes aft to extend), so use the transpose
-const quatM = ([x, y, z, w]) => [1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w), 0, 2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w), 0,
-  2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y), 0, 0, 0, 0, 1];
-// Keyframe track at t: translation (type 1) or quaternion rotation (type 3), interpolated between keys (slerp).
-// Outside the keys the end values are held.
-function track(keys, type, t) {
-  let a = keys[0], b = keys[Math.min(1, keys.length - 1)], f = 0;
-  if (t >= keys[keys.length - 1][0]) a = b = keys[keys.length - 1];
-  else if (t > keys[0][0]) { let i = 0; while (keys[i + 1][0] <= t) i++; a = keys[i]; b = keys[i + 1]; f = (t - a[0]) / (b[0] - a[0]); }
-  else b = a;
-  if (type === 1) return [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, lerp(a[1], b[1], f), lerp(a[2], b[2], f), lerp(a[3], b[3], f), 1];
-  let d = a[1] * b[1] + a[2] * b[2] + a[3] * b[3] + a[4] * b[4]; const s = d < 0 ? -1 : 1; d = Math.min(Math.abs(d), 1);
-  const th = Math.acos(d), sn = Math.sin(th);
-  const wa = sn < 1e-6 ? 1 - f : Math.sin((1 - f) * th) / sn, wb = sn < 1e-6 ? f : Math.sin(f * th) / sn;
-  const q = [1, 2, 3, 4].map(k => a[k] * wa + s * b[k] * wb), l = Math.hypot(...q);
-  return quatM(q.map(v => v / l));
-}
-
 // Live instruments on the panel: [instrument, panel texture, x, y, w, h] in the panel.cfg pixel space of that texture
 const SLOTS = [
   ['pfd', '$panL', 297, 216, 150, 178], ['mfd', '$panL', 505, 220, 150, 178], ['eng', '$panL', 683, 168, 122, 305],
