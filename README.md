@@ -31,15 +31,17 @@ SDF Learjet) so a discrete GPU or Apple Silicon is recommended; press `K` to cyc
 
 Geometry and limits come from the Learjet 60 AFM (FM-123; limitations, performance tables, scale three-view), the
 Gates Learjet wing patents (US 4,240,597; US 4,050,651) and SAE 932534 (Chandrasekharan et al. 1993, *Aerodynamic
-Tailoring of the Learjet Model 60 Wing*). Engine size from the published takeoff rating (4,600 lbf, flat to 23.3 C)
-at the AFM takeoff N1. Current agreement (`node test/flight_test.mjs`, `node test/afm_validate.mjs`):
+Tailoring of the Learjet Model 60 Wing*). Engine cycle anchored at the PW305 design point in AIAA 90-2520 (Karanjia &
+Harvey 1990: fan 30.75 in, FPR 1.811, BPR 4.3, OPR 23.7, 2105 F, mixed exhaust); size from the published takeoff
+rating (4,600 lbf, flat to 23.3 C) at the AFM takeoff N1. Current agreement (`node test/flight_test.mjs`,
+`node test/afm_validate.mjs`):
 
 - Stall speeds, 4 flap settings x 2 weights: within 2 kt of AFM Fig 5-22
 - Buffet onset vs Model 60 flight test (SAE 932534 Fig 19): rms dCL 0.019
 - Max-continuous N1 vs AFM Fig 5-31/5-32: rms ~1.5% N1
-- Single-engine climb gradients (AFM Fig 5-62, 5-65): ~1% of weight low (fan pressure ratio and engine-out drag
-  are still estimates)
-- Range 2,874 nm vs 2,740 nm published; cruise fuel flow ~1,150 lb/h
+- Single-engine climb gradients (AFM Fig 5-62, 5-65): mean -0.2% of weight, rms 0.7% (about -1% at 40-45k ft)
+- Time to climb MTOW to FL410: 18.0 min vs 18.5 published
+- Range 2,915 nm vs 2,740 nm published (~6% optimistic); cruise fuel flow ~1,130 lb/h
 
 ## Cockpit, systems, procedures
 

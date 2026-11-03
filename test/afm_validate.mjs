@@ -36,7 +36,7 @@ for (const [key, spd] of [['mct_n1_all', allEngSpeed], ['mct_n1_single', seSpeed
 // ---- 2. Final segment net gradient: one engine at MCT, other windmilling, gear/flaps up, 1.25 Vs1
 // Windmilling drag (Torenbeek): D/q = 0.0785 Di^2 + 2/(1+0.16M^2) * (pi/4) Di^2 * vr (1 - vr), vr = 0.92
 // Yaw trim (rudder + sideslip) drag: small for aft-fuselage engines, ~0.0005.
-const DI = 0.79;
+const DI = 30.75 * 0.0254;   // PW305 fan diameter (AIAA 90-2520)
 export function seNetGradient(hft, satC, lb, speed = 'final') {
   const a = atmAt(hft, satC), W = lb * LB * 9.80665;
   let M;
