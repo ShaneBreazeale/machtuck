@@ -55,7 +55,7 @@ KPBI, x east, y up, z north); `SIM.R.dbg = {cloudCover: 0.3}` overrides render i
 
 ## Structure
 
-- `js/aircraft.js` — 6-DOF Learjet 60 flight model (Mach tuck, buffet, ice, T-tail stall, structural limits, AFM limits)
+- `js/aircraft.js` — 6-DOF Learjet 60 flight model (Mach tuck, buffet, ice, T-tail stall, Part 25 structural limits, AFM limits)
 - `js/aero.js` — aerodynamics from textbook methods: component drag build-up, DATCOM lift slope, sweep theory +
   section pressure model for critical Mach, wave drag, buffet onset and the Mach loss of CLmax
 - `js/engine.js` — PW305A two-stream cycle with turbomachinery similarity and the thrust-rating (N1) law
@@ -98,6 +98,14 @@ overpowered, but it stays engaged and keeps trimming against you until you disco
 the stabilizer makes the column go light and pulse (AFM). Spoilers pitch the nose down above Vmo/Mmo and gear gives a
 nose-up moment; the upset card follows the AFM order (idle, AP off, identify attitude, wings level, elevator + nose-up
 trim, gear down if extreme, no spoilers).
+
+Structure (`aircraft.js`): Vmo/Mmo is an operating limit, not a structural one. Up to the design dive speed VD/MD
+(25.335(b); not in the AFM or EASA TCDS: VD 377 KIAS / MD 0.89, an unsourced figure that matches the Part 25 margins) speed alone does no damage; strength follows the AFM
+limit load (+3.0 / -1.0 g), yielding past ~1.2x and failing at the 1.5x ultimate; beyond VD/MD the allowable load
+shrinks; past the 25.629 flutter margin (1.15 VD, or well past MD) failure is rapid; rolling pull-outs above Vmo get
+~2/3 of the symmetric limit (25.349). In the sim's breakups the killer is negative g (about -2 g, twice the limit) from
+the tail stall, trim runaway or downdraft at M 0.91-0.96, not the overspeed by itself. N722BD is serial 60-271 (2004);
+its AFM limits pages are the "60-249 & Subsequent" set, with the same primary-instrument Vmo/Mmo (330 KIAS / M 0.81 at altitude).
 
 `node test/force_test.mjs` checks the calibration and flies the as-flown upset with a force-limited AFM-procedure pilot.
 Starting the recovery 2 s after the autopilot lets go saves the airplane in three of the four hypotheses; at 5 s it costs

@@ -252,13 +252,23 @@ export class Learjet60 {
 
     // ---- Structural damage ----
     const KEAS = V * Math.sqrt(atm.rho / RHO0) / KT;
+    // Part 25 structure: Vmo/Mmo is an operating limit, not the structural one. Strength is designed to the limit load
+    // (AFM: +3.0 / -1.0 g flaps up) up to the design dive speed VD/MD (25.335(b)), ultimate = 1.5 x limit, and the
+    // aeroplane must be flutter-free to 1.15 VD (25.629). VD/MD are not in the AFM or the EASA TCDS (EASA.IM.A.212);
+    // we use VD 377 KIAS / MD 0.89 (a figure supplied without a source, but exactly the Part 25 margins over Vmo 330 /
+    // Mmo 0.81), i.e. VD = Vmo + 47 at every altitude band. Speed alone does no damage below VD/MD; beyond them the
+    // allowable g shrinks; past the flutter margin failure is rapid. Rolling pull-outs above Vmo: ~2/3 of the
+    // symmetric limit (25.349).
+    const VD = this.vmoKias(h) + 47, MD = 0.89;
+    const ov = Math.max(clamp((KIAS - VD) / (0.15 * VD), 0, 1), clamp((M - MD) / 0.05, 0, 1));
+    const nPos = 3.6 - 1.6 * ov, nNeg = -1.6 + 0.8 * ov;
     let dr = 0;
-    if (nz > 3.6) dr += (nz - 3.6) * 0.9;
-    if (nz < -1.6) dr += (-1.6 - nz) * 0.9;
-    if (KEAS > 370) dr += (KEAS - 370) / 35;
-    if (KEAS > 440) dr += 5;
-    if (M > 0.93) dr += (M - 0.93) * 12;
-    if (M > 0.88 && nz > 2.2) dr += (nz - 2.2) * (M - 0.88) * 20;
+    if (nz > nPos) dr += (nz - nPos) * 0.9;
+    if (nz > 4.5) dr += 5;                                                       // ultimate load
+    if (nz < nNeg) dr += (nNeg - nz) * 0.9;
+    if (KIAS > 1.15 * VD) dr += (KIAS - 1.15 * VD) / 15 + 0.5;                   // beyond the flutter margin
+    if (M > MD + 0.07) dr += (M - MD - 0.07) * 25 + 0.5;
+    if (KIAS > this.vmoKias(h) && Math.abs(p) > 0.35 && nz > 2.0) dr += (nz - 2.0) * 0.6;   // rolling pull-out
     if (Math.abs(qq) > 1.2 && qbar > 15000) dr += (Math.abs(qq) - 1.2) * 2;   // violent pitch rate at high q
     // Gear VLE 260 KIAS: beyond it the AFM's overspeed procedure still lowers the gear (flight tested to M0.85 /
     // 320 KIAS); expected consequence is minor gear-door damage, not structural failure. Flaps VFE 250/200/165.
