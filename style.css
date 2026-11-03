@@ -30,3 +30,25 @@ label.chk { font-size: 12px; color: #bcd; display: flex; gap: 8px; align-items: 
 label.chk input { margin-top: 2px; }
 button.alt { background: #2b3440; color: #fff; }
 button.alt:hover { background: #3a4656; }
+
+/* controls and flight hardware panel */
+#hwpanel { z-index: 20; }
+.panel.hw { max-width: 900px; }
+.hwdevs { display: grid; gap: 6px; margin: 10px 0; }
+.hwdev { background: #171a20; border-radius: 6px; padding: 8px 10px; font-size: 12px; }
+.hwdev.none { color: #aab; }
+.hwdev .kind { color: #9ab; margin-left: 6px; }
+.hwdev .axes { color: #bcd; margin-top: 4px; white-space: pre-wrap; word-break: break-word; }
+.hwprompt { background: #2a2410; border: 1px solid #ffe34d55; border-radius: 6px; padding: 10px 12px; margin: 10px 0; font-size: 13px; }
+.hwprompt .hwpsub { color: #cdb; margin-right: 10px; }
+#hwpanel .hidden { display: none !important; }
+.hwtab td { vertical-align: middle; }
+.hwtab td.hwb { color: #ddd; font-size: 12px; }
+.hwtab tr.cap td { background: #2a2410; }
+.hwlive .bar { position: relative; display: inline-block; width: 120px; height: 8px; background: #222831; border-radius: 4px; overflow: hidden; }
+.hwlive .bar i { position: absolute; top: 0; bottom: 0; background: #ffe34d; }
+.hwlive .bar.off { opacity: 0.3; }
+.hwlive .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #333a45; }
+.hwlive .dot.on { background: #6f6; }
+button.sm { font-size: 12px; padding: 4px 10px; margin-right: 4px; }
+.hwtab td.hwb.dflt { color: #8a94a6; font-style: italic; }

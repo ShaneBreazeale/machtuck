@@ -65,7 +65,16 @@ when it can no longer cope.
 | Tablet (map and procedure cards) | Tab, then 1 to 6 for a card | |
 | Real weather on or off | U | |
 | Pause, restart, sim rate | P, R, `[` `]` | Options |
+| Controls and hardware binding | / | |
 | All keys | H | Create |
+
+**Flight hardware.** Yokes, joysticks, rudder pedals and throttle quadrants work through the browser's Gamepad API, several
+at once, in Chrome and Firefox. Press `/`, or **Controls & hardware** on the briefing screen, then bind each function by
+moving or pressing the control: pitch, roll, rudder, throttle lever, autopilot disconnect, trim (hat switch or buttons),
+gear, flaps, spoilers, idle and camera. The direction you move a control on binding becomes its positive direction, and
+its travel is the calibration. Bindings are saved per device name in the browser. An unbound yoke or stick flies on its X
+and Y axes; pedals and quadrants do nothing until bound. A moved throttle lever sets the thrust levers directly, and
+hardware axes skip the keyboard's smoothing ramp. Each device appears only after you press one of its buttons.
 
 Your inputs are force on the column, not surface position. At high speed full deflection may take more than you can
 hold, and nose-up trim is how you take the load off. The help screen (`H`) has the AFM upset-recovery card.
@@ -178,6 +187,7 @@ node tools/bench.mjs 2560x1320 8080
 |---|---|
 | `js/aircraft.js`, `js/aero.js`, `js/engine.js` | Flight model, aerodynamics, engine cycle |
 | `js/controls.js` | Column and wheel forces, pilot strength, autopilot clutches |
+| `js/input.js`, `js/hardware.js`, `js/hwui.js` | Keyboard and mouse, all connected flight hardware, the binding panel |
 | `js/scenario.js` | Storm environment, ADS-B reconstruction, ATC timeline, autopilot, hypotheses |
 | `js/render.js`, `js/shaders.js` | WebGL2 renderer |
 | `js/hud.js`, `js/cockpit.js`, `js/vcgauges.js` | Instruments, 3D cockpit, standby gauges |
