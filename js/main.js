@@ -6,6 +6,7 @@ import { PilotControls } from './controls.js';
 import { HUD } from './hud.js';
 import { Cockpit } from './cockpit.js';
 import { Input } from './input.js';
+import { HardwarePanel } from './hwui.js';
 import { Audio } from './audio.js';
 import { DEG, RAD, clamp, qmat, mulMV, nedToWorld, lerp, smoothstep, qfromEuler, wrap180 } from './util.js';
 import { isa, RHO0, G0 } from './atmo.js';
@@ -15,6 +16,8 @@ const glc = document.getElementById('gl'), hc = document.getElementById('hud');
 const R = new Renderer(glc), H = new HUD(hc), IN = new Input(hc), AU = new Audio();
 let CK = null; try { CK = new Cockpit(document.getElementById('ck')); } catch (e) { console.warn('3D cockpit unavailable, using the 2D panel:', e); }
 IN.onPad = (msg) => log('SYS', msg);
+// controls / hardware binding panel: pauses the sim while open
+const HP = new HardwarePanel(IN.hw, { onOpen: () => { HP.wasPaused = G.paused; G.paused = true; }, onClose: () => { G.paused = HP.wasPaused; hc.focus(); } });
 const ghost = buildGhost();
 const ghostLine = new Float32Array(ghost.length * 3);
 ghost.forEach((p, i) => { const w = nedToWorld([p.n, p.e, p.d]); ghostLine.set(w, i * 3); });
@@ -332,6 +335,7 @@ function handleEvents() {
     else if (e === 'ghost') G.showGhost = !G.showGhost;
     else if (e === 'idle') ac.ctl.thr = 0;
     else if (e === 'mute') AU.muted = !AU.muted;
+    else if (e === 'controls') HP.toggle();
   }
 }
 
@@ -344,6 +348,7 @@ function frame(now) {
   if (G.phase === 'run' && !G.paused) {
     const held = IN.update(dt);
     if (IN.trimDelta && ap.on) { ap.disconnect('TRIM'); }   // AFM: manual pitch trim input disconnects the autopilot
+    if (IN.thrSet !== null) { ac.ctl.thr = IN.thrSet; IN.thrSet = null; }   // a moved hardware lever sets the thrust levers
     ac.ctl.thr = clamp(ac.ctl.thr + IN.thrDelta, 0, 1);    // no autothrottle: the levers are always the pilot's
     if (!ap.on) { const tr = ac.sys.trimMode === 'PRI' ? 1 : ac.sys.trimMode === 'SEC' ? 0.45 : 0; ac.ctl.trim = clamp(ac.ctl.trim + IN.trimDelta * tr, -1, 1); }
     const simDt = dt * G.timeScale; const sub = Math.max(1, Math.ceil(simDt / (1 / 240))); const h = simDt / sub;
@@ -351,6 +356,7 @@ function frame(now) {
     G.time += simDt;
   } else if (G.phase === 'replay' && !G.paused) { IN.update(dt); out = replayStep(dt); }
   else if (G.phase === 'end') { IN.update(dt); }
+  else if (G.paused && !HP.open && G.phase === 'run' && document.getElementById('brief').classList.contains('hidden')) IN.pollPaused();   // a controller's pause button can resume
   // ---------- camera ----------
   const Rm = qmat(ac.q);
   const fwd = nedToWorld(mulMV(Rm, [1, 0, 0])), right = nedToWorld(mulMV(Rm, [0, 1, 0])), up = nedToWorld(mulMV(Rm, [0, 0, -1]));
@@ -460,6 +466,7 @@ document.getElementById('watch').addEventListener('click', () => {
 document.getElementById('csv').addEventListener('click', () => {
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([fdrCsv()], { type: 'text/csv' })); a.download = `n722bd_${G.hypKey}_${G.hard ? 'asflown' : 'trainer'}_${Math.round(G.t)}s.csv`; a.click();
 });
+document.getElementById('hwbtn').addEventListener('click', () => HP.show());
 document.getElementById('again').addEventListener('click', () => { newGame(G.hypKey, G.hard); });
 document.getElementById('continue').addEventListener('click', () => { document.getElementById('debrief').classList.add('hidden'); });
 document.getElementById('brief-again').addEventListener('click', () => { document.getElementById('debrief').classList.add('hidden'); document.getElementById('brief').classList.remove('hidden'); });
