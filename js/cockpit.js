@@ -93,9 +93,10 @@ const P = (x, s) => [x, lerp(PY0, PY1, s), lerp(PZ0, PZ1, s)];
 const PN = v3.norm([0, PZ0 - PZ1, PY1 - PY0]);   // panel normal, toward the pilot
 const WSB_Y = -0.075, WSB_Z = 0.96, WST_Y = 0.36, WST_Z = 0.55;   // windshield bottom / top edges
 
-const C = { panel: [0.165, 0.17, 0.18], bezel: [0.095, 0.1, 0.105], knob: [0.04, 0.04, 0.045], glare: [0.05, 0.05, 0.055],
-  lip: [0.13, 0.135, 0.14], shell: [0.2, 0.2, 0.21], pedal: [0.1, 0.1, 0.11], post: [0.34, 0.34, 0.35], liner: [0.6, 0.59, 0.56], wall: [0.4, 0.39, 0.38], ped: [0.13, 0.135, 0.14],
-  yoke: [0.17, 0.17, 0.18], grip: [0.07, 0.07, 0.07], lever: [0.62, 0.63, 0.65], leverKnob: [0.82, 0.82, 0.8], floor: [0.12, 0.12, 0.13] };
+const C = { panel: [0.165, 0.17, 0.18], bezel: [0.095, 0.1, 0.105], knob: [0.04, 0.04, 0.045], glare: [0.035, 0.035, 0.04],
+  lip: [0.11, 0.115, 0.12], shell: [0.5, 0.47, 0.42], pedal: [0.1, 0.1, 0.11], post: [0.8, 0.78, 0.72], liner: [0.74, 0.7, 0.62], wall: [0.62, 0.58, 0.5], ped: [0.6, 0.61, 0.62],
+  yoke: [0.16, 0.16, 0.17], grip: [0.085, 0.085, 0.09], lever: [0.55, 0.56, 0.58], leverKnob: [0.92, 0.92, 0.9], floor: [0.24, 0.23, 0.22],
+  fire: [0.5, 0.07, 0.05], seat: [0.68, 0.62, 0.52], cb: [0.12, 0.12, 0.13], cbCap: [0.05, 0.05, 0.05], cbRed: [0.5, 0.08, 0.06], compass: [0.06, 0.06, 0.07] };
 
 export class Cockpit {
   // Own full-resolution, antialiased, transparent canvas layered between the world and the 2D overlay
@@ -109,7 +110,7 @@ export class Cockpit {
     this.u = {}; for (const n of ['uHead', 'uModel', 'uProj', 'uEye', 'uMode', 'uTex', 'uSun', 'uAmb', 'uSunI', 'uFlash', 'uScreen']) this.u[n] = gl.getUniformLocation(p, n);
     // instruments: offscreen canvases drawn by the existing HUD code
     const mk = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; const hud = new HUD(c); hud.W = w; hud.H = h; return { c, hud, tex: null, frame: 0 }; };
-    this.inst = { pfd: mk(1024, 840), mfd: mk(1024, 840), eng: mk(330, 1000), glare: mk(2048, 116), sw: mk(520, 560), efb: mk(560, 760), glass: mk(1024, 512) };
+    this.inst = { pfd: mk(1024, 840), mfd: mk(1024, 840), eng: mk(330, 1000), glare: mk(2048, 220), cdu: mk(420, 520), sw: mk(520, 560), efb: mk(560, 760), glass: mk(1024, 512) };
     this.surfaces = [];
     this.build();
     this.frame = 0;
@@ -138,12 +139,18 @@ export class Cockpit {
     const mb = this.mb = new MB();
     // main instrument panel across both seats (pilot at x = 0, aircraft centreline at x = +0.38)
     mb.quad(P(-0.6, 0), P(1.36, 0), P(1.36, 1), P(-0.6, 1), C.panel);
-    // glareshield: underside, front lip (carries the annunciator / flight guidance strip), top
-    const lipZ = 0.58, lipY0 = -0.18, lipY1 = -0.095;
-    mb.quad([-0.6, lipY0, lipZ], [1.36, lipY0, lipZ], [1.36, PY0, PZ0], [-0.6, PY0, PZ0], C.glare);
-    mb.quad([-0.6, lipY0, lipZ], [1.36, lipY0, lipZ], [1.36, lipY1, lipZ], [-0.6, lipY1, lipZ], C.lip);
-    mb.quad([-0.6, lipY1, lipZ], [1.36, lipY1, lipZ], [1.36, WSB_Y, WSB_Z], [-0.6, WSB_Y, WSB_Z], C.glare);
-    this.quadSurface('glare', [-0.25, -0.102, lipZ - 0.002], [1.01, -0.102, lipZ - 0.002], [1.01, -0.172, lipZ - 0.002], [-0.25, -0.172, lipZ - 0.002]);
+    // glareshield hood: underside, sloped annunciator face, top, turned-down ends, ENG FIRE PULL lights
+    const fB = [-0.18, 0.585], fT = [-0.065, 0.645];                 // face bottom / top edge (y, z)
+    mb.quad([-0.62, fB[0], fB[1]], [1.38, fB[0], fB[1]], [1.38, PY0, PZ0], [-0.62, PY0, PZ0], C.glare);
+    mb.quad([-0.62, fB[0], fB[1]], [1.38, fB[0], fB[1]], [1.38, fT[0], fT[1]], [-0.62, fT[0], fT[1]], C.lip);
+    mb.quad([-0.62, fT[0], fT[1]], [1.38, fT[0], fT[1]], [1.38, WSB_Y, WSB_Z], [-0.62, WSB_Y, WSB_Z], C.glare);
+    for (const [x0, x1] of [[-0.62, -0.7], [1.38, 1.46]]) {
+      mb.quad([x0, fT[0], fT[1]], [x1, fT[0] - 0.09, fT[1] + 0.04], [x1, -0.25, PZ0], [x0, fB[0], fB[1]], C.glare);
+      mb.quad([x0, fT[0], fT[1]], [x1, fT[0] - 0.09, fT[1] + 0.04], [x1, WSB_Y - 0.09, WSB_Z], [x0, WSB_Y, WSB_Z], C.glare);
+    }
+    const onFace = (x, f, d = 0.004) => [x, lerp(fB[0], fT[0], f), lerp(fB[1], fT[1], f) - d];
+    this.quadSurface('glare', onFace(-0.36, 0.86), onFace(1.12, 0.86), onFace(1.12, 0.14), onFace(-0.36, 0.14));
+    for (const x of [-0.44, 1.2]) mb.box(onFace(x, 0.5, 0.008), [0.04, 0, 0], [0, 0.02, 0.011], [0, -0.003, 0.006], C.fire);
     // screens: switch panel | PFD | MFD | engine stack | copilot MFD | copilot PFD
     this.screen('sw', -0.47, -0.2, 0.12, 0.66, 0.006);
     this.screen('pfd', -0.17, 0.07, 0.14, 0.58);
@@ -157,7 +164,9 @@ export class Cockpit {
     this.quadSurface('efb', e0, e1, e2, e3);
     // windshield frame: centre post, side posts, top bow, sills
     const wsBot = (x) => [x, WSB_Y, WSB_Z], wsTop = (x) => [x, WST_Y, WST_Z];
-    mb.bar(wsBot(0.38), wsTop(0.38), [1, 0, 0], 0.075, 0.05, C.post);
+    mb.bar(wsBot(0.38), wsTop(0.38), [1, 0, 0], 0.11, 0.05, C.post);
+    mb.box([0.38, 0.25, 0.62], [0.045, 0, 0], [0, 0.045, 0], [0, 0, 0.03], C.post);             // compass housing on the post
+    mb.cyl([0.38, 0.25, 0.588], [0, 0, -1], 0.03, 0.006, C.compass, 18);
     mb.bar(wsBot(-0.58), wsTop(-0.5), [1, 0, 0.35], 0.1, 0.06, C.post);
     mb.bar(wsBot(1.34), wsTop(1.26), [1, 0, -0.35], 0.1, 0.06, C.post);
     mb.bar(wsTop(-0.55), wsTop(1.31), [0, 0.3, 1], 0.09, 0.05, C.post);
@@ -172,8 +181,24 @@ export class Cockpit {
     mb.quad(P(-0.6, 1), P(1.36, 1), [1.36, -0.82, 0.55], [-0.6, -0.82, 0.55], C.panel);
     mb.quad([-0.66, -0.98, 0.7], [1.42, -0.98, 0.7], [1.42, -1.0, -0.4], [-0.66, -1.0, -0.4], C.floor, null, [0, 1, 0]);
     // centre pedestal with a sloped top
-    mb.box([0.38, -0.79, 0.45], [0.085, 0, 0], [0, 0.17, 0], [0, 0, 0.2], C.ped);
-    mb.quad([0.295, -0.62, 0.65], [0.465, -0.62, 0.65], [0.465, -0.66, 0.25], [0.295, -0.66, 0.25], C.ped, null, [0, 1, -0.1]);
+    mb.box([0.38, -0.8, 0.36], [0.085, 0, 0], [0, 0.2, 0], [0, 0, 0.3], C.ped);
+    mb.quad([0.295, -0.6, 0.66], [0.465, -0.6, 0.66], [0.465, -0.6, 0.36], [0.295, -0.6, 0.36], C.ped, null, [0, 1, 0]);
+    mb.quad([0.295, -0.6, 0.36], [0.465, -0.6, 0.36], [0.465, -0.66, 0.06], [0.295, -0.66, 0.06], [0.2, 0.2, 0.21], null, [0, 1, 0.2]);
+    this.quadSurface('cdu', [0.305, -0.605, 0.33], [0.455, -0.605, 0.33], [0.455, -0.65, 0.12], [0.305, -0.65, 0.12]);
+    // copilot seat (visible looking right) and the pilot's seat edge
+    for (const [x0, w] of [[0.8, 0.27], [-0.02, 0.27]]) {
+      mb.box([x0, -0.66, 0.05], [w / 2, 0, 0], [0, 0.06, 0], [0, 0, 0.24], C.seat);
+      mb.box([x0, -0.3, -0.24], [w / 2, 0, 0], [0, 0.34, 0.06], [0, -0.02, 0.06], C.seat);
+      for (const sx of [-1, 1]) mb.box([x0 + sx * (w / 2 + 0.03), -0.55, 0.0], [0.025, 0, 0], [0, 0.025, 0], [0, 0, 0.18], [0.2, 0.2, 0.2]);
+    }
+    // side consoles with circuit-breaker rows
+    for (const [xs, nx] of [[1.39, -1], [-0.63, 1]]) {
+      mb.quad([xs, -0.36, 0.5], [xs, -0.36, -0.3], [xs + nx * 0.04, -0.72, -0.3], [xs + nx * 0.04, -0.72, 0.5], C.cb, null, [nx, 0.3, 0]);
+      for (let r = 0; r < 6; r++) for (let c = 0; c < 15; c++) {
+        const f = (r + 0.5) / 6, y = lerp(-0.4, -0.68, f), x = xs + nx * (0.004 + 0.04 * f), z = lerp(0.44, -0.24, (c + 0.5) / 15);
+        mb.cyl([x, y, z], [nx, 0.3, 0], 0.0065, 0.012, (r * 7 + c * 3) % 11 === 0 ? C.cbRed : C.cbCap, 8);
+      }
+    }
     this.staticGeo = this.vao(mb.v);
     // closed cabin shell around the pilot (so nothing shows through gaps) and the window openings cut into it
     const shell = new MB(); shell.box([0.38, -0.27, 0.25], [1.06, 0, 0], [0, 0.75, 0], [0, 0, 0.9], C.shell);
@@ -187,10 +212,15 @@ export class Cockpit {
     this.pedalGeo = this.vao(pd.v);
     // animated parts, built around their pivots
     const yk = new MB();
-    yk.bar([0, -0.2, 0.12], [0, 0, 0], [1, 0, 0], 0.04, 0.04, C.yoke);                              // column
-    yk.bar([-0.15, 0.0, 0], [0.15, 0.0, 0], [0, 1, 0], 0.035, 0.03, C.yoke);                         // cross bar
-    for (const sx of [-1, 1]) { yk.bar([sx * 0.15, -0.01, 0], [sx * 0.165, 0.11, -0.01], [1, 0, 0], 0.035, 0.035, C.grip); }   // horns
-    yk.box([0, 0.005, -0.012], [0.04, 0, 0], [0, 0.03, 0], [0, 0, 0.01], [0.3, 0.3, 0.32]);       // hub plate
+    yk.bar([0, -0.02, 0.03], [0, -0.52, 0.2], [1, 0, 0], 0.035, 0.035, [0.05, 0.05, 0.055]);        // column to the floor
+    yk.box([0, 0, 0.005], [0.055, 0, 0], [0, 0.045, 0], [0, 0, 0.025], C.yoke);                    // hub
+    for (const sx of [-1, 1]) {                                                                   // ram horns
+      yk.bar([sx * 0.05, -0.01, 0], [sx * 0.12, -0.035, 0.005], [0, 1, 0], 0.04, 0.03, C.yoke);
+      yk.bar([sx * 0.12, -0.035, 0.005], [sx * 0.15, 0.06, 0], [1, 0, 0], 0.042, 0.036, C.grip);
+      yk.bar([sx * 0.15, 0.06, 0], [sx * 0.13, 0.11, -0.005], [1, 0, 0], 0.036, 0.032, C.grip);
+      yk.cyl([sx * 0.14, 0.1, -0.022], [0, 0, -1], 0.006, 0.006, [0.6, 0.08, 0.06], 8);           // AP disconnect / trim buttons
+    }
+    yk.box([0, 0.004, -0.022], [0.035, 0, 0], [0, 0.022, 0], [0, 0, 0.004], [0.35, 0.35, 0.37]);  // logo plate
     this.yokeGeo = this.vao(yk.v);
     const lv = new MB();
     lv.bar([0, 0, 0], [0, 0.13, 0], [1, 0, 0], 0.012, 0.012, C.lever);
@@ -216,12 +246,29 @@ export class Cockpit {
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, it.c); gl.generateMipmap(gl.TEXTURE_2D);
     };
     draw('pfd', 1, (h) => h.pfd(S, blink, 470, 360, 600));
-    draw('glare', 2, (h) => h.annunciators(S, blink, 0, 0, 2048, 116));
+    draw('glare', 2, (h) => h.annunciators(S, blink, 0, 0, 2048, 220));
+    draw('cdu', 10, (h) => this.cduPage(h, S));
     draw('mfd', 3, (h) => h.mfd(S, 0, 0, 1024, 840));
     draw('eng', 3, (h) => h.engines(S, 0, 0, 330, 1000));
     draw('sw', 4, (h) => h.switches(S, 0, 0, 520, 560));
     draw('efb', 4, (h) => h.efb(S, 0, 0, 560, 760));
     draw('glass', 2, (h) => { h.W = 1024; h.H = 512 / 0.56; h.windshield(S); }, null);
+  }
+  // FMS control display unit: a progress page from the sim state (our own layout)
+  cduPage(h, S) {
+    const ctx = h.ctx, o = S.out, ac = S.ac, T = (t, x, y, c = '#e8f0e8', sz = 26, al = 'left') => h.text(t, x, y, sz, c, al);
+    ctx.fillStyle = '#20232a'; ctx.fillRect(0, 0, 420, 520); ctx.fillStyle = '#020403'; ctx.fillRect(18, 16, 384, 300);
+    T('PROGRESS 1/2', 210, 36, '#e8f0e8', 22, 'center');
+    T('FROM', 30, 74, '#7fd7ff', 18); T('KAUS', 30, 98); T('TO', 230, 74, '#7fd7ff', 18); T('MYEH', 230, 98);
+    T('GS', 30, 136, '#7fd7ff', 18); T(`${Math.round((o.gs || 0) / 0.514444)} KT`, 30, 160);
+    T('ALT', 230, 136, '#7fd7ff', 18); T(`FL${String(Math.round(o.h / 0.3048 / 100)).padStart(3, '0')}`, 230, 160);
+    const fuelLb = (ac.fuel || 0) / 0.45359237, ffLb = (ac.ff || 0) / 0.45359237 * 3600;
+    T('FUEL REM', 30, 198, '#7fd7ff', 18); T(`${Math.round(fuelLb / 10) * 10} LB`, 30, 222);
+    T('FUEL FLOW', 230, 198, '#7fd7ff', 18); T(`${Math.round(ffLb / 10) * 10} PPH`, 230, 222);
+    T('ENDURANCE', 30, 260, '#7fd7ff', 18); T(ffLb > 1 ? `${(fuelLb / ffLb).toFixed(1)} HR` : '--', 30, 284);
+    T('SAT', 230, 260, '#7fd7ff', 18); T(`${Math.round(o.OAT)}°C`, 230, 284);
+    ctx.fillStyle = '#3a3e46';
+    for (let r = 0; r < 4; r++) for (let c = 0; c < 6; c++) ctx.fillRect(22 + c * 64, 340 + r * 42, 54, 32);
   }
   // Head orientation in the cockpit frame (yaw right +, pitch up +): columns right, up, fwd
   static head(yaw, pitch) {
