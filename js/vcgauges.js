@@ -178,12 +178,12 @@ export const GAUGES = {
     const tr = S.ac.ctl.trim; ctx.fillStyle = '#111'; ctx.fillRect(4, 4, 73, 256); txt(ctx, 'NU', 40, 18, 14, '#bbb'); txt(ctx, 'ND', 40, 246, 14, '#bbb');
     ctx.fillStyle = '#2a7a2a'; ctx.fillRect(30, 90, 20, 60); ctx.fillStyle = '#eee'; const y = 132 - tr * 100; ctx.beginPath(); ctx.moveTo(20, y); ctx.lineTo(60, y - 9); ctx.lineTo(60, y + 9); ctx.fill();
   } },
-  // whiskey compass on the windshield centre post
+  // whiskey compass on the windshield centre post: the card is read from behind, so headings increase to the left
   compass: { w: 256, h: 256, every: 2, at: [['$pancompass', 65, 70, 125, 140]], draw(ctx, S) {
     ctx.fillStyle = '#0a0a0a'; ctx.fillRect(0, 0, 256, 256);
     const hdg = wrap360((S.out.psi || 0) * RAD), ppd = 4; ctx.save(); ctx.beginPath(); ctx.rect(14, 60, 228, 136); ctx.clip();
     ctx.fillStyle = '#d8d0b8'; ctx.fillRect(14, 60, 228, 136); ctx.strokeStyle = '#111';
-    for (let d = Math.floor(hdg - 30); d <= hdg + 30; d++) { if (d % 5) continue; const x = 128 + (d - hdg) * ppd, v = wrap360(d); ctx.lineWidth = v % 10 ? 1 : 2; ctx.beginPath(); ctx.moveTo(x, 60); ctx.lineTo(x, v % 10 ? 82 : 92); ctx.stroke();
+    for (let d = Math.floor(hdg - 30); d <= hdg + 30; d++) { if (d % 5) continue; const x = 128 - (d - hdg) * ppd, v = wrap360(d); ctx.lineWidth = v % 10 ? 1 : 2; ctx.beginPath(); ctx.moveTo(x, 60); ctx.lineTo(x, v % 10 ? 82 : 92); ctx.stroke();
       if (v % 30 === 0) txt(ctx, { 0: 'N', 90: 'E', 180: 'S', 270: 'W' }[v] || String(v / 10), x, 130, 34, '#111'); }
     ctx.restore(); ctx.strokeStyle = '#e22'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(128, 56); ctx.lineTo(128, 200); ctx.stroke();
   } },
