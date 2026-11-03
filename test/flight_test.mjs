@@ -124,7 +124,7 @@ for (const f of [0, 0.2, 0.5, 1]) rec(`stall KCAS flaps ${f * 40}°, 14k / 23.5k
   };
   const W0 = MTOW - 700 * LB, W1 = (23500 - 7910) * LB, Wr = W1 + 0.5 * 3600 * 2 * 4.448 * 800 * at(W1).tsfc / 9.80665;   // 30 min reserve
   const mid = at((W0 + Wr) / 2), R = V / (mid.tsfc * 9.80665) * mid.LD * Math.log(W0 / Wr) / 1852 + 150;
-  rec('Breguet range, full fuel (nm)', R.toFixed(0), '~2,740 (SAE 932534)', `mid-cruise L/D ${mid.LD.toFixed(1)}, TSFC ${(mid.tsfc * 3600 * 9.80665).toFixed(3)} /h`);
+  rec('Breguet range, full fuel, 30 min reserve (nm)', R.toFixed(0), 'gross check; NBAA mission: test/mission.mjs', `mid-cruise L/D ${mid.LD.toFixed(1)}, TSFC ${(mid.tsfc * 3600 * 9.80665).toFixed(3)} /h`);
 }
 
 // 3. Time to climb, MTOW, 1,500 ft -> FL410: 250 KIAS to 10k, 300 KIAS, then M0.74, full thrust

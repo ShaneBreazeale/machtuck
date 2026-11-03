@@ -31,7 +31,7 @@ export const GEO = {
   nac: { l: 3.40, d: 1.04, n: 2 },         // PW305A nacelle incl. reverser, dwg
   ht: { S: 5.6, b: 4.57, mac: 1.28, tc: 0.10, sweep: 25 * DEG },   // T-tail: span 180 in, chords 65/32 in, LE sweep ~29 deg, dwg (t/c est.)
   vt: { S: 4.2, mac: 2.43, tc: 0.11, sweep: 40 * DEG },   // fin: 70 in tall, chords 121/65 in, LE sweep ~43 deg, dwg (excl. dorsal fillet; t/c est.)
-  upsweep: 6 * DEG,                        // aft-fuselage upsweep, est.
+  upsweep: 6 * DEG,                        // aft-fuselage upsweep: dwg lower line 7.3 deg, centerline ~4.5 deg
   pylon: { swet: 0.8, l: 1.0, tc: 0.12, n: 2 },        // engine pylons: chord ~1.0 m (dwg), short stubs (wetted est.)
   deltaFin: { swet: 1.8, l: 1.2 },                     // ventral 'delta fins', both, est.
   lt: 7.19,                                            // wing MAC c/4 (FS 385.1) to stabilizer MAC c/4 (FS 668), dwg
@@ -59,9 +59,9 @@ export function cd0(rho, V, T, M) {
   const fr = g.fus.l / g.fus.d;
   const swF = Math.PI * g.fus.d * g.fus.l * (1 - 2 / fr) ** (2 / 3) * (1 + 1 / (fr * fr));
   f += cf(rho, V, T, g.fus.l, M) * (1 + 60 / fr ** 3 + fr / 400) * swF;
-  // nacelles, mounted close to the fuselage: interference Q = 1.3
+  // nacelles: ~6 in off the fuselage side on the AFM three-view -> Raymer Q = 1.5 (mounted directly on the fuselage)
   const frN = g.nac.l / g.nac.d;
-  f += g.nac.n * cf(rho, V, T, g.nac.l, M) * (1 + 0.35 / frN) * 1.3 * Math.PI * g.nac.d * g.nac.l * 0.9;
+  f += g.nac.n * cf(rho, V, T, g.nac.l, M) * (1 + 0.35 / frN) * 1.5 * Math.PI * g.nac.d * g.nac.l * 0.9;
   // tails (Q = 1.04) and winglets
   for (const t of [g.ht, g.vt]) f += cf(rho, V, T, t.mac, M) * ffLifting(t.tc, t.sweep, M) * 1.04 * 2 * (1 + 0.2 * t.tc) * t.S;
   f += cf(rho, V, T, 0.6, M) * ffLifting(0.09, 30 * DEG, M) * 1.04 * 2 * 2 * g.winglet * 0.6;
@@ -174,8 +174,14 @@ const M_CRIT = Float64Array.from({ length: NC }, (_, i) => bisect((M) => peakMac
 export const clBuffet = (M) => lookM(CL_BUF, M);
 export const clMaxCompressible = (M) => lookM(CL_MAXC, M);
 export const mCrit = (CL) => lookCL(M_CRIT, CL);
-/** Wave drag, Lock's fourth-power law above the critical Mach. dMcr lets ice lower it. */
-export const cdWave = (M, CL, dMcr = 0) => { const mc = mCrit(CL) - dMcr; return M > mc ? 20 * (M - mc) ** 4 : 0; };
+// Wave drag: Korn equation for drag-divergence Mach + Lock's fourth-power law (Mason; Raymer):
+//   Mdd = kA/cos L - (t/c)/cos^2 L - CL/(10 cos^3 L),  CDw = 20 (M - Mcr)^4,  Mcr = Mdd - (0.1/80)^(1/3)
+// kA = 0.87 for conventional NACA 6-series sections (0.95 supercritical) - textbook value, not fitted.
+// (Lock's Mcr is a curve parameter, not the physical sonic-onset Mach from the pressure model above,
+// which is used for buffet.) dMcr lets ice lower it.
+export const KORN_KA = 0.87;
+export const mDD = (CL) => { const c = Math.cos(GEO.sweepC4); return KORN_KA / c - GEO.tc / (c * c) - Math.abs(CL) / (10 * c ** 3); };
+export const cdWave = (M, CL, dMcr = 0) => { const mc = mDD(CL) - 0.1077 - dMcr; return M > mc ? 20 * (M - mc) ** 4 : 0; };
 /** Shock-buffet onset Mach at lift coefficient CL (inverse of clBuffet on its high-speed side). */
 export function buffetMach(CL) {
   const c = Math.abs(CL);
