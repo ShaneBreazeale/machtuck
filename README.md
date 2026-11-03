@@ -49,7 +49,7 @@ rating (4,600 lbf, flat to 23.3 C) at the AFM takeoff N1. Current agreement (`no
 ## Cockpit, systems, procedures
 
 3D cockpit from the left seat (`js/cockpit.js`): the textured virtual cockpit of the Premier Aircraft Design Learjet 60
-(panel, glareshield, yokes, pedestal, seats, side consoles, window glass; `data/vc/`, see its README for credits and licence).
+(panel, glareshield, yokes, pedestal, seats, side consoles, window glass; `data/vc/`, see its README for credits).
 The model's own animations drive the yokes (pitch and roll), rudder pedals, thrust, flap and spoiler levers from our controls.
 Our live instruments are mapped onto the panel at the gauge positions of the original panel.cfg: PFDs with HSI rose, MFDs with the
 weather radar, engine column, glareshield annunciators + flight-guidance strip, master warning/caution, standby attitude,

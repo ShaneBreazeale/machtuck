@@ -91,6 +91,26 @@ export const GAUGES = {
     h.fgcModes(S).forEach(([m, act], i) => txt(ctx, m, 606 + i * 64, 22, 17, act ? '#6cff6c' : '#3b434d'));
     txt(ctx, h.fgcText(S), 734, 52, 15, S.ap.on ? '#7fd7ff' : '#ffb000', 'center', '');
   } },
+  // flight-guidance push-buttons on the glareshield face either side of the trim display (4x the 512 panel
+  // space from x 100, y 466): labelled caps, green bar lit for the engaged modes; AP and YD are clickable
+  apLights: { w: 1168, h: 92, every: 3, bg: null, at: [['$panup', 100, 466, 292, 23]], draw(ctx, S, h) {
+    const ap = S.ap.on, yd = S.ac.ctl.yd;
+    const groups = [[8, 84, [['HDG', ap, 'ap'], ['NAV', false, 'ap'], ['APR', false, 'ap'], ['ALT', ap, 'ap'], ['VS', false, 'ap']]],
+      [670, 97, [['AP', ap, 'ap'], ['YD', yd, 'yd'], ['FD', ap, 'ap'], ['IAS', false, 'ap'], ['MACH', ap, 'ap']]]];
+    for (const [x0, bw, btns] of groups) {
+      const gw = btns.length * bw + 12;
+      ctx.fillStyle = '#1b1d21'; ctx.strokeStyle = '#4a4e56'; ctx.lineWidth = 3; ctx.beginPath(); ctx.roundRect(x0, 2, gw, 88, 8); ctx.fill(); ctx.stroke();
+      btns.forEach(([lab, on, id], i) => {
+        const x = x0 + 6 + i * bw;
+        const g = ctx.createLinearGradient(0, 8, 0, 84); g.addColorStop(0, '#5a5e66'); g.addColorStop(1, '#30333a');
+        ctx.fillStyle = g; ctx.beginPath(); ctx.roundRect(x + 4, 8, bw - 8, 76, 6); ctx.fill();
+        ctx.fillStyle = on ? '#5dff6a' : '#16301a'; ctx.shadowColor = '#5dff6a'; ctx.shadowBlur = on ? 16 : 0;
+        ctx.fillRect(x + 18, 14, bw - 36, 12); ctx.shadowBlur = 0;
+        txt(ctx, lab, x + bw / 2, 56, 24, '#eef2f6');
+        h.hits.push({ x: x + 4, y: 8, w: bw - 8, h: 76, id });
+      });
+    }
+  } },
   // MASTER WARNING / MASTER CAUTION pair at the top of the pilot's panel
   master: { w: 164, h: 112, every: 2, at: [['$panL', 625, 140, 41, 28]], draw(ctx, S, h, blink) {
     const o = S.out, ac = S.ac;
