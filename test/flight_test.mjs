@@ -93,6 +93,23 @@ for (const f of [0, 0.2, 0.5, 1]) rec(`stall KCAS flaps ${f * 40}°, 14k / 23.5k
     FTB.map(([M, c]) => `${M}:${clBuffet(M).toFixed(2)}/${c}`).join(' '));
 }
 
+// EASA TCDS IM.A.212 Issue 04 p10: maneuvering speed VA (KIAS) vs altitude per weight, digitized; 'top' = where the
+// line meets Mmo. Part 25.335(c): at VA a full pull stalls the wing at the 3.0 g limit load -> the model's max g there.
+{
+  const VA = { 16500: [[0, 200], [20, 237], [25, 245], [30, 250], ['top', 254]], 18000: [[0, 212], [20, 247], [25, 255], [30, 259], ['top', 264]],
+    19500: [[0, 225], [20, 254], [25, 261], [30, 265], ['top', 274]], 22750: [[0, 249], [20, 278], [25, 286], [30, 295], ['top', 297]] };
+  const mmo = (hf) => hf < 37000 ? 0.81 : 0.81 - 0.03 * (hf - 37000) / 6000;
+  const machAt = (hf, kt) => { const p = isa(hf * FT).p; let M = 0.05; while (casKt(M, p) < kt) M += 0.0005; return M; };
+  const ns = [];
+  for (const [lb, pts] of Object.entries(VA)) for (let [kft, kt] of pts) {
+    let hf = kft * 1000;
+    if (kft === 'top') for (hf = 0; hf < 51000 && machAt(hf, kt) < mmo(hf); hf += 100);
+    const M = machAt(hf, kt);
+    ns.push(clMaxAt(M) * 0.7 * isa(hf * FT).p * M * M * 24.57 / (lb * LB * 9.80665));
+  }
+  rec('max g at VA (EASA TCDS chart, 20 pts)', `${Math.min(...ns).toFixed(2)}-${Math.max(...ns).toFixed(2)}`, '3.0 +/- 0.15', 'Part 25.335(c)');
+}
+
 // 2. Cruise: thrust needed for M0.76 at FL410 (typical cruise), fuel flow, and max level Mach at full thrust
 {
   const ac = make({ m: 8600, h: 41000 * FT, V: 225 });

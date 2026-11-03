@@ -21,12 +21,22 @@ const table = (pts, x) => {
   for (let i = 1; i < pts.length; i++) if (x <= pts[i][0]) return lerp(pts[i - 1][1], pts[i][1], (x - pts[i - 1][0]) / (pts[i][0] - pts[i - 1][0]));
   return pts[pts.length - 1][1];
 };
-// Clean CLmax: the viscous low-speed value from the AFM stall chart (Fig 5-22: 129 KCAS at
-// 23,500 lb, 102 KCAS at 14,000 lb, flaps up, idle -> ~1.55; no closed-form theory gives this),
-// capped by the compressibility limit from the section pressure model (aero.js). Ice cuts it.
+// Clean CLmax vs Mach, from documentation where it exists:
+//   - low speed: the AFM stall chart (Fig 5-22: 129 KCAS at 23,500 lb, 102 KCAS at 14,000 lb, flaps up, idle -> ~1.55)
+//   - M 0.30-0.81: the maneuvering-speed lines of the certified airspeed limits chart (EASA TCDS IM.A.212 Issue 04,
+//     p10: VA for 16,500-23,100 lb from sea level to Mmo). Part 25.335(c) sets VA where max lift gives the 3.0 g
+//     limit load, so each point is CNmax = 3 W / (q S). Twenty points over four weights collapse onto one curve
+//     (scatter ~0.03); extrapolated to M 0.2 it meets the stall chart's 1.55. Max lift falls fast to M 0.5, then
+//     holds ~0.97 to Mmo, well above shock-buffet onset (0.52 at M 0.80, SAE 932534): the wing can be pulled deep
+//     into buffet before it stalls.
+//   - above M 0.81 (undocumented): the section pressure model's Mach falloff (aero.js), anchored at the chart's 0.97.
+// Ice cuts it.
 export const CLMAX_LOWSPEED = 1.55;
+const CLMAX_DOC = [[0.20, 1.55], [0.30, 1.38], [0.34, 1.30], [0.38, 1.23], [0.52, 1.03], [0.60, 1.00], [0.70, 0.98], [0.81, 0.97]];
+const M_DOC = 0.81;
+const clMaxClean = (M) => M <= M_DOC ? table(CLMAX_DOC, M) : CLMAX_DOC[CLMAX_DOC.length - 1][1] * clMaxCompressible(M) / clMaxCompressible(M_DOC);
 const iceFactor = (M, ice) => 1 - 0.22 * ice * (1 - 0.7 * smoothstep(0.5, 0.8, M));
-export const clMaxAt = (M, ice = 0) => Math.min(CLMAX_LOWSPEED, clMaxCompressible(M)) * iceFactor(M, ice);
+export const clMaxAt = (M, ice = 0) => clMaxClean(M) * iceFactor(M, ice);
 // Lift-curve slope: DATCOM/Helmbold (aero.js), collapsing past drag divergence
 export const clAlphaAt = (M) => clAlpha(M) * (1 - 0.3 * smoothstep(0.86, 0.98, M));
 // Shock-buffet onset Mach for a lift coefficient (aero.js: Pearcey criterion on the section)

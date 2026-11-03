@@ -57,7 +57,8 @@ KPBI, x east, y up, z north); `SIM.R.dbg = {cloudCover: 0.3}` overrides render i
 
 - `js/aircraft.js` — 6-DOF Learjet 60 flight model (Mach tuck, buffet, ice, T-tail stall, Part 25 structural limits, AFM limits)
 - `js/aero.js` — aerodynamics from textbook methods: component drag build-up, DATCOM lift slope, sweep theory +
-  section pressure model for critical Mach, wave drag, buffet onset and the Mach loss of CLmax
+  section pressure model for critical Mach, wave drag, buffet onset, and the Mach loss of CLmax above M 0.81
+  (below that, CLmax follows the certified VA chart, see Structure)
 - `js/engine.js` — PW305A two-stream cycle with turbomachinery similarity and the thrust-rating (N1) law
 - `js/scenario.js` — storm environment, ADS-B ghost reconstruction, ATC timeline, autopilot, hypotheses
 - `js/render.js`, `js/shaders.js` — WebGL2 renderer (see Rendering); `js/sun.js` solar ephemeris; `js/anim.js` model keyframe helpers
@@ -104,12 +105,19 @@ Structure (`aircraft.js`): Vmo/Mmo is an operating limit, not a structural one. 
 limit load (+3.0 / -1.0 g), yielding past ~1.2x and failing at the 1.5x ultimate; beyond VD/MD the allowable load
 shrinks; past the 25.629 flutter margin (1.15 VD, or well past MD) failure is rapid; rolling pull-outs above Vmo get
 ~2/3 of the symmetric limit (25.349). In the sim's breakups the killer is negative g (about -2 g, twice the limit) from
-the tail stall, trim runaway or downdraft at M 0.91-0.96, not the overspeed by itself. N722BD is serial 60-271 (2004);
+the tail stall, trim runaway or downdraft, not the overspeed by itself.
+
+Max lift vs Mach comes from the certified airspeed-limits chart (EASA TCDS IM.A.212 Issue 04, p10). Its maneuvering-speed
+lines (VA, 16,500-23,100 lb, sea level to Mmo) mark where a full pull stalls the wing at the 3.0 g limit load
+(25.335(c)), so each point gives CNmax = 3 W / (q S). All twenty digitized points fall on one curve: 1.38 at M 0.30,
+~1.02 at M 0.52-0.60, ~0.97 from M 0.67 to Mmo, and it meets the AFM stall chart's 1.55 near M 0.2. At cruise Mach
+the wing can be pulled far past shock-buffet onset (CL 0.52 at M 0.80) before it stalls. That lift also works
+downward: in the tail-stall pushover the wing reaches about -2 g at M 0.81 within seconds, past the -1.5 g ultimate. N722BD is serial 60-271 (2004);
 its AFM limits pages are the "60-249 & Subsequent" set, with the same primary-instrument Vmo/Mmo (330 KIAS / M 0.81 at altitude).
 
 `node test/force_test.mjs` checks the calibration and flies the as-flown upset with a force-limited AFM-procedure pilot.
 Starting the recovery 2 s after the autopilot lets go saves the airplane in three of the four hypotheses; at 5 s it costs
-~6,000 ft; at 8-12 s the column forces outlast the pilot and the dive ends in breakup.
+~8,000 ft; from 8 s on, the tail-stall pushover overloads the wing in negative g before the pilot acts.
 
 ## Cockpit, systems, procedures
 
