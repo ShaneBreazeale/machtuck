@@ -60,7 +60,8 @@ void main(){
 const VAR = { YOKE_PITCH: 524, YOKE_ROLL: 528, RUDDER: 532, THR_L: 472, THR_R: 476, FLAPS: 552, SPOILER: 544 };
 // Thrust levers: the model's own lever track, idle (t 0) to max (t 50), 17.5 deg; t 50..100 is the reverser range
 const THR_T = (thr) => 50 * clamp(thr, 0, 1);
-export const EYE = [-0.47, 0.6, 5.6];          // pilot eye in model coordinates (aircraft.cfg eyepoint, nudged)
+// pilot eye in model coordinates: aircraft.cfg eyepoint (-16.7, -1.6, 2.0 ft from the datum, datum 34.5 ft ahead of the origin)
+export const EYE = [-1.6 * 0.3048, 2.0 * 0.3048, (34.5 - 16.7) * 0.3048];
 
 const v3 = { sub: (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]], add: (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]],
   mul: (a, s) => [a[0] * s, a[1] * s, a[2] * s], dot: (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2],
