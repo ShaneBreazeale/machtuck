@@ -219,11 +219,11 @@ export class Autopilot {
     const vsCmd = clamp((this.altTgt - h) * 0.10, -8, 8);
     const thetaCmd = clamp(theta + (vsCmd - vs) * 0.0025, -2.5 * DEG, 4 * DEG);
     let elev = clamp(2.5 * (thetaCmd - theta) - 1.0 * q, -0.12, 0.12);
-    ac.ctl.elev = elev;
-    ac.ctl.trim = clamp(ac.ctl.trim + elev * this.trimRate * dt, -1, 1);   // auto-trim offloads the servo
+    ac.ctl.elev = elev; this.cmdElev = elev;
+    ac.ctl.trim = clamp(ac.ctl.trim + elev * this.trimRate * dt, -1, 1);   // auto-trim offloads the servo (and trims against a pilot fighting it)
     const hErr = wrap180(this.hdgTgt - psi * RAD);
     const phiCmd = clamp(hErr * 1.5, -25, 25) * DEG;
-    ac.ctl.ail = clamp(1.2 * (phiCmd - phi) - 0.5 * p, -0.6, 0.6);
+    ac.ctl.ail = clamp(1.2 * (phiCmd - phi) - 0.5 * p, -0.6, 0.6); this.cmdAil = ac.ctl.ail;
     // No autothrottle on the Learjet 60: thrust stays where the crew left it.
     if (M > 0.845 || Math.abs(phi) > 50 * DEG || vs < -45) this.disconnect(M > 0.845 ? 'OVERSPEED' : 'ATTITUDE');
   }

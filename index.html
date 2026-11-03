@@ -30,7 +30,7 @@
       <div>
         <h3>Your airplane</h3>
         <ul>
-          <li>6-DOF Learjet 60 model: Mach tuck above M.80, shock buffet, ice-degraded wing and T-tail, structural limits (+3.6 g yield, ~370 KEAS, M.93), spoilers usable at any speed</li>
+          <li>6-DOF Learjet 60 model: Mach tuck above M.80, shock buffet, ice-degraded wing and T-tail, structural limits (+3.6 g yield, ~370 KEAS, M.93), unboosted controls: your inputs are column force, heavy at high speed (AFM: &gt; 75 lb in a nose-down overspeed), spoilers pitch the nose down above Vmo/Mmo</li>
           <li>Growing cumulonimbus with updraft core, exit shear, severe turbulence, rapid icing, lightning</li>
           <li>Autopilot flies the cruise; it will hand you the airplane when it can no longer cope</li>
           <li>Magenta ghost = reconstructed ADS-B track of N722BD; chart (top right) compares your altitude profile</li>
@@ -41,7 +41,7 @@
         <label>Difficulty: <select id="diff"><option value="hard">As flown — handed over trimmed nose-down, iced tail stays stalled until forced, asymmetric ice, severe turbulence through the dive, strong Mach tuck</option><option value="trainer">Trainer — forgiving tail, calm after the core, nose-up trim</option></select></label>
       </div>
     </div>
-    <p class="keys"><b>Fly:</b> ↑↓←→ / WASD or mouse-drag · Q/E rudder · −/= throttle · 0 idle · B spoilers · , . trim · X autopilot · C camera (right-drag orbits) · T ATC audio · U NEXRAD · O/J weather radar · N skip to core entry · H all keys</p>
+    <p class="keys"><b>Fly:</b> ↑↓←→ / WASD or mouse-drag · Q/E rudder · −/= throttle · 0 idle · B spoilers · , . trim · X autopilot (stays engaged and trims against you until disconnected) · C camera (right-drag orbits) · T ATC audio · U NEXRAD · O/J weather radar · N skip to core entry · H all keys</p>
     <button id="begin">Fly it · 12:47:00 EST</button><button id="watch" class="alt">Watch the reconstruction (no flying)</button>
     <p class="note">Built from public reporting (Flightradar24, ADS-B Exchange, NEXRAD KAMX via MyRadar/LiveStormChasers, LiveATC, NTSB briefing). The flight model and the storm are approximations; the hypotheses are not findings. Nine people died on this flight. The crew's final transmissions are not reproduced here.</p>
   </div>

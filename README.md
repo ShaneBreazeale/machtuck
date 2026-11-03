@@ -66,7 +66,7 @@ KPBI, x east, y up, z north); `SIM.R.dbg = {cloudCover: 0.3}` overrides render i
 - `js/input.js`, `js/audio.js`, `js/main.js`
 - `test/` — headless Node checks: `sim_test.mjs` (upset scenario), `stab_test.mjs`, `flight_test.mjs` (flight-test
   card), `afm_validate.mjs` (model vs ~1,860 cells of AFM tables in `afm_tables.json`), `recovery_test.mjs` (pass/fail judgement: no credit for an early takeover
-  without an upset, seeded turbulence)
+  without an upset, seeded turbulence), `force_test.mjs` (control forces, AFM calibration, reaction-delay sweep)
 
 ## Flight model validation
 
@@ -85,6 +85,23 @@ rating (4,600 lbf, flat to 23.3 C) at the AFM takeoff N1. Current agreement (`no
   brake release vs 18-18.5 published
 - NBAA IFR range, 4 pax, 100 nm alternate (`node test/mission.mjs`): 2,455 nm vs 2,405 nm spec (+2%); cruise fuel flow
   ~1,250 lb/h at FL410 M0.76; max level speed 458 KTAS (published max cruise 453-466 KTAS). Wave drag: Korn + Lock, kA 0.87
+
+## Control forces
+
+The Learjet 60's ailerons and elevator are unboosted (cables and push-rods), so `js/controls.js` treats your input as
+the force on the column and wheel: the surface goes where that force balances its hinge moment, which grows with
+dynamic pressure and in the transonic range. Calibrated to AFM FM-123 (Pitch Axis Malfunction: a nose-down trim runaway
+or nose-down overspeed "can ... require control forces in excess of 75 pounds for recovery"): holding full nose-down
+trim at Vmo takes ~100 lb. A pilot holds ~60 lb, bursts to ~150 lb and tires in ~10 s (gauge: COLUMN FORCE). The
+stabilizer trims as a whole, so nose-up trim is how you take the load off. The autopilot's clutched servos can be
+overpowered, but it stays engaged and keeps trimming against you until you disconnect it (X) or use manual trim. Ice on
+the stabilizer makes the column go light and pulse (AFM). Spoilers pitch the nose down above Vmo/Mmo and gear gives a
+nose-up moment; the upset card follows the AFM order (idle, AP off, identify attitude, wings level, elevator + nose-up
+trim, gear down if extreme, no spoilers).
+
+`node test/force_test.mjs` checks the calibration and flies the as-flown upset with a force-limited AFM-procedure pilot.
+Starting the recovery 2 s after the autopilot lets go saves the airplane in three of the four hypotheses; at 5 s it costs
+~6,000 ft; at 8-12 s the column forces outlast the pilot and the dive ends in breakup.
 
 ## Cockpit, systems, procedures
 

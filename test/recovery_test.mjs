@@ -50,10 +50,13 @@ const holdLevel = (ac, out) => {
   ac.ctl.elev = clamp(ac.ctl.elev + (3 * (2 * DEG - out.theta) - 0.8 * out.q) * (1 / 200) * 4, -1, 1);
 };
 const noPilot = () => {};
-// Textbook upset recovery (as test/sim_test.mjs): idle, spoilers, roll wings level, unload, then pull to ~2.4 g
+// Textbook upset recovery per AFM FM-123 Overspeed Recovery: idle, AP off, identify attitude, level wings (no pull
+// while banked steeply), elevator and pitch trim to raise the nose, gear down when speed/attitude is extreme.
+// No spoilers: the AFM forbids them in a nose-down upset (nose-down pitching moment above Vmo/Mmo).
 const textbook = (ac, out, t, t0) => {
   if (t - t0 < 2.5) return;
-  ac.ctl.thr = 0; ac.ctl.sb = 1;
+  ac.ctl.thr = 0; ac.ctl.sb = 0;
+  if (out.overspeed && (out.M > 0.85 || Math.abs(out.phi) > 60 * DEG)) ac.ctl.gear = 1;
   ac.ctl.ail = clamp(2.0 * (-out.phi) - 0.3 * out.p, -1, 1);
   let gCmd = Math.abs(out.phi) < 40 * DEG ? (out.M > 0.86 ? 1.8 : 2.4) : 1.0;
   if (out.buffet || out.stalled) gCmd = Math.min(gCmd, 0.9);
@@ -80,10 +83,10 @@ for (const hyp of (process.env.HYP ? process.env.HYP.split(',') : ['combined', '
   // rides out the upset and stabilises. Not in trim, where nobody selects SEC/OFF and the runaway wins.
   const heldOn = R.early.filter(r => r.upsetAt !== null && r.recoveredAt !== null).length;
   if (hyp !== 'trim') expect(heldOn === SEEDS.length, `${hyp}: hand-flown recovery through the event is credited (${heldOn}/${SEEDS.length} seeds)`);
-  // The scripted textbook pilot (as in sim_test.mjs) stays at idle with spoilers out after the pull-up and ends up riding
+  // The scripted textbook pilot stays at idle after the pull-up and ends up riding
   // the stick shaker or mushing past stall AOA; the old 3 s window called that RECOVERED. Reported, not asserted.
   const credited = R.good.filter(r => r.recoveredAt !== null && r.recoveredAt > r.upsetAt).length, oldC = R.good.filter(r => r.oldRecovered !== null).length;
-  console.log(`  textbook pilot (idle, spoilers out throughout): credited ${credited}/${SEEDS.length}, old rule ${oldC}/${SEEDS.length}`);
+  console.log(`  textbook pilot (AFM: idle, no spoilers, gear down if extreme): credited ${credited}/${SEEDS.length}, old rule ${oldC}/${SEEDS.length}`);
 }
 console.log(fail ? `\n${fail} failed` : '\nall passed');
 process.exit(fail ? 1 : 0);
