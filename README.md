@@ -1,173 +1,215 @@
-# N722BD — Learjet 60 convective upset simulator
+# N722BD: Learjet 60 convective upset simulator
 
-Browser flight simulator that recreates the 1 November 2026 Learjet 60 (N722BD) upset at FL350
-over western Palm Beach County and lets you attempt the recovery. Pure WebGL2 + ES modules, no build.
+A browser flight simulator that recreates the 1 November 2026 loss of Learjet 60 N722BD, which entered a thunderstorm
+core at FL350 over Palm Beach County, and lets you try to fly it out. The storm is built from the real radar,
+satellite and lightning data for those minutes. The airplane is a 6-DOF model checked against the Airplane Flight
+Manual (AFM). It is pure WebGL2 and ES modules with no build step.
 
-## Run
+**[Fly it in your browser](https://shanebreazeale.github.io/machtuck/)**
+
+![Four views from the sim: the anvil top from above, the jet entering the radar core at FL350, the virtual cockpit with weather radar, and Greenacres from 300 m](docs/img/screenshot.jpg)
+
+> Nine people died on this flight. The cause is undetermined, and every upset scenario here is a hypothesis, not a
+> finding. The crew's final transmissions are not reproduced in the game.
+
+## Contents
+
+[Features](#features) · [Installation](#installation) · [Usage](#usage) · [Controls](#controls) ·
+[How it works](#how-it-works) · [Validation](#validation) · [Real data](#real-data) · [Development](#development) ·
+[Contributing](#contributing) · [License](#license)
+
+## Features
+
+- **The real storm.** KAMX NEXRAD volumes drive the clouds, icing and the cockpit weather radar. GOES-19 sets the cloud
+  tops, GLM flashes are replayed at their real times and places, and the KPBI METAR and KMFL sounding fill in the rest.
+- **An airplane that fights back.** Mach tuck, shock buffet, ice on the wing and T-tail, unboosted controls with real
+  column forces, an autopilot that trims against you, and Part 25 structural limits.
+- **Four upset hypotheses.** Fly the combined convective-core case, a tailplane stall, Mach tuck with a failed Mach
+  trim, or a runaway nose-down trim, each "as flown" or in a forgiving trainer mode.
+- **A reconstruction mode.** Watch the reported ADS-B track replayed with chase, cockpit and ground cameras.
+- **A debrief.** Compares your flight with the real one and exports a 4 Hz flight data recorder as CSV.
+- **A physically based renderer.** Atmosphere scattering, volumetric clouds, imagery-driven ground with 62,000 real
+  buildings and 512,000 measured trees around the impact area.
+
+## Installation
+
+Nothing to install or build. Clone the repository and serve it with any static file server:
 
 ```bash
+git clone https://github.com/ShaneBreazeale/machtuck.git
 cd machtuck
 python3 -m http.server 8080
-# open http://localhost:8080
 ```
 
-Needs a WebGL2 browser with `EXT_color_buffer_float` (all current desktop browsers). A discrete GPU or Apple Silicon is
-recommended; press `K` to cycle quality (scene resolution and cloud steps).
+Then open http://localhost:8080.
 
-## Rendering
+You need a WebGL2 browser with `EXT_color_buffer_float`, which every current desktop browser has. A discrete GPU or
+Apple Silicon is recommended. Press `K` to trade quality for frame rate.
 
-`js/render.js` + `js/shaders.js`, HDR and physically based throughout:
+## Usage
 
-- **Atmosphere**: precomputed transmittance and multiple-scattering LUTs (Bruneton/Hillaire), a per-frame sky-view LUT,
-  spherical Earth, per-pixel aerial perspective that is shadowed by the clouds (god rays, dark air under the storm).
-  Sun position from a solar ephemeris for the scenario clock (`js/sun.js`: 47° elevation, azimuth 195° at 12:47 EST).
-- **Clouds**: volumetric raymarch shaped by real data (below), eroded with GPU-baked tileable Perlin-Worley / Worley
-  noise, lit by a sun light-march plus a 1024² cloud-shadow map, multiple-scattering octaves, dual-lobe phase, and a
-  diffuse-transmission model for light under and inside the deck.
-- **Ground**: USGS orthoimagery (30 m around Palm Beach, 4 m over the impact area, 290 m to 300 km out) on a spherical
-  Earth, water from a mask with wind-driven waves, Fresnel sky reflection and sun glint, cloud shadows. Below 1.8 km the
-  photo also drives 3D detail: each 16 m cell's colour makes it a hip-roofed house (roof colour from the photo) or a tree
-  (trunk + lobed canopy placed on the photo's own canopy), generated into a GPU cell map around the camera and ray-traced
-  out to 6 km.
-  Over the impact area (16 x 16 km around Greenacres) nothing is guessed: 62,192 real building footprints with measured
-  heights (Overture Maps: OpenStreetMap + Microsoft ML Buildings, `tools/fetch_buildings.py`), extruded with hip roofs
-  for houses and flat roofs otherwise, roof colours from the aerial photo; and 511,964 individual trees at their
-  measured positions, heights and crown widths from Meta/WRI's 1 m canopy height map (`tools/fetch_canopy_trees.py`, the
-  method of vibevoga's `chm_tree_points.py`), GPU-instanced in two LODs. Forms follow the measured shape (proxies, not a survey): narrow-crowned 6-24 m tops as
-  palms (~9,300), tall (>= 15 m) narrow crowns as slash pines, the rest as rounded or spreading broadleaf crowns. Around the reconstructed impact point a 2.4 m USGS image
-  (`detail.jpg`, z16) sharpens the ground for the replay ground camera. Both are drawn at full resolution with 4x MSAA.
-- **Aircraft**: the textured exterior of the PAD Learjet 60 (`data/ext`, `tools/fs9_ext.py`) with live ailerons,
-  elevator, rudder, flaps, spoilers and gear, a flashing beacon, N722BD in white with gold and brown stripes (`tools/livery.py`:
-  colours from a 2017 sales listing for the aircraft; the stripe layout is the model's own cheat line, so approximate), drawn at full resolution with 4x MSAA and shaded with the same
-  lighting as the clouds, fogged by the cloud between it and the camera.
-- **Weather effects**: rain / ice streaks from the radar reflectivity at the aircraft, lightning from GLM with
-  in-cloud illumination and cloud-to-ground channels.
-- **Comparison** with MSFS 2024 and X-Plane 12, feature by feature with sources: `docs/visual_comparison.md`.
-- **Performance**: dynamic resolution (the raymarch drops to as little as 45% of its normal resolution when the frame
-  rate falls under ~50 fps; TAA upsamples), optical-depth-adaptive cloud steps. `node tools/bench.mjs 2560x1320` measures
-  real-time fps in headless Chrome; on a loaded Apple Silicon Mac the six benchmark views ran at roughly 38-104 fps at that size across repeated runs, 51-106 fps in the latest run with the real buildings, trees and palms (heaviest: low over Greenacres and the breakout under the deck).
-- **Post**: temporal anti-aliasing/upsampling, bloom, sun glare and lens ghosts (only when the sun disk is unoccluded),
-  eye adaptation (snaps on camera cuts), ACES filmic tonemap. Wet, darker ground under radar-indicated rain.
+Click **Fly it**, or press `N` to skip ahead to core entry. The autopilot flies the cruise and hands you the airplane
+when it can no longer cope.
 
-Debug: `#view=t,cam,orbitYaw,orbitPitch` starts the reconstruction paused at `t` with a sim camera (0 cockpit, 1 chase, 2 ground);
-`#shot=x,y,z,yaw,pitch,fov,nex,t` starts the reconstruction paused at `t` with a free camera (world metres from
-KPBI, x east, y up, z north); `SIM.R.dbg = {cloudCover: 0.3}` overrides render inputs from the console.
+## Controls
 
-## Structure
+| Action | Keyboard | Controller |
+|---|---|---|
+| Pitch and roll | Arrow keys or WASD, or drag the mouse. Down or S pulls. | Left stick |
+| Rudder | Q / E | Right stick |
+| Throttle | `-` / `=`, `0` for idle | R2 / L2, square for idle |
+| Pitch trim | `,` nose-down, `.` nose-up | R1 / L1 |
+| Autopilot off or on | X | Cross |
+| Spoilers, gear, flaps | B, G, F | Circle, D-pad |
+| Camera | C, right-drag to orbit | Triangle |
+| Tablet (map and procedure cards) | Tab, then 1 to 6 for a card | |
+| Real weather on or off | U | |
+| Pause, restart, sim rate | P, R, `[` `]` | Options |
+| All keys | H | Create |
 
-- `js/aircraft.js` — 6-DOF Learjet 60 flight model (Mach tuck, buffet, ice, T-tail stall, Part 25 structural limits, AFM limits)
-- `js/aero.js` — aerodynamics from textbook methods: component drag build-up, DATCOM lift slope, sweep theory +
-  section pressure model for critical Mach, wave drag, buffet onset, and the Mach loss of CLmax above M 0.81
-  (below that, CLmax follows the certified VA chart, see Structure)
-- `js/engine.js` — PW305A two-stream cycle with turbomachinery similarity and the thrust-rating (N1) law
-- `js/scenario.js` — storm environment, ADS-B ghost reconstruction, ATC timeline, autopilot, hypotheses
-- `js/render.js`, `js/shaders.js` — WebGL2 renderer (see Rendering); `js/sun.js` solar ephemeris; `js/anim.js` model keyframe helpers
-- `js/hud.js` — PFD, system panel, profile chart, comm log
-- `js/cockpit.js`, `js/vcgauges.js` — 3D virtual cockpit and its standby gauges; `tools/fs9_vc.py` / `tools/fs9_ext.py` convert the FS2004 model's cockpit / exterior
-- `js/input.js`, `js/audio.js`, `js/main.js`
-- `test/` — headless Node checks: `sim_test.mjs` (upset scenario), `stab_test.mjs`, `flight_test.mjs` (flight-test
-  card), `afm_validate.mjs` (model vs ~1,860 cells of AFM tables in `afm_tables.json`), `recovery_test.mjs` (pass/fail judgement: no credit for an early takeover
-  without an upset, seeded turbulence), `force_test.mjs` (control forces, AFM calibration, reaction-delay sweep)
+Your inputs are force on the column, not surface position. At high speed full deflection may take more than you can
+hold, and nose-up trim is how you take the load off. The help screen (`H`) has the AFM upset-recovery card.
 
-## Flight model validation
+## How it works
 
-Geometry and limits come from the Learjet 60 AFM (FM-123; limitations, performance tables, scale three-view), the
-Gates Learjet wing patents (US 4,240,597; US 4,050,651) and SAE 932534 (Chandrasekharan et al. 1993, *Aerodynamic
-Tailoring of the Learjet Model 60 Wing*). Engine cycle anchored at the PW305 design point in AIAA 90-2520 (Karanjia &
-Harvey 1990: fan 30.75 in, FPR 1.811, BPR 4.3, OPR 23.7, 2105 F, mixed exhaust); size from the published takeoff
-rating (4,600 lbf, flat to 23.3 C) at the AFM takeoff N1. Current agreement (`node test/flight_test.mjs`,
-`node test/afm_validate.mjs`):
+### Flight model
 
-- Stall speeds, 4 flap settings x 2 weights: within 2 kt of AFM Fig 5-22
-- Buffet onset vs Model 60 flight test (SAE 932534 Fig 19): rms dCL 0.019
-- Max-continuous N1 vs AFM Fig 5-31/5-32: rms ~1.5% N1
-- Single-engine climb gradients (AFM Fig 5-62, 5-65): mean -0.2% of weight, rms 0.7% (about -1% at 40-45k ft)
-- Time to climb MTOW to FL410 on the AFM schedule (250 KIAS to FL320, M0.70): 16.9 min from 1,500 ft, ~18 min from
-  brake release vs 18-18.5 published
-- NBAA IFR range, 4 pax, 100 nm alternate (`node test/mission.mjs`): 2,455 nm vs 2,405 nm spec (+2%); cruise fuel flow
-  ~1,250 lb/h at FL410 M0.76; max level speed 458 KTAS (published max cruise 453-466 KTAS). Wave drag: Korn + Lock, kA 0.87
+The geometry, limits and performance data come from the Learjet 60 AFM (FM-123), the Gates Learjet wing patents, and
+SAE 932534, which describes the Model 60 wing. Aerodynamics use textbook methods (component drag build-up, DATCOM lift
+slope, sweep theory and a section pressure model for critical Mach, wave drag and buffet). The engine is a PW305A
+two-stream cycle anchored at the design point in AIAA 90-2520.
 
-## Control forces
+Maximum lift versus Mach comes from the certified airspeed-limits chart in EASA type certificate data sheet
+IM.A.212. Its maneuvering-speed lines mark where a full pull stalls the wing at the 3.0 g limit load, so each point
+gives the maximum lift at that Mach. Twenty points over four weights fall on one curve that meets the AFM stall chart
+near M 0.2.
 
-The Learjet 60's ailerons and elevator are unboosted (cables and push-rods), so `js/controls.js` treats your input as
-the force on the column and wheel: the surface goes where that force balances its hinge moment, which grows with
-dynamic pressure and in the transonic range. Calibrated to AFM FM-123 (Pitch Axis Malfunction: a nose-down trim runaway
-or nose-down overspeed "can ... require control forces in excess of 75 pounds for recovery"): holding full nose-down
-trim at Vmo takes ~100 lb. A pilot holds ~60 lb, bursts to ~150 lb and tires in ~10 s (gauge: COLUMN FORCE). The
-stabilizer trims as a whole, so nose-up trim is how you take the load off. The autopilot's clutched servos can be
-overpowered, but it stays engaged and keeps trimming against you until you disconnect it (X) or use manual trim. Ice on
-the stabilizer makes the column go light and pulse (AFM). Spoilers pitch the nose down above Vmo/Mmo and gear gives a
-nose-up moment; the upset card follows the AFM order (idle, AP off, identify attitude, wings level, elevator + nose-up
-trim, gear down if extreme, no spoilers).
+### Control forces
 
-Structure (`aircraft.js`): Vmo/Mmo is an operating limit, not a structural one. Up to the design dive speed VD/MD
-(25.335(b); not in the AFM or EASA TCDS: VD 377 KIAS / MD 0.89, an unsourced figure that matches the Part 25 margins) speed alone does no damage; strength follows the AFM
-limit load (+3.0 / -1.0 g), yielding past ~1.2x and failing at the 1.5x ultimate; beyond VD/MD the allowable load
-shrinks; past the 25.629 flutter margin (1.15 VD, or well past MD) failure is rapid; rolling pull-outs above Vmo get
-~2/3 of the symmetric limit (25.349). In the sim's breakups the killer is negative g (about -2 g, twice the limit) from
-the tail stall, trim runaway or downdraft, not the overspeed by itself.
+The Learjet 60's ailerons and elevator are driven by cables and push-rods with no hydraulic boost, so
+[`js/controls.js`](js/controls.js) treats your input as the force on the column. The surface moves until that force
+balances its hinge moment, which grows with dynamic pressure and in the transonic range. The calibration follows the
+AFM, which warns that a nose-down overspeed can need more than 75 lb to recover. A pilot holds about 60 lb, bursts to
+150 lb, and tires within about 10 seconds. The autopilot's clutched servos can be overpowered, but it keeps trimming
+against you until you disconnect it.
 
-Max lift vs Mach comes from the certified airspeed-limits chart (EASA TCDS IM.A.212 Issue 04, p10). Its maneuvering-speed
-lines (VA, 16,500-23,100 lb, sea level to Mmo) mark where a full pull stalls the wing at the 3.0 g limit load
-(25.335(c)), so each point gives CNmax = 3 W / (q S). All twenty digitized points fall on one curve: 1.38 at M 0.30,
-~1.02 at M 0.52-0.60, ~0.97 from M 0.67 to Mmo, and it meets the AFM stall chart's 1.55 near M 0.2. At cruise Mach
-the wing can be pulled far past shock-buffet onset (CL 0.52 at M 0.80) before it stalls. That lift also works
-downward: in the tail-stall pushover the wing reaches about -2 g at M 0.81 within seconds, past the -1.5 g ultimate. N722BD is serial 60-271 (2004);
-its AFM limits pages are the "60-249 & Subsequent" set, with the same primary-instrument Vmo/Mmo (330 KIAS / M 0.81 at altitude).
+### Structure
 
-`node test/force_test.mjs` checks the calibration and flies the as-flown upset with a force-limited AFM-procedure pilot.
-Starting the recovery 2 s after the autopilot lets go saves the airplane in three of the four hypotheses; at 5 s it costs
-~8,000 ft; from 8 s on, the tail-stall pushover overloads the wing in negative g before the pilot acts.
+Vmo/Mmo is an operating limit, not a structural one. Below the design dive speed, speed alone does no damage. Strength
+follows the AFM limit load of +3.0 / −1.0 g, with failure at the 1.5× ultimate load. Past the design dive speed the
+allowable loads shrink, and past the flutter margin failure is rapid. The design dive speed of 377 KIAS / M 0.89 is
+not published anywhere. It is an estimate consistent with the Part 25 margins.
 
-## Cockpit, systems, procedures
+In the sim's breakups the killer is negative g. When the iced tail stalls, the pitch-down loads the wing to about
+−2 g within seconds, past the ultimate load, while the airplane is still near M 0.81.
 
-3D cockpit from the left seat (`js/cockpit.js`): the textured virtual cockpit of the Premier Aircraft Design Learjet 60
-(panel, glareshield, yokes, pedestal, seats, side consoles, window glass; `data/vc/`, see its README for credits).
-The model's own animations drive the yokes (pitch and roll), rudder pedals, thrust, flap and spoiler levers from our controls.
-Our live instruments are mapped onto the panel at the gauge positions of the original panel.cfg: PFDs with HSI rose, MFDs with the
-weather radar, engine column, glareshield annunciators + flight-guidance strip, master warning/caution, standby attitude,
-airspeed and altimeter, RMI, clocks, gear lights and lever, trim, flap/spoiler indicators, fuel quantity, the whiskey compass,
-the systems switch panel and an EFB on the left. Everything is clickable where the 2D panel was. Right-drag looks around, the
-mouse wheel zooms. The exterior cameras (C) keep the 2D instruments, as does the cockpit until `data/vc/` has loaded.
+### Renderer
 
-Regenerate the cockpit assets from the FS2004 model (`tools/fs9_vc.py` decodes the MDL8 BGL bytecode and DXT textures):
-`python3 tools/fs9_vc.py "<PAD_Learjet 60_FSX>/model/lear60_ver25.mdl" "<PAD_Learjet 60_FSX>/texture.N838" data/vc`
+[`js/render.js`](js/render.js) and [`js/shaders.js`](js/shaders.js) form an HDR pipeline:
 
+- **Atmosphere:** precomputed transmittance and multiple-scattering tables on a spherical Earth, with aerial
+  perspective shadowed by the clouds. The sun comes from a solar ephemeris for the scenario clock.
+- **Clouds:** a volumetric raymarch shaped by the radar and satellite data, eroded with GPU-baked noise, lit by a light
+  march plus a cloud-shadow map.
+- **Ground:** USGS aerial imagery on a spherical Earth with water, waves and sun glint. Below 1.8 km the photo drives
+  ray-traced houses and trees. Over the impact area the buildings and trees are measured, not generated.
+- **Aircraft:** the textured Premier Aircraft Design Learjet 60 with live control surfaces, gear and beacon, in the
+  N722BD livery, drawn with 4× multisample anti-aliasing.
+- **Post-processing:** temporal anti-aliasing and upsampling, bloom, sun glare, eye adaptation and an ACES tone map.
+  Dynamic resolution keeps the frame rate near 55 fps.
 
-Pro Line 4-style panel: glareshield annunciators + flight-guidance strip, PFD, engine column (N1/ITT/N2/FF), MFD with
-the weather radar, a clickable systems panel (wing/stab heat, nacelle heat, pitot/windshield heat, stall-warning cutout,
-Mach trim, pitch-trim PRI/SEC/OFF, AP, YD, spoilers, gear, flaps) and the pedestal. The EFB tablet (TAB) shows a
-north-up moving map with the KAMX composite, the reported track and your trail, or the procedure cards (1-6: upset
-recovery, overspeed, ice-contaminated tailplane stall, runaway pitch trim, emergency descent, icing). Steps tick as you
-do them and the sim recommends a card when it detects the condition. Wording is our own, not AFM text.
+[`docs/visual_comparison.md`](docs/visual_comparison.md) compares it with MSFS 2024 and X-Plane 12, feature by feature.
 
-Modelled consequences: stick shaker on a clean-wing AOA schedule (no pusher on the type; with wing ice the wing can stall before the shaker), Mach trim offsetting part of the tuck,
-trim selector OFF stopping a runaway, gear 260 / flaps 200-150 KIAS limits, bleed-air wing heat weak at idle,
-SLD in the core overwhelming stab heat, inlet ice reducing thrust with nacelle heat off. No autothrottle (as on the type).
+## Validation
 
-## Real data in the sim
+Run `node test/flight_test.mjs` and `node test/afm_validate.mjs` to reproduce these.
 
-- `data/kamx_*.bin/json` — KAMX NEXRAD Level II volumes (17:40:32Z, 17:45:48Z, 17:51:04Z) gridded to 500 m voxels
-  around KPBI by `tools/grid_nexrad.py` (MetPy). The shader samples them as 3D textures (time-blended), the
-  environment derives cloud/core/icing/updraft from reflectivity and its growth, and the cockpit weather radar
-  draws them. `U` toggles back to the synthetic cell. Regrid: `python tools/grid_nexrad.py <Level2 file> data/kamx_HHMMSS`
-  (files from `s3://unidata-nexrad-level2/2026/11/01/KAMX/`).
-- `audio/atc_liveatc.mp3` — Miami Center audio as posted publicly (LiveATC recording). Off by default; the clip is edited, so
-  playback is piecewise-synced to the clock from its captions (`ATC.map` in `js/main.js`). It contains the crew's final transmissions. Listener discretion.
-- `data/goes/` — GOES-19 ABI CONUS scans at 17:47:52Z and 17:52:52Z (KPBI rows): 0.64 µm reflectance and 10.3 µm
-  brightness temperature, cloud-top height from the KMFL sounding, parallax-corrected (`tools/fetch_goes.py`). Sets the
-  top of the cloud deck (12.9 km median, ~15 km over the storm) and its thickness.
-- `data/glm_flashes.json` — GOES-19 GLM flashes within 80 km, 17:44-17:52Z (`tools/fetch_glm.py`): the lightning you
-  see and hear is played at the real flash times and positions.
-- `data/metar.json`, `data/sounding_kmfl.json` — KPBI METARs (17:53Z: 08016G28KT 10SM -RA SCT026 SCT050 OVC060) set
-  the cumulus layer and the deck base; KMFL 12Z radiosonde: freezing level 4,780 m (rain vs. ice streaks).
-- `data/ground/` — USGS The National Map orthoimagery (NAIP), NASA Blue Marble fill offshore, water from USGS NHD and
-  Natural Earth (`tools/fetch_imagery.py`). All public domain. `buildings.bin`: Overture Maps buildings, © OpenStreetMap
-  contributors and Microsoft, ODbL 1.0. `trees.bin`: tree tops from High Resolution Canopy Height Maps by Meta and
-  World Resources Institute (Tolan et al. 2024), CC BY 4.0.
-- `localStorage['n722bd_fdr']` — flight data recorder of the last run (4 Hz); CSV export in the debrief.
+| Check | Model | Reference |
+|---|---|---|
+| Clean and flapped stall speeds, 2 weights | within 2 kt | AFM Fig 5-22 |
+| Buffet onset lift vs Mach | rms error 0.019 | SAE 932534 flight test |
+| Max g at the 20 certified VA points | 2.90 to 3.11 g | 3.0 g, EASA TCDS IM.A.212 |
+| Max-continuous N1 | rms ~1.5% | AFM Fig 5-31, 5-32 |
+| Single-engine climb gradient | rms 0.7% | AFM Fig 5-62, 5-65 |
+| Time to climb, MTOW to FL410 | ~18 min | 18 to 18.5 min published |
+| NBAA IFR range, 4 passengers | 2,455 nm | 2,405 nm published |
+| Max level speed | 458 KTAS | 453 to 466 KTAS published |
 
-## Sources
+`node test/force_test.mjs` flies the upset with a force-limited pilot following the AFM procedure. Starting the
+recovery 2 seconds after the autopilot lets go saves the airplane in three of the four hypotheses. At 5 seconds it
+costs about 8,000 ft. From 8 seconds on, the wing fails before the pilot acts.
 
-Flightradar24 blog, BizJet Journal ADS-B Exchange analysis, MyRadar / LiveStormChasers NEXRAD (KAMX)
-analyses, LiveATC recordings as reported, NTSB 2 Nov 2026 briefing. All figures provisional; cause undetermined.
+## Real data
+
+| Data | Source | Used for |
+|---|---|---|
+| `data/kamx_*` | KAMX NEXRAD Level II at 17:40, 17:45 and 17:51Z, gridded to 500 m | Clouds, cores, icing, updrafts, weather radar |
+| `data/goes/` | GOES-19 ABI visible and infrared, parallax-corrected | Cloud-top height and deck thickness |
+| `data/glm_flashes.json` | GOES-19 Geostationary Lightning Mapper, 17:44 to 17:52Z | Lightning times and positions |
+| `data/metar.json`, `data/sounding_kmfl.json` | KPBI METARs, KMFL 12Z radiosonde | Cumulus layer, deck base, freezing level |
+| `data/ground/` | USGS orthoimagery (NAIP), NASA Blue Marble, USGS NHD water | Terrain texture and water |
+| `data/ground/buildings.bin` | Overture Maps (OpenStreetMap + Microsoft) | 62,192 buildings with measured heights |
+| `data/ground/trees.bin` | Meta / WRI 1 m canopy height map | 511,964 trees with measured heights and crowns |
+| `audio/atc_liveatc.mp3` | LiveATC recording as publicly posted | Optional ATC audio, off by default |
+
+Every dataset has a fetch script in [`tools/`](tools), for example:
+
+```bash
+python3 tools/grid_nexrad.py <Level2 file> data/kamx_HHMMSS
+python3 tools/fetch_goes.py --out data/goes
+python3 tools/fetch_buildings.py
+```
+
+## Development
+
+Run the headless physics checks with Node 22:
+
+```bash
+for t in test/*.mjs; do node "$t" || echo "FAILED: $t"; done
+```
+
+Measure real-time frame rate in headless Chrome while the server runs on port 8080:
+
+```bash
+node tools/bench.mjs 2560x1320 8080
+```
+
+| Path | Contents |
+|---|---|
+| `js/aircraft.js`, `js/aero.js`, `js/engine.js` | Flight model, aerodynamics, engine cycle |
+| `js/controls.js` | Column and wheel forces, pilot strength, autopilot clutches |
+| `js/scenario.js` | Storm environment, ADS-B reconstruction, ATC timeline, autopilot, hypotheses |
+| `js/render.js`, `js/shaders.js` | WebGL2 renderer |
+| `js/hud.js`, `js/cockpit.js`, `js/vcgauges.js` | Instruments, 3D cockpit, standby gauges |
+| `test/` | Flight-test card, AFM table validation, upset, recovery and force checks |
+| `tools/` | Data fetchers, model and livery converters, benchmark |
+
+Debug views load the reconstruction paused at a given time:
+
+- `#view=t,cam,orbitYaw,orbitPitch` uses a sim camera (0 cockpit, 1 chase, 2 ground).
+- `#shot=x,y,z,yaw,pitch,fov,nexrad,t` uses a free camera in metres from KPBI (x east, y up, z north).
+
+## Contributing
+
+Issues and pull requests are welcome, especially better sources: photos of N722BD for the livery, or published Learjet 60
+data that can replace an estimate. Run the test suite before opening a pull request, and keep every number traceable to
+a source or marked as an estimate.
+
+## Sources and credits
+
+The timeline comes from the Flightradar24 blog, a BizJet Journal ADS-B Exchange analysis, NEXRAD analyses by MyRadar and
+LiveStormChasers, LiveATC recordings, and the NTSB briefing of 2 November 2026. All figures are provisional.
+
+The aircraft and cockpit models are the FSX Bombardier Learjet 60 by Premier Aircraft Design (Jean-Pierre Brisard,
+Barry Blaisdell, Bob May and Kevin Pardy), converted by `tools/fs9_ext.py` and `tools/fs9_vc.py`. See
+[`data/vc/README.md`](data/vc/README.md).
+
+## License
+
+Third-party data keeps its own terms:
+
+- USGS and NASA imagery and NOAA weather data are public domain.
+- The Overture buildings are © OpenStreetMap contributors and Microsoft, under ODbL 1.0.
+- The canopy height data is by Meta and the World Resources Institute, under CC BY 4.0.
+
+The repository does not include a license file for its own code yet.
