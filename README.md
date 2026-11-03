@@ -16,12 +16,30 @@ SDF Learjet) so a discrete GPU or Apple Silicon is recommended; press `K` to cyc
 
 ## Structure
 
-- `js/aircraft.js` — 6-DOF Learjet 60 flight model (Mach tuck, buffet, ice, T-tail stall, structural limits)
+- `js/aircraft.js` — 6-DOF Learjet 60 flight model (Mach tuck, buffet, ice, T-tail stall, structural limits, AFM limits)
+- `js/aero.js` — aerodynamics from textbook methods: component drag build-up, DATCOM lift slope, sweep theory +
+  section pressure model for critical Mach, wave drag, buffet onset and the Mach loss of CLmax
+- `js/engine.js` — PW305A two-stream cycle with turbomachinery similarity and the thrust-rating (N1) law
 - `js/scenario.js` — storm environment, ADS-B ghost reconstruction, ATC timeline, autopilot, hypotheses
 - `js/render.js` — WebGL2 raymarcher + line program
 - `js/hud.js` — PFD, system panel, profile chart, comm log
 - `js/input.js`, `js/audio.js`, `js/main.js`
-- `test/` — headless Node checks of the physics (`node test/sim_test.mjs`)
+- `test/` — headless Node checks: `sim_test.mjs` (upset scenario), `stab_test.mjs`, `flight_test.mjs` (flight-test
+  card), `afm_validate.mjs` (model vs ~1,860 cells of AFM tables in `afm_tables.json`)
+
+## Flight model validation
+
+Geometry and limits come from the Learjet 60 AFM (FM-123; limitations, performance tables, scale three-view), the
+Gates Learjet wing patents (US 4,240,597; US 4,050,651) and SAE 932534 (Chandrasekharan et al. 1993, *Aerodynamic
+Tailoring of the Learjet Model 60 Wing*). Engine size from the published takeoff rating (4,600 lbf, flat to 23.3 C)
+at the AFM takeoff N1. Current agreement (`node test/flight_test.mjs`, `node test/afm_validate.mjs`):
+
+- Stall speeds, 4 flap settings x 2 weights: within 2 kt of AFM Fig 5-22
+- Buffet onset vs Model 60 flight test (SAE 932534 Fig 19): rms dCL 0.019
+- Max-continuous N1 vs AFM Fig 5-31/5-32: rms ~1.5% N1
+- Single-engine climb gradients (AFM Fig 5-62, 5-65): ~1% of weight low (fan pressure ratio and engine-out drag
+  are still estimates)
+- Range 2,874 nm vs 2,740 nm published; cruise fuel flow ~1,150 lb/h
 
 ## Cockpit, systems, procedures
 
@@ -32,7 +50,7 @@ north-up moving map with the KAMX composite, the reported track and your trail, 
 recovery, overspeed, ice-contaminated tailplane stall, runaway pitch trim, emergency descent, icing). Steps tick as you
 do them and the sim recommends a card when it detects the condition. Wording is our own, not AFM text.
 
-Modelled consequences: stick shaker/pusher (fires at low AOA with wing ice), Mach trim offsetting part of the tuck,
+Modelled consequences: stick shaker on a clean-wing AOA schedule (no pusher on the type; with wing ice the wing can stall before the shaker), Mach trim offsetting part of the tuck,
 trim selector OFF stopping a runaway, gear 260 / flaps 200-150 KIAS limits, bleed-air wing heat weak at idle,
 SLD in the core overwhelming stab heat, inlet ice reducing thrust with nacelle heat off. No autothrottle (as on the type).
 

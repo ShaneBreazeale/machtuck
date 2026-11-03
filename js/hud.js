@@ -74,7 +74,7 @@ export class HUD {
     const lights = [
       ['MASTER WARN', ac.broken || o.stalled && o.alpha > 0 || (o.vs < -30 && o.h < 3000), COL.red, true],
       ['MASTER CAUT', o.overspeed || ac.iceTail > 0.5 || ac.engIce > 0.3 || (!S.ap.on && S.apOffAt !== null && S.t - S.apOffAt < 4), COL.amber, true],
-      ['AP OFF', !S.ap.on, COL.amber], ['PUSHER', ac.pusher, COL.red], ['SHAKER', ac.shaker, COL.amber], ['OVERSPEED', o.overspeed, COL.red],
+      ['AP OFF', !S.ap.on, COL.amber], ['SHAKER', ac.shaker, COL.amber], ['OVERSPEED', o.overspeed, COL.red],
       ['STAB ICE', ac.iceTail > 0.5, COL.amber], ['WING ICE', ac.ice > 0.5, COL.amber], ['ENG ICE', ac.engIce > 0.3, COL.amber],
       ['TRIM', ac.sys.trimMode !== 'PRI' || (S.trimRunaway), ac.sys.trimMode === 'OFF' ? COL.amber : COL.red], ['MACH TRIM', ac.sys.machTrimFail || !ac.sys.machTrim, COL.amber],
       ['SPOILER', ac.ctl.sb > 0, COL.green], ['GEAR', ac.ctl.gear > 0, COL.green], ['YD OFF', !ac.ctl.yd, COL.amber],
@@ -120,8 +120,7 @@ export class HUD {
     this.text(apTxt, 0, -s * 0.44, s * 0.05, S.ap.on ? COL.green : (blink || performance.now() / 1000 - S.apOffWall > 6 ? COL.amber : '#000'), 'center', 'bold');
     let warn = null;
     if (ac.broken) warn = ['STRUCTURAL FAILURE', COL.red];
-    else if (ac.pusher) warn = ['PUSHER', COL.red];
-    else if (o.alpha > 0 && (o.stalled || o.alpha > o.aStall * 0.85)) warn = ['STALL', COL.red];
+    else if (o.alpha > 0 && (o.stalled || o.aoaN > 0.82)) warn = ['STALL', COL.red];
     else if (o.overspeed) warn = ['OVERSPEED', COL.red];
     else if (o.vs < -30 && o.h < 3000) warn = ['PULL UP', COL.red];
     else if (Math.abs(ph) > 45 * DEG) warn = ['BANK ANGLE', COL.amber];
@@ -140,8 +139,8 @@ export class HUD {
       else bands.push({ from: 0, to: 9999, style: 'barber' });
       bands.push({ from: top, to: 9999, color: COL.amber });
     }
-    this.tape(tx, ty, tw, s, o.KIAS, 10, 20, s * 0.062, (v) => v < 0 ? null : v, (v) => { const vmoEff = Math.min(o.Vmo, o.M > 0.01 ? o.KIAS * 0.81 / o.M : 999); return v >= vmoEff ? 'barber' : null; }, '#fff', false, bands);
-    this.text(`M ${o.M.toFixed(3)}`, tx + tw / 2, ty + s + 14, s * 0.055, o.M > 0.81 ? COL.red : '#fff', 'center', 'bold');
+    this.tape(tx, ty, tw, s, o.KIAS, 10, 20, s * 0.062, (v) => v < 0 ? null : v, (v) => { const vmoEff = Math.min(o.Vmo, o.M > 0.01 ? o.KIAS * (o.Mmo || 0.81) / o.M : 999); return v >= vmoEff ? 'barber' : null; }, '#fff', false, bands);
+    this.text(`M ${o.M.toFixed(3)}`, tx + tw / 2, ty + s + 14, s * 0.055, o.M > (o.Mmo || 0.81) ? COL.red : '#fff', 'center', 'bold');
     this.text(`GS ${(o.gs / KT).toFixed(0)}`, tx + tw / 2, ty + s + 32, s * 0.042, '#9ad', 'center');
     if (B) {
       // Usable speed window at this g: shaker up to the lower of shock buffet and Vmo/Mmo
@@ -194,9 +193,9 @@ export class HUD {
   }
   engines(S, x, y, w, h) {
     const ac = S.ac; this.box(x, y, w, h, COL.panel);
-    const n1 = lerp(28, 98, ac.n1), itt = lerp(380, 780, ac.n1) + 60 * ac.engIce, n2 = lerp(55, 99, ac.n1), ff = lerp(180, 1400, ac.n1) * (ac.ctl.thr < 0.05 ? 0.55 : 1);
+    const n1 = ac.N1 ?? lerp(28, 98, ac.n1), itt = lerp(380, 780, ac.n1) + 60 * ac.engIce, n2 = lerp(55, 99, ac.n1), ff = (ac.ff || 0) / 2 / 0.45359237 * 3600;   // per engine, lb/h, from the model's TSFC
     const r = Math.min(w * 0.19, h * 0.056); const cxL = x + w * 0.3, cxR = x + w * 0.7; let gy = y + r * 1.5;
-    const rows = [['N1', n1 / 100, `${n1.toFixed(0)}`, false], ['ITT', itt / 900, `${itt.toFixed(0)}`, itt > 760], ['N2', n2 / 100, `${n2.toFixed(0)}`, false], ['FF', ff / 1500, `${Math.round(ff)}`, false]];
+    const rows = [['N1', n1 / 100, `${n1.toFixed(0)}`, false], ['ITT', itt / 900, `${itt.toFixed(0)}`, itt > 760], ['N2', n2 / 100, `${n2.toFixed(0)}`, false], ['FF', ff / 2000, `${Math.round(ff)}`, false]];
     for (const [lab, f, v, warn] of rows) { this.gauge(cxL, gy, r, f, lab, v, warn); this.gauge(cxR, gy, r, f * (1 - 0.02 * ac.engIce), lab, v, warn); gy += r * 2.45; }
     this.text('L            R', x + w / 2, y + 7, 8, COL.dim, 'center');
     let iy = gy - r * 0.9; const barW = w - 16; const fs = Math.max(7.5, Math.min(9, w * 0.085));
@@ -257,7 +256,7 @@ export class HUD {
     sw('stabHeat', 'STAB HEAT', ac.sys.stabHeat ? 'ON' : 'OFF', ac.sys.stabHeat, 'I');
     sw('nacelleHeat', 'NAC HEAT L/R', ac.sys.nacelleHeat ? 'ON' : 'OFF', ac.sys.nacelleHeat, '9');
     sw('pitotHeat', 'PITOT / WSHLD', ac.sys.pitotHeat ? 'ON' : 'OFF', ac.sys.pitotHeat, '');
-    sw('stallWarn', 'STALL WARN L/R', ac.sys.stallWarn ? 'ON' : 'OFF', ac.sys.stallWarn, '6', ac.pusher ? COL.red : COL.green);
+    sw('stallWarn', 'STALL WARN L/R', ac.sys.stallWarn ? 'ON' : 'OFF', ac.sys.stallWarn, '6', ac.shaker ? COL.amber : COL.green);
     sw('machTrim', 'MACH TRIM', ac.sys.machTrimFail ? 'FAIL' : ac.sys.machTrim ? 'ON' : 'OFF', ac.sys.machTrim && !ac.sys.machTrimFail, '8', ac.sys.machTrimFail ? COL.amber : COL.green);
     sw('trimMode', 'PITCH TRIM', ac.sys.trimMode, ac.sys.trimMode !== 'OFF', '7', ac.sys.trimMode === 'SEC' ? COL.amber : COL.green);
     sw('ap', 'AUTOPILOT', S.ap.on ? 'ENG' : 'OFF', S.ap.on, 'X');
@@ -401,7 +400,7 @@ export class HUD {
   }
   help() {
     const ctx = this.ctx, W = this.W, H = this.H; ctx.fillStyle = 'rgba(0,0,0,0.85)'; ctx.fillRect(W / 2 - 380, H / 2 - 250, 760, 500);
-    const L = ['CONTROLS', '', 'Pitch: ↑/↓ or W/S (↓ or S = pull)  ·  Roll: ←/→ or A/D  ·  Rudder: Q/E  ·  mouse-drag = stick', 'Throttle: − / =   ·   0 = idle   ·   B spoilers   ·   G gear (260 KIAS)   ·   F flaps 8/20/40 (200/150 KIAS)', 'Pitch trim: , nose-down  . nose-up (PRI/SEC only)   ·   7 = trim PRI/SEC/OFF   ·   8 = Mach trim', 'I = wing+stab heat   ·   9 = nacelle heat   ·   6 = stall warning / pusher cutout   ·   Y = yaw damper', 'X = autopilot off / engage   ·   TAB = EFB map / procedures / off   ·   1–6 = procedure card   ·   ` = back', 'C camera (right-drag orbits)   ·   V ghost   ·   T ATC audio   ·   ; / \' nudge tape   ·   U NEXRAD   ·   O/J radar', 'N skip   ·   [ ] sim rate   ·   K quality   ·   P pause   ·   R restart   ·   M mute   ·   Z hide HUD   ·   H help', 'Switch panel on the right and EFB items are clickable.', '', 'UPSET RECOVERY (nose low, high speed):', '1. Recognize, AP off.  2. Thrust IDLE, spoilers OUT.  3. Stalled? UNLOAD first.', '4. Roll to nearest horizon.  5. Pull smoothly ~2 g; shaker/pusher mean the iced wing is at its limit.', '6. Re-trim nose-up. Above M.81 the tuck fights you; speed must come off first.'];
+    const L = ['CONTROLS', '', 'Pitch: ↑/↓ or W/S (↓ or S = pull)  ·  Roll: ←/→ or A/D  ·  Rudder: Q/E  ·  mouse-drag = stick', 'Throttle: − / =   ·   0 = idle   ·   B spoilers   ·   G gear (VLO 200 / VLE 260 KIAS)   ·   F flaps 8/20/40 (VFE 250/200/165 KIAS)', 'Pitch trim: , nose-down  . nose-up (PRI/SEC only)   ·   7 = trim PRI/SEC/OFF   ·   8 = Mach trim', 'I = wing+stab heat   ·   9 = nacelle heat   ·   6 = stall warning / pusher cutout   ·   Y = yaw damper', 'X = autopilot off / engage   ·   TAB = EFB map / procedures / off   ·   1–6 = procedure card   ·   ` = back', 'C camera (right-drag orbits)   ·   V ghost   ·   T ATC audio   ·   ; / \' nudge tape   ·   U NEXRAD   ·   O/J radar', 'N skip   ·   [ ] sim rate   ·   K quality   ·   P pause   ·   R restart   ·   M mute   ·   Z hide HUD   ·   H help', 'Switch panel on the right and EFB items are clickable.', '', 'UPSET RECOVERY (nose low, high speed):', '1. Recognize, AP off.  2. Thrust IDLE, spoilers OUT.  3. Stalled? UNLOAD first.', '4. Roll to nearest horizon.  5. Pull smoothly ~2 g; shaker/pusher mean the iced wing is at its limit.', '6. Re-trim nose-up. Above M.81 the tuck fights you; speed must come off first.'];
     L.forEach((l, i) => this.text(l, W / 2, H / 2 - 225 + i * 30, i === 0 || i === 11 ? 16 : 12, i === 0 || i === 11 ? '#ffe34d' : '#ddd', 'center', i === 0 ? 'bold' : ''));
   }
 }

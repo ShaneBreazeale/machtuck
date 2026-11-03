@@ -4,8 +4,8 @@ import { FT } from '../js/atmo.js';
 // Open-loop: trimmed cruise, 5 deg roll perturbation, no wind, no AP. Expect slow spiral/dutch roll, no departure.
 for (const yd of [true, false]) {
   const ac = new Learjet60(); ac.ctl.yd = yd;
-  ac.setState({ n: 0, e: 0, d: -10668, psi: 0, theta: 1.4 * DEG, phi: 5 * DEG, V: 232 });
-  ac.ctl.trim = ac.trimFor(1.4 * DEG); ac.ctl.thr = 0.5; ac.n1 = 0.5;
+  ac.setState({ n: 0, e: 0, d: -10668, psi: 0, theta: 1.95 * DEG, phi: 5 * DEG, V: 232 });
+  ac.ctl.trim = 0.37; ac.ctl.thr = 0.8; ac.n1 = 0.8;
   const dt = 1 / 200; let rows = [];
   for (let t = 0; t < 40; t += dt) {
     const o = ac.step(dt, { wind: [0, 0, 0] });

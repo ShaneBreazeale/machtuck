@@ -12,8 +12,8 @@ function run(hyp, pilot, label, hard = true) {
   const ac = new Learjet60(), env = new Environment(hyp, hard), ap = new Autopilot(hard); ac.hard = hard;
   ac.failures.tailIce = env.hyp.tailIce; ac.failures.tuck = env.hyp.tuck;
   const g0 = ghost[0];
-  ac.setState({ n: g0.n, e: g0.e, d: g0.d, psi: g0.hdg, theta: 1.4 * DEG, phi: 0, V: 232 });
-  ac.ctl.trim = ac.trimFor(1.4 * DEG); ac.ctl.thr = 0.5; ac.n1 = 0.5; ac.ice = 0.15; ac.iceTail = 0.25; ac.sys.machTrimFail = !!env.hyp.machTrimFail;
+  ac.setState({ n: g0.n, e: g0.e, d: g0.d, psi: g0.hdg, theta: 1.95 * DEG, phi: 0, V: 232 });
+  ac.ctl.trim = 0.37; ac.ctl.thr = 0.83; ac.n1 = 0.83;   // trimmed M0.77 at FL350, ISA+7 (test/flight_test.mjs model) ac.ice = 0.15; ac.iceTail = 0.25; ac.sys.machTrimFail = !!env.hyp.machTrimFail;
   const dt = 1 / 200; let t = 0, lastLog = -1, recoveredAt = null, apOffAt = null;
   const rows = [];
   while (t < 200 && !ac.crashed && !ac.broken) {

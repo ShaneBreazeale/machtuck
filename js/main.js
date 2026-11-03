@@ -46,8 +46,9 @@ function newGame(hypKey, hard = true) {
   const ac = new Learjet60(), env = new Environment(hypKey, hard), ap = new Autopilot(hard); ac.hard = hard;
   ac.failures.tailIce = env.hyp.tailIce; ac.failures.tuck = env.hyp.tuck;
   const g0 = ghost[0];
-  ac.setState({ n: g0.n, e: g0.e, d: g0.d, psi: g0.hdg, theta: 1.4 * DEG, phi: 0, V: 232 });
-  ac.ctl.thr = 0.5; ac.n1 = 0.5; ac.ctl.trim = ac.trimFor(1.4 * DEG); ac.ice = 0.12; ac.iceTail = 0.25; ac.sys.machTrimFail = !!env.hyp.machTrimFail;
+  ac.setState({ n: g0.n, e: g0.e, d: g0.d, psi: g0.hdg, theta: 1.95 * DEG, phi: 0, V: 232 });
+  // trimmed M0.77 at FL350, ISA+7 (see test/flight_test.mjs)
+  ac.ctl.thr = 0.83; ac.n1 = 0.83; ac.ctl.trim = 0.37; ac.ice = 0.12; ac.iceTail = 0.25; ac.sys.machTrimFail = !!env.hyp.machTrimFail;
   env.nex = NEX; env.useNex = SETTINGS.nexrad;
   env.wind(ac.pos, 0, 0); ac.step(0, { wind: [0, 0, 0] });   // prime telemetry for the first frame
   ATC.el.pause();
@@ -107,14 +108,14 @@ function toggleSwitch(id) {
     case 'wingHeat': case 'stabHeat': { const v = !(sys.wingHeat && sys.stabHeat); sys.wingHeat = v; sys.stabHeat = v; G.antiice = v; log('SYS', `WING/STAB HEAT ${v ? 'ON' : 'OFF'}`); break; }
     case 'nacelleHeat': sys.nacelleHeat = !sys.nacelleHeat; log('SYS', `NAC HEAT L/R ${sys.nacelleHeat ? 'ON' : 'OFF'}`); break;
     case 'pitotHeat': sys.pitotHeat = !sys.pitotHeat; sys.wshldHeat = sys.pitotHeat; break;
-    case 'stallWarn': sys.stallWarn = !sys.stallWarn; log('SYS', `STALL WARN L/R ${sys.stallWarn ? 'ON' : 'OFF — pusher disabled'}`); break;
+    case 'stallWarn': sys.stallWarn = !sys.stallWarn; log('SYS', `STALL WARN L/R ${sys.stallWarn ? 'ON' : 'OFF — shaker silenced'}`); break;
     case 'machTrim': if (!sys.machTrimFail) { sys.machTrim = !sys.machTrim; log('SYS', `MACH TRIM ${sys.machTrim ? 'ON' : 'OFF'}`); } else log('SYS', 'MACH TRIM — FAIL (inop this scenario)'); break;
     case 'trimMode': sys.trimMode = sys.trimMode === 'PRI' ? 'SEC' : sys.trimMode === 'SEC' ? 'OFF' : 'PRI'; log('SYS', `PITCH TRIM selector — ${sys.trimMode}`); break;
     case 'ap': if (ap.on) ap.disconnect('PILOT'); else if (ap.engage(ac.out)) log('SYS', 'AUTOPILOT ENGAGED — ALT/HDG hold'); else log('SYS', 'AP will not engage: attitude out of limits'); break;
     case 'yd': ac.ctl.yd = !ac.ctl.yd; break;
     case 'sb': ac.ctl.sb = ac.ctl.sb ? 0 : 1; break;
-    case 'gear': ac.ctl.gear = ac.ctl.gear ? 0 : 1; if (ac.ctl.gear && ac.out.KIAS > 260) log('SYS', 'GEAR extended above 260 KIAS — door damage'); break;
-    case 'flaps': ac.ctl.flaps = ac.ctl.flaps >= 1 ? 0 : +(ac.ctl.flaps + 0.5).toFixed(1); break;
+    case 'gear': ac.ctl.gear = ac.ctl.gear ? 0 : 1; if (ac.ctl.gear && ac.out.KIAS > 200) log('SYS', `GEAR extended above VLO 200 KIAS${ac.out.KIAS > 260 ? ' and VLE 260 — door damage' : ''}`); break;
+    case 'flaps': ac.ctl.flaps = ac.ctl.flaps >= 1 ? 0 : ac.ctl.flaps >= 0.5 ? 1 : ac.ctl.flaps >= 0.2 ? 0.5 : 0.2; break;
     case 'atc': ATC.on = !ATC.on; log('SYS', `Real ATC audio ${ATC.on ? 'ON (LiveATC recording)' : 'OFF'}`); break;
     case 'efb': SETTINGS.efb = SETTINGS.efb === 'MAP' ? 'CHECKLIST' : SETTINGS.efb === 'CHECKLIST' ? 'OFF' : 'MAP'; break;
     case 'ckback': G.ckActive = null; SETTINGS.efb = 'CHECKLIST'; break;
@@ -143,7 +144,6 @@ const PROCEDURES = [
     ['Flaps — UP / do not extend', () => G.ac.ctl.flaps === 0],
     ['Thrust — REDUCE', () => G.ac.ctl.thr < 0.4],
     ['Pitch trim — NOSE UP (.)', () => G.ac.ctl.trim > 0.1],
-    ['Pusher firing at low AOA with wing ice: STALL WARN — OFF (6) only if it defeats the recovery', () => !G.ac.tailStalled && !G.ac.pusher],
     ['Tail re-attached: airspeed REDUCE, wings level', () => !G.ac.tailStalled && Math.abs(G.ac.out.phi) < 15 * DEG] ] },
   { key: '4', title: 'RUNAWAY PITCH TRIM', steps: [
     ['Control wheel — HOLD against the trim', () => Math.abs(G.ac.ctl.elev) > 0.3 || !G.trimRunaway],
@@ -162,7 +162,7 @@ const PROCEDURES = [
     ['WING/STAB HEAT — ON (I)', () => G.ac.sys.wingHeat && G.ac.sys.stabHeat],
     ['Thrust — N1 ≥ 60% for wing bleed heat', () => G.ac.n1 > 0.4],
     ['PITOT/STATIC, WSHLD HEAT — ON', () => G.ac.sys.pitotHeat],
-    ['Exit icing — climb / deviate; expect pusher at low AOA', () => G.env.L.cloud < 0.2] ] },
+    ['Exit icing — deviate; with wing ice the stall can come BEFORE the shaker', () => G.env.L.cloud < 0.2] ] },
 ];
 function evalProcedures() {
   const lists = PROCEDURES.map(P => ({ key: P.key, title: P.title, steps: P.steps.map(([text, fn]) => ({ text, done: (() => { try { return !!fn(); } catch (e) { return false; } })() })) }));
@@ -235,7 +235,7 @@ function replayStep(dt) {
   ac.vel = [V * Math.cos(hdg), V * Math.sin(hdg), -vs];
   const out = { ...ac.out, h, KIAS: L('kias'), KEAS: L('kias'), M: L('mach'), vs, theta, phi, psi: hdg, track: hdg, alpha: L('alpha') * DEG, beta: 0, nz: L('nz'), V, qbar: 0.5 * atm.rho * V * V,
     gs: V, OAT: atm.T - 273.15, stalled: a[C.wingStall] > 0.5, buffet: a[C.wingStall] > 0.5 || L('mach') > hiBuffetMach(L('nz') * ac.m * G0 / Math.max(1, 0.5 * atm.rho * V * V * ac.S)),
-    bands: ac.speedEnvelope(h, clamp(L('nz'), 1, 2.5), ac.ice, 7), overspeed: L('mach') > 0.81 || L('kias') > ac.vmoKias(h), Vmo: ac.vmoKias(h), aStall: 0.1, tailStalled: ac.tailStalled, n1: ac.n1, damage: ac.damage, p: 0, q: 0, r: 0 };
+    bands: ac.speedEnvelope(h, clamp(L('nz'), 1, 2.5), ac.ice, 7), overspeed: L('mach') > ac.mmo(h) || L('kias') > ac.vmoKias(h), Vmo: ac.vmoKias(h), Mmo: ac.mmo(h), aStall: 0.1, aoaN: 0, tailStalled: ac.tailStalled, n1: ac.n1, damage: ac.damage, p: 0, q: 0, r: 0 };
   ac.out = out; G.ap.on = a[C.ap] > 0.5;
   G.env.wind(ac.pos, G.t, dt * G.timeScale);
   while (G.logIdx > 0 && TIMELINE[G.logIdx - 1].t > G.t) G.logIdx--;
