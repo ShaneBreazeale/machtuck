@@ -1,0 +1,76 @@
+{
+ "near_water": {
+  "file": "near_water.png",
+  "e0": -70000,
+  "e1": 50000,
+  "n0": -60000,
+  "n1": 60000,
+  "width": 2048,
+  "height": 2048,
+  "encoding": "255 = water",
+  "water_fraction": 0.474
+ },
+ "near": {
+  "file": "near.jpg",
+  "e0": -70000,
+  "e1": 50000,
+  "n0": -60000,
+  "n1": 60000,
+  "width": 4096,
+  "height": 4096,
+  "m_per_px": 29.296875,
+  "usgs_zoom": 13,
+  "usgs_coverage_fraction": 0.636
+ },
+ "far_water": {
+  "file": "far_water.png",
+  "e0": -300000,
+  "e1": 300000,
+  "n0": -300000,
+  "n1": 300000,
+  "width": 1024,
+  "height": 1024,
+  "encoding": "255 = water",
+  "water_fraction": 0.746
+ },
+ "far": {
+  "file": "far.jpg",
+  "e0": -300000,
+  "e1": 300000,
+  "n0": -300000,
+  "n1": 300000,
+  "width": 2048,
+  "height": 2048,
+  "m_per_px": 292.96875,
+  "usgs_zoom": 9,
+  "usgs_coverage_fraction": 0.279
+ },
+ "site": {
+  "file": "site.jpg",
+  "e0": -20000,
+  "e1": -4000,
+  "n0": -16000,
+  "n1": 0,
+  "width": 4096,
+  "height": 4096,
+  "m_per_px": 3.90625,
+  "usgs_zoom": 15,
+  "usgs_coverage_fraction": 1.0
+ },
+ "convention": "metres from KPBI (26.6832, -80.0956): north_m=(lat-26.6832)*111320, east_m=(lon+80.0956)*111320*cos(radians((lat+26.6832)/2)); images north-up, row 0 = n1 (north edge), column 0 = e0 (west edge); world x=east, z=north",
+ "source": "USGS The National Map USGSImageryOnly tile cache (NAIP orthoimagery; Blue Marble/Landsat at small scales), Web Mercator tiles resampled to the local grid; transparent (no-data) areas filled with NASA Blue Marble: Next Generation via NASA GIBS. Water masks: imagery no-data + blue near-shore ocean + USGS NHD water polygons (near); Natural Earth 10m land/islands/lakes (far).",
+ "licence": "Public domain. Imagery: USGS The National Map: Orthoimagery (USDA NAIP), US Government work. Ocean/Bahamas fill: NASA Earth Observatory Blue Marble: Next Generation, served by NASA GIBS (no copyright). Water: USGS National Hydrography Dataset (public domain); Made with Natural Earth (public domain).",
+ "attribution": "Imagery: USGS The National Map / USDA NAIP; NASA Blue Marble (GIBS). Water: USGS NHD, Natural Earth.",
+ "detail": {
+  "file": "detail.jpg",
+  "e0": -15074,
+  "e1": -10074,
+  "n0": -10839,
+  "n1": -5839,
+  "width": 4096,
+  "height": 4096,
+  "m_per_px": 1.220703125,
+  "usgs_zoom": 16,
+  "usgs_coverage_fraction": 1.0
+ }
+}

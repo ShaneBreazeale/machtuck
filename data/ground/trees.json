@@ -1,0 +1,20 @@
+{
+ "source": "Meta / World Resources Institute High Resolution Canopy Height Maps (Tolan et al. 2024)",
+ "licence": "CC BY 4.0",
+ "attribution": "Canopy height: Meta and World Resources Institute, CC BY 4.0",
+ "chm_tiles": [
+  "032023101",
+  "032023110"
+ ],
+ "count": 511964,
+ "height_p50_p95_max": [
+  9.0,
+  16.0,
+  38.66666793823242
+ ],
+ "e0": -20000,
+ "e1": -4000,
+ "n0": -16000,
+ "n1": 0,
+ "encoding": "u16 (e-e0)*4, u16 (n-n0)*4, u8 height*4, u8 crown_radius*20, u8 kind (0 broadleaf, 1 palm proxy)"
+}

@@ -1,0 +1,13 @@
+{
+ "source": "Overture Maps Foundation buildings theme (OpenStreetMap + Microsoft ML Buildings)",
+ "licence": "ODbL 1.0",
+ "attribution": "(c) OpenStreetMap contributors, Microsoft; Overture Maps Foundation",
+ "count": 62192,
+ "measured_heights": 52501,
+ "hip_roofs": 57144,
+ "e0": -20000,
+ "e1": -4000,
+ "n0": -16000,
+ "n1": 0,
+ "encoding": "u8 n, u8 total height*4, u8 flags(bit0 hip, bit1 measured height), n*(u16 (e-e0)*4, u16 (n-n0)*4)"
+}
