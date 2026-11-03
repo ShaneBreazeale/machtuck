@@ -35,10 +35,13 @@ export class Input {
     if (this.pressed('arrowright', 'd')) aT += 1; if (this.pressed('arrowleft', 'a')) aT -= 1;
     if (this.pressed('e')) rT += 1; if (this.pressed('q')) rT -= 1;
     const gp = navigator.getGamepads ? navigator.getGamepads()[0] : null;
+    let thrIn = 0;   // -1..1 throttle rate demand: keys are on/off, triggers are proportional
     if (gp) {
       const dz = (v) => Math.abs(v) < 0.08 ? 0 : v;
       aT += dz(gp.axes[0] || 0); eT += dz(gp.axes[1] || 0); rT += dz(gp.axes[2] || 0);
-      if (gp.buttons[7] && gp.buttons[7].value > 0.1) this.thrDelta = gp.buttons[7].value;
+      // Standard mapping: RT (7) throttle up, LT (6) throttle down; small deadzone for resting fingers
+      const trig = (i) => { const v = gp.buttons[i] ? gp.buttons[i].value : 0; return v > 0.1 ? v : 0; };
+      thrIn += trig(7) - trig(6);
     }
     if (this.mouse.down) { aT += clamp(this.mouse.dx, -1, 1); eT += clamp(this.mouse.dy, -1, 1); }
     eT = clamp(eT, -1, 1); aT = clamp(aT, -1, 1); rT = clamp(rT, -1, 1);
@@ -48,8 +51,9 @@ export class Input {
     this.axes.elev = ramp(this.axes.elev, eT, 2.8, 5);
     this.axes.ail = ramp(this.axes.ail, aT, 3.0, 6);
     this.axes.rud = ramp(this.axes.rud, rT, 2.0, 4);
-    this.thrDelta = 0; this.trimDelta = 0;
-    if (this.pressed('=', '+')) this.thrDelta = 0.5 * dt; if (this.pressed('-', '_')) this.thrDelta = -0.5 * dt;
+    this.trimDelta = 0;
+    if (this.pressed('=', '+')) thrIn += 1; if (this.pressed('-', '_')) thrIn -= 1;
+    this.thrDelta = clamp(thrIn, -1, 1) * 0.5 * dt;   // full travel in ~2 s at full key/trigger
     if (this.pressed('.')) this.trimDelta = 0.25 * dt; if (this.pressed(',')) this.trimDelta = -0.25 * dt;
     return held;
   }
