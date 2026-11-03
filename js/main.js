@@ -10,6 +10,7 @@ import { FT, KT } from './atmo.js';
 
 const glc = document.getElementById('gl'), hc = document.getElementById('hud');
 const R = new Renderer(glc), H = new HUD(hc), IN = new Input(hc), AU = new Audio();
+IN.onPad = (msg) => log('SYS', msg);
 const ghost = buildGhost();
 const ghostLine = new Float32Array(ghost.length * 3);
 ghost.forEach((p, i) => { const w = nedToWorld([p.n, p.e, p.d]); ghostLine.set(w, i * 3); });
@@ -381,6 +382,7 @@ function frame(now) {
     map: { n: ac.pos[0], e: ac.pos[1], hdg: out.psi || 0, coastX, ghost: ghostNE, trail: G.trailNE || [], nexImg: nexImgs ? nexImgs[(NEX && G.t > (NEX[0].t + NEX[1].t) / 2) ? 1 : 0] : null, nexN0: NEX ? NEX[0].f.z0 : 0, nexN1: NEX ? NEX[0].f.z0 + NEX[0].f.nz * NEX[0].f.d : 0, nexE0: NEX ? NEX[0].f.x0 : 0, nexE1: NEX ? NEX[0].f.x0 + NEX[0].f.nx * NEX[0].f.d : 0 },
     atcOn: ATC.on, atcShift: ATC.shift, hideHud: G.hideHud, replay: G.phase === 'replay', camMode: G.camEff, camAuto: G.camMode === 3, recon: !!G.recon, nexOn: SETTINGS.nexrad && !!NEX, dbz: env.L.dbz });
   atcSync();
+  if (G.phase === 'run' && !G.paused) IN.haptics({ shaker: !!ac.shaker && !ac.broken, buffet: !!out.buffet, broken: ac.broken });
   AU.update(dt, { qbar: out.qbar || 0, V: out.V || 0, n1: ac.n1, overspeed: !!out.overspeed, stall: !!out.stalled && out.alpha > 0, buffet: !!out.buffet, inCloud: env.L.cloud, ext: G.ext, broken: ac.broken, flash: env.flash, flashDist: env.L.r });
   if ((G.phase === 'run' || G.phase === 'replay') && !G.paused) {
     if (Math.abs(out.phi) > 45 * DEG) AU.say('Bank angle', 3);
