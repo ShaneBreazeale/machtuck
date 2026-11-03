@@ -23,13 +23,13 @@ export class HUD {
   draw(S) {
     this.resize(); const ctx = this.ctx, W = this.W, H = this.H; ctx.clearRect(0, 0, W, H); this.hits = [];
     const blink = Math.floor(performance.now() / 280) % 2 === 0;
-    if (!S.ext) { this.windshield(S); this.cockpitFrame(S); }
+    if (!S.ext && !S.cockpit3d) { this.windshield(S); this.cockpitFrame(S); }
     if (S.hideHud) {
       if (S.endMsg) this.text(S.endMsg, W / 2, H - 32, 12, 'rgba(255,90,90,0.8)', 'center', 'bold');
       if (S.replay) this.text(`${S.recon ? 'RECONSTRUCTION' : 'REPLAY'} ${clockStr(S.t)} EST  ·  ${S.camAuto ? 'AUTO: ' : ''}${['COCKPIT', 'CHASE (right-drag orbits)', 'GROUND CAM'][S.camMode]}  ·  Z hud  C camera`, W / 2, H - 14, 12, 'rgba(255,255,255,0.6)', 'center');
       return;
     }
-    if (!S.ext) this.panel(S, blink); else this.extLayout(S, blink);
+    if (S.cockpit3d) { /* the instruments are on the 3D panel */ } else if (!S.ext) this.panel(S, blink); else this.extLayout(S, blink);
     this.profile(S);
     this.commLog(S);
     this.header(S);
@@ -394,13 +394,13 @@ export class HUD {
     if (!S.recon) this.text(`max G ${S.ac.maxG.toFixed(1)}  max M ${S.ac.maxM.toFixed(2)}  max ${Math.abs(S.ac.maxVS / FT * 60).toFixed(0)} fpm`, x + 36, y + 12, 10, '#ccc');
   }
   commLog(S) {
-    const H = this.H; const lines = S.log.slice(-6); let y = H * 0.56 - 16 - lines.length * 17;
+    const H = this.H; const lines = S.log.slice(-6); let y = S.cockpit3d ? 64 : H * 0.56 - 16 - lines.length * 17;
     if (S.ext) y = H - 40 - lines.length * 17 - Math.min(this.W * 0.2, H * 0.3) * 0.95;
     for (const l of lines) { const col = l.who === 'MIA' ? '#9cf' : l.who === 'FO' || l.who === 'CA' ? '#ffe34d' : l.who === 'ACT' ? COL.magenta : '#ff9a3b'; const ctx = this.ctx; ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.font = `12px ${FONT}`; const tw = ctx.measureText(`${clockStr(l.t)} ${l.who}: ${l.txt}`).width + 12; ctx.fillRect(10, y - 8, tw, 16); this.text(`${clockStr(l.t)} ${l.who}: ${l.txt}`, 16, y, 12, col); y += 17; }
   }
   help() {
     const ctx = this.ctx, W = this.W, H = this.H; ctx.fillStyle = 'rgba(0,0,0,0.85)'; ctx.fillRect(W / 2 - 380, H / 2 - 250, 760, 500);
-    const L = ['CONTROLS', '', 'Pitch: ↑/↓ or W/S (↓ or S = pull)  ·  Roll: ←/→ or A/D  ·  Rudder: Q/E  ·  mouse-drag = stick', 'Throttle: − / =   ·   0 = idle   ·   B spoilers   ·   G gear (VLO 200 / VLE 260 KIAS)   ·   F flaps 8/20/40 (VFE 250/200/165 KIAS)', 'Pitch trim: , nose-down  . nose-up (PRI/SEC only)   ·   7 = trim PRI/SEC/OFF   ·   8 = Mach trim', 'I = wing+stab heat   ·   9 = nacelle heat   ·   6 = stall warning / pusher cutout   ·   Y = yaw damper', 'X = autopilot off / engage   ·   TAB = EFB map / procedures / off   ·   1–6 = procedure card   ·   ` = back', 'C camera (right-drag orbits)   ·   V ghost   ·   T ATC audio   ·   ; / \' nudge tape   ·   U NEXRAD   ·   O/J radar', 'N skip   ·   [ ] sim rate   ·   K quality   ·   P pause   ·   R restart   ·   M mute   ·   Z hide HUD   ·   H help', 'Controller (DualShock/DualSense/Xbox): L stick pitch/roll · R stick rudder · R2/L2 thrust · R1/L1 trim up/down · ✕ AP · ○ spoilers · □ idle · △ camera · D-pad ↑ gear ↓ flaps · L3 yaw damper · Options pause · Create help · rumble on shaker/buffet (Chrome)', 'Switch panel on the right and EFB items are clickable.', '', 'UPSET RECOVERY (nose low, high speed):', '1. Recognize, AP off.  2. Thrust IDLE, spoilers OUT.  3. Stalled? UNLOAD first.', '4. Roll to nearest horizon.  5. Pull smoothly ~2 g; shaker/pusher mean the iced wing is at its limit.', '6. Re-trim nose-up. Above M.81 the tuck fights you; speed must come off first.'];
+    const L = ['CONTROLS', '', 'Pitch: ↑/↓ or W/S (↓ or S = pull)  ·  Roll: ←/→ or A/D  ·  Rudder: Q/E  ·  mouse-drag = stick', 'Throttle: − / =   ·   0 = idle   ·   B spoilers   ·   G gear (VLO 200 / VLE 260 KIAS)   ·   F flaps 8/20/40 (VFE 250/200/165 KIAS)', 'Pitch trim: , nose-down  . nose-up (PRI/SEC only)   ·   7 = trim PRI/SEC/OFF   ·   8 = Mach trim', 'I = wing+stab heat   ·   9 = nacelle heat   ·   6 = stall warning (shaker) cutout   ·   Y = yaw damper', 'X = autopilot off / engage   ·   TAB = EFB map / procedures / off   ·   1–6 = procedure card   ·   ` = back', 'C camera (right-drag orbits)   ·   V ghost   ·   T ATC audio   ·   ; / \' nudge tape   ·   U NEXRAD   ·   O/J radar', 'N skip   ·   [ ] sim rate   ·   K quality   ·   P pause   ·   R restart   ·   M mute   ·   Z hide HUD   ·   H help', 'Controller (DualShock/DualSense/Xbox): L stick pitch/roll · R stick rudder · R2/L2 thrust · R1/L1 trim up/down · ✕ AP · ○ spoilers · □ idle · △ camera · D-pad ↑ gear ↓ flaps · L3 yaw damper · Options pause · Create help · rumble on shaker/buffet (Chrome)', '3D cockpit: right-drag to look around, mouse wheel to zoom; the switch panel and EFB are clickable.', '', 'UPSET RECOVERY (nose low, high speed):', '1. Recognize, AP off.  2. Thrust IDLE, spoilers OUT.  3. Stalled? UNLOAD first.', '4. Roll to nearest horizon.  5. Pull smoothly ~2 g; with ice the wing can stall before the shaker.', '6. Re-trim nose-up. Above M.81 the tuck fights you; speed must come off first.'];
     L.forEach((l, i) => this.text(l, W / 2, H / 2 - 225 + i * 30, i === 0 || i === 11 ? 16 : 12, i === 0 || i === 11 ? '#ffe34d' : '#ddd', 'center', i === 0 ? 'bold' : ''));
   }
 }

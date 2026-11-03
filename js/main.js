@@ -2,6 +2,7 @@ import { Learjet60, hiBuffetMach } from './aircraft.js';
 import { Environment, Autopilot, buildGhost, ghostAt, STORM, TIMELINE, HYPOTHESES, clockStr, NexradField, NEXRAD_VOLUMES } from './scenario.js';
 import { Renderer } from './render.js';
 import { HUD } from './hud.js';
+import { Cockpit } from './cockpit.js';
 import { Input } from './input.js';
 import { Audio } from './audio.js';
 import { DEG, RAD, clamp, qmat, mulMV, nedToWorld, lerp, smoothstep, qfromEuler, wrap180 } from './util.js';
@@ -10,6 +11,7 @@ import { FT, KT } from './atmo.js';
 
 const glc = document.getElementById('gl'), hc = document.getElementById('hud');
 const R = new Renderer(glc), H = new HUD(hc), IN = new Input(hc), AU = new Audio();
+let CK = null; try { CK = new Cockpit(document.getElementById('ck')); } catch (e) { console.warn('3D cockpit unavailable, using the 2D panel:', e); }
 IN.onPad = (msg) => log('SYS', msg);
 const ghost = buildGhost();
 const ghostLine = new Float32Array(ghost.length * 3);
@@ -345,8 +347,12 @@ function frame(now) {
     cam = { pos: site, right: rr, up: uu, fwd: dir };
     G.groundFov = clamp(Math.atan2(45, dl) * 2, 1.2 * DEG, 50 * DEG);
   } else if (!G.ext) {
+    // Pilot's head: right-drag looks around (default slightly down so the panel is in view), wheel zooms
+    G.head = Cockpit.head(clamp(IN.orbit.yaw, -2.2, 2.2), clamp(-IN.orbit.pitch, -1.1, 0.9) - 0.22);
+    G.shakeEye = [sh(1.3) * 0.004, sh(0.9) * 0.004, 0];
     const eye = [0, 1, 2].map(i => posW[i] + fwd[i] * 6.0 + up[i] * 0.55 + right[i] * sh(1.3) * 0.4 + up[i] * sh(0.9) * 0.4);
-    cam = { pos: eye, right, up, fwd };
+    const toW = (h) => [0, 1, 2].map(i => right[i] * h[0] + up[i] * h[1] + fwd[i] * h[2]);
+    cam = CK ? { pos: eye, right: toW(G.head.right), up: toW(G.head.up), fwd: toW(G.head.fwd) } : { pos: eye, right, up, fwd };
   } else {
     const fh = [fwd[0], 0, fwd[2]]; const l = Math.hypot(fh[0], fh[2]) || 1; fh[0] /= l; fh[2] /= l;
     const oy = IN.orbit.yaw, op = IN.orbit.pitch, cy = Math.cos(oy), sy = Math.sin(oy);
@@ -368,19 +374,26 @@ function frame(now) {
   const gr2 = gr.map((v, i) => v * Math.cos(bank) - gu[i] * Math.sin(bank)), gu2 = gr.map((v, i) => v * Math.sin(bank) + gu[i] * Math.cos(bank));
   const stormT = STORM.top(G.t);
   const S = {
-    cam, fov: G.camEff === 2 && G.replay ? G.groundFov : G.ext ? 60 * DEG : 70 * DEG, time: G.time, sun: SUN, ac: { pos: posW, fwd, right, up }, ext: G.ext, stabGone: ac.broken && ac.brokenWhat === 'stab',
+    cam, fov: G.camEff === 2 && G.replay ? G.groundFov : G.ext ? 60 * DEG : (CK ? clamp(64 * IN.zoom, 26, 78) : 70) * DEG, time: G.time, sun: SUN, ac: { pos: posW, fwd, right, up }, ext: G.ext, stabGone: ac.broken && ac.brokenWhat === 'stab',
     ghost: { pos: gW, fwd: gf, right: gr2, up: gu2 }, showGhost: G.showGhost && G.t < ghost[ghost.length - 1].t,
     storm: { pos: [STORM.e + STORM.drift[1] * G.t, stormT, STORM.n + STORM.drift[0] * G.t], r: STORM.rCore, base: STORM.base },
     flash: env.flash, cloudBase: 6400, cloudTop: 10500, useNex: SETTINGS.nexrad, nexMix: NEX ? clamp((G.t - NEX[0].t) / (NEX[1].t - NEX[0].t), 0, 1) : 0,
     lines: [{ data: ghostLine, color: [1, 0.25, 0.75, G.recon ? 0 : G.showGhost ? 0.9 : 0.25], strip: true }, { data: new Float32Array(G.trail), color: [0.4, 1, 0.4, 0.9], strip: true }],
   };
-  R.render(S);
-  H.draw({ out, ac, ap, t: G.t, log: G.log, inCloud: env.L.cloud, core: env.L.core, updraft: env.L.updraft, ext: G.ext, hist: G.hist, ghostProfile, ghostAlt, recovered: G.recovered, recoveredAlt: G.recoveredAlt, upsetT: UPSET_T,
+  R.render(S); G.lastFov = S.fov;
+  const HS = { out, ac, ap, t: G.t, log: G.log, inCloud: env.L.cloud, core: env.L.core, updraft: env.L.updraft, ext: G.ext, hist: G.hist, ghostProfile, ghostAlt, recovered: G.recovered, recoveredAlt: G.recoveredAlt, upsetT: UPSET_T,
     apOffAt: G.apOffAt, apOffWall: G.apOffWall, timeScale: G.timeScale, quality: R.quality, help: G.help, paused: G.paused, hypName: G.hypName, endMsg: G.endMsg, antiice: G.antiice, flash: env.flash, fps,
     wxr: SETTINGS.wxr && NEX ? { range: SETTINGS.wxrRange, sample: (n, e, h0, h1) => { h0 -= 1500; const w = clamp((G.t - NEX[0].t) / (NEX[1].t - NEX[0].t), 0, 1); return lerp(NEX[0].f.dbzBand(n, e, h0, h1), NEX[1].f.dbzBand(n, e, h0, h1), w); } } : null,
     efb: { mode: SETTINGS.efb, range: SETTINGS.wxrRange }, checklist: evalProcedures(), trimRunaway: G.trimRunaway,
     map: { n: ac.pos[0], e: ac.pos[1], hdg: out.psi || 0, coastX, ghost: ghostNE, trail: G.trailNE || [], nexImg: nexImgs ? nexImgs[(NEX && G.t > (NEX[0].t + NEX[1].t) / 2) ? 1 : 0] : null, nexN0: NEX ? NEX[0].f.z0 : 0, nexN1: NEX ? NEX[0].f.z0 + NEX[0].f.nz * NEX[0].f.d : 0, nexE0: NEX ? NEX[0].f.x0 : 0, nexE1: NEX ? NEX[0].f.x0 + NEX[0].f.nx * NEX[0].f.d : 0 },
-    atcOn: ATC.on, atcShift: ATC.shift, hideHud: G.hideHud, replay: G.phase === 'replay', camMode: G.camEff, camAuto: G.camMode === 3, recon: !!G.recon, nexOn: SETTINGS.nexrad && !!NEX, dbz: env.L.dbz });
+    atcOn: ATC.on, atcShift: ATC.shift, hideHud: G.hideHud, replay: G.phase === 'replay', camMode: G.camEff, camAuto: G.camMode === 3, recon: !!G.recon, nexOn: SETTINGS.nexrad && !!NEX, dbz: env.L.dbz,
+    cockpit3d: !!CK && !G.ext };
+  if (HS.cockpit3d) {
+    CK.update(HS);
+    CK.render({ ctl: ac.ctl, sunWorld: SUN, acBasis: { right, up, fwd }, inCloud: env.L.cloud, core: env.L.core, flash: env.flash },
+      G.head, G.shakeEye, S.fov, innerWidth / innerHeight);
+  } else if (CK) CK.hide();
+  H.draw(HS);
   atcSync();
   if (G.phase === 'run' && !G.paused) IN.haptics({ shaker: !!ac.shaker && !ac.broken, buffet: !!out.buffet, broken: ac.broken });
   AU.update(dt, { qbar: out.qbar || 0, V: out.V || 0, n1: ac.n1, overspeed: !!out.overspeed, stall: !!out.stalled && out.alpha > 0, buffet: !!out.buffet, inCloud: env.L.cloud, ext: G.ext, broken: ac.broken, flash: env.flash, flashDist: env.L.r });
@@ -414,6 +427,11 @@ document.getElementById('continue').addEventListener('click', () => { document.g
 document.getElementById('brief-again').addEventListener('click', () => { document.getElementById('debrief').classList.add('hidden'); document.getElementById('brief').classList.remove('hidden'); });
 document.getElementById('nexbox').checked = true; document.getElementById('atcbox').checked = false;   // Chrome restores form state on reload
 newGame('combined'); G.paused = true;
-IN.onClick = (x, y) => { const h = H.hit(x, y); if (!h) return false; toggleSwitch(h.id); return true; };
+IN.onClick = (x, y) => {
+  let h = null;
+  if (CK && !G.ext && G.head) { const p = CK.pick(2 * x / innerWidth - 1, 1 - 2 * y / innerHeight, G.head, G.lastFov || 64 * DEG, innerWidth / innerHeight); h = p && p.hit; }
+  else h = H.hit(x, y);
+  if (!h) return false; toggleSwitch(h.id); return true;
+};
 window.SIM = { get G() { return G; }, ATC, SETTINGS, IN, get NEX() { return NEX; } };   // debug / flight-data access from the console
 requestAnimationFrame(frame);

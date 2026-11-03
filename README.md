@@ -47,6 +47,11 @@ rating (4,600 lbf, flat to 23.3 C) at the AFM takeoff N1. Current agreement (`no
 
 ## Cockpit, systems, procedures
 
+3D cockpit from the left seat (`js/cockpit.js`): procedural glareshield, windshield frame, panel, pedestal, yokes, thrust levers
+and rudder pedals that follow the controls, lit by the sun and dimmed in cloud; the instruments are drawn onto the panel
+screens and stay clickable. Right-drag looks around, the mouse wheel zooms. The exterior cameras (C) keep the 2D instruments.
+
+
 Pro Line 4-style panel: glareshield annunciators + flight-guidance strip, PFD, engine column (N1/ITT/N2/FF), MFD with
 the weather radar, a clickable systems panel (wing/stab heat, nacelle heat, pitot/windshield heat, stall-warning cutout,
 Mach trim, pitch-trim PRI/SEC/OFF, AP, YD, spoilers, gear, flaps) and the pedestal. The EFB tablet (TAB) shows a

@@ -2,6 +2,7 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; font-f
 canvas { position: absolute; inset: 0; width: 100vw; height: 100vh; display: block; }
 #gl { image-rendering: auto; }
 #hud { outline: none; touch-action: none; }
+#ck { pointer-events: none; }
 .overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.72); z-index: 10; }
 .overlay.hidden { display: none; }
 .panel { max-width: 1000px; width: 92vw; max-height: 92vh; overflow: auto; background: #101216; border: 1px solid #2a2e36; border-radius: 10px; padding: 22px 28px; box-shadow: 0 20px 60px rgba(0,0,0,0.6); }

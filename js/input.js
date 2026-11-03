@@ -8,6 +8,8 @@ export class Input {
     this.thrDelta = 0; this.trimDelta = 0; this.orbit = { yaw: 0, pitch: 0 }; this.rdrag = null; this.onClick = null;
     // Gamepad (DualShock 4 / DualSense / Xbox). Browsers expose a pad only after a button press.
     this.pad = { index: null, prev: [], rest: null, rumbleAt: 0 }; this.onPad = null;
+    this.zoom = 1;   // cockpit field-of-view scale, mouse wheel
+    canvas.addEventListener('wheel', (e) => { this.zoom = clamp(this.zoom * Math.exp(e.deltaY * 0.0012), 0.42, 1.22); e.preventDefault(); }, { passive: false });
     window.addEventListener('gamepadconnected', (e) => {
       const gp = e.gamepad;
       if (this.onPad) this.onPad(gp.mapping === 'standard'
