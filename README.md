@@ -26,7 +26,8 @@ SDF Learjet) so a discrete GPU or Apple Silicon is recommended; press `K` to cyc
 - `js/cockpit.js`, `js/vcgauges.js` — 3D virtual cockpit and its standby gauges; `tools/fs9_vc.py` converts the FS2004 model
 - `js/input.js`, `js/audio.js`, `js/main.js`
 - `test/` — headless Node checks: `sim_test.mjs` (upset scenario), `stab_test.mjs`, `flight_test.mjs` (flight-test
-  card), `afm_validate.mjs` (model vs ~1,860 cells of AFM tables in `afm_tables.json`)
+  card), `afm_validate.mjs` (model vs ~1,860 cells of AFM tables in `afm_tables.json`), `recovery_test.mjs` (pass/fail judgement: no credit for an early takeover
+  without an upset, seeded turbulence)
 
 ## Flight model validation
 

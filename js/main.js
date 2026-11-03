@@ -1,5 +1,5 @@
 import { Learjet60, hiBuffetMach } from './aircraft.js';
-import { Environment, Autopilot, buildGhost, ghostAt, STORM, TIMELINE, HYPOTHESES, clockStr, NexradField, NEXRAD_VOLUMES } from './scenario.js';
+import { Environment, Autopilot, buildGhost, ghostAt, STORM, TIMELINE, HYPOTHESES, clockStr, NexradField, NEXRAD_VOLUMES, RecoveryJudge, UPSET_T } from './scenario.js';
 import { Renderer } from './render.js';
 import { HUD } from './hud.js';
 import { Cockpit } from './cockpit.js';
@@ -19,7 +19,6 @@ ghost.forEach((p, i) => { const w = nedToWorld([p.n, p.e, p.d]); ghostLine.set(w
 const ghostProfile = ghost.map(p => ({ t: p.t, alt: -p.d / FT }));
 const ghostAlt = (t) => -ghostAt(ghost, t).d / FT;
 const SUN = (() => { const v = [-0.116, 0.743, -0.66]; const l = Math.hypot(...v); return v.map(x => x / l); })();
-const UPSET_T = 76;   // 12:48:16 — start of the actual rapid descent
 let G = null;
 let NEX = null;            // [{f: NexradField, t}, {f, t}]
 // The posted clip is edited: silences between transmissions were cut. Piecewise map clip time -> sim time (s after 12:47:00),
@@ -57,7 +56,7 @@ function newGame(hypKey, hard = true) {
   ATC.el.pause();
   G = { ac, env, ap, t: 0, phase: 'run', hypKey, hard, hypName: HYPOTHESES[hypKey].name + (hard ? ' · AS FLOWN' : ' · TRAINER'), fdr: [], lastFdr: -1, lastSave: 0, log: [], logIdx: 0, hist: [], trail: [], lastHist: -1, lastTrail: -1,
     recovered: null, recoveredAlt: 0, apOffAt: null, apOffWall: -99, ext: false, timeScale: 1, paused: false, help: false, showGhost: true, antiice: false,
-    camPos: null, shake: 0, endMsg: null, stabTime: 0, bangDone: false, upsetT: UPSET_T, time: 0, hideHud: false, camMode: 0, replay: null, recon: false, camEff: 0, ckActive: null, trimRunaway: false };
+    camPos: null, shake: 0, endMsg: null, judge: new RecoveryJudge(), avoided: null, bangDone: false, upsetT: UPSET_T, time: 0, hideHud: false, camMode: 0, replay: null, recon: false, camEff: 0, ckActive: null, trimRunaway: false };
   document.getElementById('debrief').classList.add('hidden');
 }
 function log(who, txt) { G.log.push({ t: G.t, who, txt }); }
@@ -92,10 +91,14 @@ function stepSim(h, held) {
   if (G.t - G.lastTrail >= 0.5) { G.lastTrail = G.t; G.trail.push(...nedToWorld(ac.pos)); (G.trailNE = G.trailNE || []).push([ac.pos[0], ac.pos[1]]); }
   if (ac.broken && !G.bangDone) { G.bangDone = true; AU.bang(); log('SYS', ac.brokenWhat === 'stab' ? 'HORIZONTAL STABILIZER SEPARATED — PITCH CONTROL LOST' : 'WING STRUCTURAL FAILURE'); G.endMsg = ac.brokenWhat === 'stab' ? 'STRUCTURAL FAILURE — HORIZONTAL STABILIZER SEPARATED' : 'STRUCTURAL FAILURE — WING'; }
   if (ac.crashed && G.phase === 'run') { G.phase = 'end'; G.endMsg = `IMPACT ${clockStr(G.t)} EST`; AU.bang(); debrief(); }
-  // recovery: wings level, nose above -5°, sink under 1,500 fpm, ~1 g, sustained 3 s after the AP let go
-  if (G.apOffAt !== null && G.recovered === null && !ac.broken && G.t - G.apOffAt > 3 && Math.abs(out.phi) < 15 * DEG && out.theta > -5 * DEG && out.vs > -7.6 && out.nz > 0.6 && out.nz < 1.6 && !out.overspeed) {
-    G.stabTime += h; if (G.stabTime > 3) { G.recovered = G.t; G.recoveredAlt = out.h; log('SYS', `RECOVERED at ${Math.round(out.h / FT)} ft, ${(G.t - UPSET_T).toFixed(0)} s after the actual upset time.`); AU.say('Recovered'); setTimeout(debrief, 1500); }
-  } else G.stabTime = 0;
+  // pass / fail (RecoveryJudge, scenario.js): a real upset during the event first, then 10 s of stable flight
+  const ev = G.phase === 'run' ? G.judge.update(G.t, h, out, ac) : null;
+  if (ev === 'upset') log('SYS', `UPSET — ${G.judge.why}, ${Math.round(out.h / FT)} ft`);
+  else if (ev === 'recovered') {
+    G.recovered = G.t; G.recoveredAlt = out.h;
+    log('SYS', `RECOVERED at ${Math.round(out.h / FT)} ft, ${(G.t - UPSET_T).toFixed(0)} s after the actual upset time (lost ${Math.round((G.judge.upsetAlt - G.judge.minAlt) / FT)} ft).`);
+    AU.say('Recovered'); setTimeout(debrief, 1500);
+  } else if (ev === 'avoided') { G.avoided = G.t; log('SYS', 'UPSET AVOIDED — stable through the event, no loss of control.'); AU.say('Upset avoided'); setTimeout(debrief, 1500); }
   return out;
 }
 
@@ -249,7 +252,7 @@ function replayStep(dt) {
 function debrief() {
   saveFdr(); console.log('[FDR] run saved to localStorage n722bd_fdr;', G.fdr.length, 'rows');
   const { ac } = G, o = ac.out; const d = document.getElementById('debrief'); d.classList.remove('hidden');
-  const title = G.recon ? 'RECONSTRUCTION — IMPACT 12:49:32 (reported)' : ac.crashed ? (ac.broken ? 'AIRFRAME FAILURE, THEN IMPACT' : 'IMPACT') : G.recovered !== null ? 'RECOVERED' : 'DEBRIEF';
+  const title = G.recon ? 'RECONSTRUCTION — IMPACT 12:49:32 (reported)' : ac.crashed ? (ac.broken ? 'AIRFRAME FAILURE, THEN IMPACT' : 'IMPACT') : G.recovered !== null ? 'RECOVERED' : G.avoided !== null ? 'UPSET AVOIDED' : 'DEBRIEF';
   const fmt = (v, u = '') => `${v}${u}`;
   if (G.recon) {
     const r = G.fdr; const col = (i) => r.map(x => x[i]);
@@ -266,7 +269,7 @@ function debrief() {
     return;
   }
   d.querySelector('h2').textContent = G.recon ? title : `${title} — ${clockStr(G.t)} EST`;
-  d.querySelector('h2').style.color = G.recovered !== null && !ac.crashed ? '#6cff6c' : '#ff3b3b';
+  d.querySelector('h2').style.color = (G.recovered !== null || G.avoided !== null) && !ac.crashed ? '#6cff6c' : '#ff3b3b';
   d.querySelector('table').innerHTML = `<tr><th></th><th>You</th><th>Actual N722BD (reported)</th></tr>
     <tr><td>Lowest altitude</td><td>${G.hist.length ? fmt(Math.round(Math.max(0, Math.min(...G.hist.map(p => p.h))) / FT), ' ft') : '—'}</td><td>impact, 12:49:32</td></tr>
     <tr><td>Peak Mach</td><td>${ac.maxM.toFixed(3)}</td><td>≈0.9 (est. from ADS-B; Mmo 0.81)</td></tr>
@@ -274,7 +277,8 @@ function debrief() {
     <tr><td>Peak load factor</td><td>${ac.maxG.toFixed(2)} g / ${ac.minG.toFixed(2)} g</td><td>unknown; in-flight breakup indicated</td></tr>
     <tr><td>Peak EAS</td><td>${Math.round(ac.maxKEAS)} KEAS</td><td>575–600 KTAS est. (~470 KEAS at 15,000 ft)</td></tr>
     <tr><td>Airframe stress</td><td>${Math.round(ac.damage * 100)}%${ac.broken ? ' — ' + (ac.brokenWhat === 'stab' ? 'horizontal stabilizer separated' : 'wing failure') : ''}</td><td>video suggests missing horizontal stabilizer before impact (unconfirmed)</td></tr>
-    <tr><td>Recovery</td><td>${G.recovered !== null ? `${Math.round(G.recoveredAlt / FT)} ft, ${(G.recovered - UPSET_T).toFixed(0)} s after 12:48:16` : 'none'}</td><td>none; 76 s from FL350 to ground</td></tr>`;
+    <tr><td>Upset</td><td>${G.judge.upsetAt !== null ? `${G.judge.why}, ${clockStr(G.judge.upsetAt)}` : 'none'}</td><td>12:48:06 balloon, 12:48:16 descent</td></tr>
+    <tr><td>Recovery</td><td>${G.recovered !== null ? `${Math.round(G.recoveredAlt / FT)} ft, ${(G.recovered - UPSET_T).toFixed(0)} s after 12:48:16` : G.avoided !== null ? 'not needed: upset avoided' : 'none'}</td><td>none; 76 s from FL350 to ground</td></tr>`;
   let tip = '';
   if (ac.broken) tip = ac.maxM > 0.9 ? 'You exceeded roughly Mach 0.9 with load on the airframe. Above Mmo the stabilizer sees enormous loads; thrust to idle and spoilers out before pulling, then pull smoothly.' : 'Pulled too hard. Limit load is about +3 g; a Learjet at high EAS breaks at roughly 1.5× that. Roll level first, then pull progressively, watching the G readout.';
   else if (ac.crashed) tip = Math.abs(o.phi) > 30 * DEG ? 'The spiral never got unwound: with bank on, pulling only tightens the turn and raises G. Wings level FIRST, then pull.' : 'Not enough nose-up authority in time. Idle, spoilers, nose-up trim, and a steady pull started earlier.';

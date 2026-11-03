@@ -2,6 +2,7 @@
 // Reconstruction from publicly reported ADS-B / NEXRAD / ATC figures. Provisional; cause under NTSB investigation.
 import { DEG, RAD, clamp, lerp, smoothstep, wrap180, wrap360 } from './util.js';
 import { FT, KT } from './atmo.js';
+import { shakerAoaN } from './aircraft.js';
 
 export const T0_CLOCK = 12 * 3600 + 47 * 60;   // 12:47:00 EST = t 0
 export const clockStr = (t) => { const s = Math.max(0, Math.floor(T0_CLOCK + t)); const hh = Math.floor(s / 3600), mm = Math.floor(s / 60) % 60, ss = s % 60; return `${hh}:${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`; };
@@ -212,5 +213,53 @@ export class Autopilot {
     ac.ctl.ail = clamp(1.2 * (phiCmd - phi) - 0.5 * p, -0.6, 0.6);
     // No autothrottle on the Learjet 60: thrust stays where the crew left it.
     if (M > 0.845 || Math.abs(phi) > 50 * DEG || vs < -45) this.disconnect(M > 0.845 ? 'OVERSPEED' : 'ATTITUDE');
+  }
+}
+
+// ---------------- Upset / recovery judgement ----------------
+// Definitions from the FAA Airplane Upset Recovery Training Aid: an upset is pitch above +25 or below -10 deg, bank
+// beyond 45 deg, or flight outside the envelope (tailplane stall, stall / stick-shaker AOA, overspeed, g outside 0.5..2).
+// Only upsets from the start of the event (core entry, 12:47:56) count. RECOVERED needs one of those first, then 10 s of
+// stable flight (wings within 15 deg, pitch -5..+15, sink under 2,000 fpm, 0.8..1.3 g, inside the envelope); clean stable
+// flight 60 s past the real upset time without ever upsetting is AVOIDED. Taking the airplane early and holding it level
+// is neither. g and AOA are low-passed over ~1 s so a turbulence spike is not an upset (nor breaks a recovery).
+export const UPSET_T = 76;   // 12:48:16, start of the actual rapid descent
+export const EVENT_T = 56;   // 12:47:56, core entry
+export class RecoveryJudge {
+  constructor(eventT = EVENT_T, upsetT = UPSET_T) {
+    this.eventT = eventT; this.upsetT = upsetT; this.upsetAt = null; this.why = ''; this.recoveredAt = null; this.recoveredAlt = 0; this.avoidedAt = null;
+    this.stable = 0; this.minAlt = Infinity; this.nzF = 1; this.aoaF = 0;
+  }
+  outside(out, ac) {
+    if (ac.tailStalled) return 'tailplane stall';
+    if (out.alpha > 0 && (out.stalled || this.aoaF > shakerAoaN(out.h))) return 'stall / shaker';
+    if (out.overspeed) return 'overspeed';
+    if (this.nzF < 0.5 || this.nzF > 2.0) return 'g';
+    return null;
+  }
+  upsetReason(out, ac) {
+    if (out.theta > 25 * DEG) return 'nose high';
+    if (out.theta < -10 * DEG) return 'nose low';
+    if (Math.abs(out.phi) > 45 * DEG) return 'bank';
+    return this.outside(out, ac);
+  }
+  stableNow(out, ac) {
+    const nz = this.nzF;
+    return Math.abs(out.phi) < 15 * DEG && out.theta > -5 * DEG && out.theta < 15 * DEG && out.vs > -2000 * FT / 60 && nz > 0.8 && nz < 1.3 && !this.outside(out, ac);
+  }
+  // Advance by h seconds at sim time t; returns 'upset' | 'recovered' | 'avoided' when one happens, else null
+  update(t, h, out, ac) {
+    const k = Math.min(1, h / 1.0); this.nzF += (out.nz - this.nzF) * k; this.aoaF += (out.aoaN - this.aoaF) * k;
+    if (this.recoveredAt !== null || this.avoidedAt !== null || ac.broken || ac.crashed) return null;
+    if (this.upsetAt === null && t >= this.eventT) {
+      const why = this.upsetReason(out, ac);
+      if (why) { this.upsetAt = t; this.upsetAlt = out.h; this.why = why; this.stable = 0; return 'upset'; }
+    }
+    this.stable = this.stableNow(out, ac) ? this.stable + h : 0;
+    if (this.upsetAt !== null) {
+      this.minAlt = Math.min(this.minAlt, out.h);
+      if (this.stable >= 10) { this.recoveredAt = t; this.recoveredAlt = out.h; return 'recovered'; }
+    } else if (t > this.upsetT + 60 && this.stable >= 10) { this.avoidedAt = t; return 'avoided'; }
+    return null;
   }
 }
