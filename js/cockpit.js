@@ -58,8 +58,8 @@ void main(){
 
 // sim variables of the FS2004 model -> our controls (t on 0..100 along each keyframe track)
 const VAR = { YOKE_PITCH: 524, YOKE_ROLL: 528, RUDDER: 532, THR_L: 472, THR_R: 476, FLAPS: 552, SPOILER: 544 };
-// Thrust levers: the model's own lever track, idle (t 0) to max (t 50), 17.5 deg; t 50..100 is the reverser range
-const THR_T = (thr) => 50 * clamp(thr, 0, 1);
+// Thrust levers: the model's own lever track, max (t 0) to idle (t 50), 17.5 deg; t 50..100 lifts the reversers
+const THR_T = (thr) => 50 * (1 - clamp(thr, 0, 1));
 // pilot eye in model coordinates: aircraft.cfg eyepoint (-16.7, -1.6, 2.0 ft from the datum, datum 34.5 ft ahead of the origin)
 export const EYE = [-1.6 * 0.3048, 2.0 * 0.3048, (34.5 - 16.7) * 0.3048];
 
@@ -71,8 +71,10 @@ const v3 = { sub: (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]], add: (a, b)
 // 4x4 row-major, row vectors (p' = p M): exactly the layout WebGL reads as the column-major transpose
 const I4 = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
 const mul4 = (a, b) => { const r = new Array(16); for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) r[i * 4 + j] = a[i * 4] * b[j] + a[i * 4 + 1] * b[4 + j] + a[i * 4 + 2] * b[8 + j] + a[i * 4 + 3] * b[12 + j]; return r; };
-const quatM = ([x, y, z, w]) => [1 - 2 * (y * y + z * z), 2 * (x * y + z * w), 2 * (x * z - y * w), 0, 2 * (x * y - z * w), 1 - 2 * (x * x + z * z), 2 * (y * z + x * w), 0,
-  2 * (x * z + y * w), 2 * (y * z - x * w), 1 - 2 * (x * x + y * y), 0, 0, 0, 0, 1];
+// Keyframe quaternions rotate the other way from D3DX's row-vector matrix (checked on the model: the airstair door
+// swings out, the flap lever is forward at flaps up, the spoiler lever comes aft to extend), so use the transpose
+const quatM = ([x, y, z, w]) => [1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w), 0, 2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w), 0,
+  2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y), 0, 0, 0, 0, 1];
 // Keyframe track at t: translation (type 1) or quaternion rotation (type 3), interpolated between keys (slerp).
 // Outside the keys the end values are held.
 function track(keys, type, t) {
@@ -190,7 +192,7 @@ export class Cockpit {
   hide() { if (this.shown) { const gl = this.gl; gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); this.shown = false; } }
   // World matrices of the model's animated nodes for the current control positions
   pose(ctl) {
-    const t = new Map([[VAR.YOKE_PITCH, 50 - 50 * clamp(ctl.elev, -1, 1)], [VAR.YOKE_ROLL, 50 + 50 * clamp(ctl.ail, -1, 1)], [VAR.RUDDER, 50 + 50 * clamp(ctl.rud, -1, 1)],
+    const t = new Map([[VAR.YOKE_PITCH, 50 + 50 * clamp(ctl.elev, -1, 1)], [VAR.YOKE_ROLL, 50 + 50 * clamp(ctl.ail, -1, 1)], [VAR.RUDDER, 50 + 50 * clamp(ctl.rud, -1, 1)],
       [VAR.THR_L, THR_T(ctl.thr)], [VAR.THR_R, THR_T(ctl.thr)], [VAR.FLAPS, 100 * clamp(ctl.flaps, 0, 1)], [VAR.SPOILER, 100 * clamp(ctl.sb, 0, 1)]]);
     const W = this.W || (this.W = []);
     this.nodes.forEach((n, i) => {
