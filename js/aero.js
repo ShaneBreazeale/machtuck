@@ -117,7 +117,8 @@ export const PM = {
   clI: 0.825,        // lift carried without a leading-edge spike (bare 64A-109: 0.1; the drooped LE + glove raise it)
   clRear: 0.975,     // section lift at rear-separation onset (aircraft CL ~0.84)
   Msep: 1.30,        // Pearcey: shock-induced separation at local Mach ~1.3 - textbook, not fitted
-  Mstall: 1.50,      // extensive shock-induced separation (CLmax), textbook ~1.5 - not fitted. Check: CLmax 0.94 @ M0.70, 1.32 @ M0.48 vs flown 0.88 / 0.95 (Fig 19)
+  Mstall: 1.50,      // extensive shock-induced separation (CLmax), textbook ~1.5 - not fitted. Used only for the CLmax falloff above M0.81;
+                     // below that aircraft.js uses the certified VA chart (this model ran 12% high at M0.3, 15% low at M0.8)
 };
 const cosL = Math.cos(GEO.sweepC4);
 function karmanTsien(cp0, Mn) {
