@@ -7,6 +7,7 @@ import { HUD } from './hud.js';
 import { Cockpit } from './cockpit.js';
 import { Input } from './input.js';
 import { HardwarePanel } from './hwui.js';
+import { ForceFeedback } from './ffb.js';
 import { Audio } from './audio.js';
 import { DEG, RAD, clamp, qmat, mulMV, nedToWorld, lerp, smoothstep, qfromEuler, wrap180 } from './util.js';
 import { isa, RHO0, G0 } from './atmo.js';
@@ -17,7 +18,10 @@ const R = new Renderer(glc), H = new HUD(hc), IN = new Input(hc), AU = new Audio
 let CK = null; try { CK = new Cockpit(document.getElementById('ck')); } catch (e) { console.warn('3D cockpit unavailable, using the 2D panel:', e); }
 IN.onPad = (msg) => log('SYS', msg);
 // controls / hardware binding panel: pauses the sim while open
-const HP = new HardwarePanel(IN.hw, { onOpen: () => { HP.wasPaused = G.paused; G.paused = true; }, onClose: () => { G.paused = HP.wasPaused; hc.focus(); } });
+const FF = new ForceFeedback();   // USB PID force-feedback stick over WebHID (js/ffb.js): position in, hinge moment out
+IN.hw.isFfb = (gp) => FF.matchesPad(gp);
+FF.reconnect().then((ok) => { if (ok) log('SYS', `${FF.status}. Its stick position is now the column position.`); });
+const HP = new HardwarePanel(IN.hw, { ffb: FF, onOpen: () => { HP.wasPaused = G.paused; G.paused = true; }, onClose: () => { G.paused = HP.wasPaused; hc.focus(); } });
 const ghost = buildGhost();
 const ghostLine = new Float32Array(ghost.length * 3);
 ghost.forEach((p, i) => { const w = nedToWorld([p.n, p.e, p.d]); ghostLine.set(w, i * 3); });
@@ -440,6 +444,8 @@ function frame(now) {
   H.draw(HS);
   atcSync();
   if (G.phase === 'run' && !G.paused) IN.haptics({ shaker: !!ac.shaker && !ac.broken, buffet: !!out.buffet, broken: ac.broken });
+  // force feedback: the column's feel while flying, a light centring spring otherwise (paused, briefing, replay)
+  FF.update(G.phase === 'run' && !G.paused ? G.pc.feel({ shaker: !!ac.shaker && !ac.broken, buffet: !!out.buffet, broken: ac.broken }) : null, dt);
   AU.update(dt, { qbar: out.qbar || 0, V: out.V || 0, n1: ac.n1, overspeed: !!out.overspeed, stall: !!out.stalled && out.alpha > 0, buffet: !!out.buffet, inCloud: env.L.cloud, ext: G.ext, broken: ac.broken, flash: env.flash, flashDist: env.flashDist ?? env.L.r });
   if ((G.phase === 'run' || G.phase === 'replay') && !G.paused) {
     if (Math.abs(out.phi) > 45 * DEG) AU.say('Bank angle', 3);
@@ -478,7 +484,7 @@ IN.onClick = (x, y) => {
   else h = H.hit(x, y);
   if (!h) return false; toggleSwitch(h.id); return true;
 };
-window.SIM = { get G() { return G; }, R, ATC, SETTINGS, IN, get NEX() { return NEX; } };   // debug / flight-data access from the console
+window.SIM = { get G() { return G; }, R, ATC, SETTINGS, IN, FF, get NEX() { return NEX; } };   // debug / flight-data access from the console
 // debug inspection shots: #shot=x,y,z,yaw,pitch,fov[,nex 0/1[,t]]  (starts the reconstruction paused at t with a free camera)
 if (location.hash.startsWith('#shot=')) {
   const v = location.hash.slice(6).split(',').map(Number);
