@@ -40,7 +40,8 @@ rating (4,600 lbf, flat to 23.3 C) at the AFM takeoff N1. Current agreement (`no
 - Buffet onset vs Model 60 flight test (SAE 932534 Fig 19): rms dCL 0.019
 - Max-continuous N1 vs AFM Fig 5-31/5-32: rms ~1.5% N1
 - Single-engine climb gradients (AFM Fig 5-62, 5-65): mean -0.2% of weight, rms 0.7% (about -1% at 40-45k ft)
-- Time to climb MTOW to FL410: 20.1 min vs 18.5 published (wave drag in the M0.70 climb above FL320)
+- Time to climb MTOW to FL410 on the AFM schedule (250 KIAS to FL320, M0.70): 16.9 min from 1,500 ft, ~18 min from
+  brake release vs 18-18.5 published
 - NBAA IFR range, 4 pax, 100 nm alternate (`node test/mission.mjs`): 2,455 nm vs 2,405 nm spec (+2%); cruise fuel flow
   ~1,250 lb/h at FL410 M0.76; max level speed 458 KTAS (published max cruise 453-466 KTAS). Wave drag: Korn + Lock, kA 0.87
 

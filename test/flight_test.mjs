@@ -127,7 +127,7 @@ for (const f of [0, 0.2, 0.5, 1]) rec(`stall KCAS flaps ${f * 40}°, 14k / 23.5k
   rec('Breguet range, full fuel, 30 min reserve (nm)', R.toFixed(0), 'gross check; NBAA mission: test/mission.mjs', `mid-cruise L/D ${mid.LD.toFixed(1)}, TSFC ${(mid.tsfc * 3600 * 9.80665).toFixed(3)} /h`);
 }
 
-// 3. Time to climb, MTOW, 1,500 ft -> FL410: 250 KIAS to 10k, 300 KIAS, then M0.74, full thrust
+// 3. Time to climb, MTOW, 1,500 ft -> FL410 at MCT on the AFM climb schedule
 {
   const ac = make({ m: MTOW, h: 1500 * FT, V: 130, dT: 0 });
   ac.ctl.thr = 1; ac.n1 = 1;
@@ -135,7 +135,7 @@ for (const f of [0, 0.2, 0.5, 1]) rec(`stall KCAS flaps ${f * 40}°, 14k / 23.5k
   const marks = [10000, 25000, 35000, 41000].map((a) => ({ a, t: null }));
   while (t < 2400 && !marks[3].t) {
     const hf = o.h / FT;
-    const err = hf < 10000 ? o.KIAS - 250 : (o.M < 0.74 ? o.KIAS - 300 : (o.M - 0.74) * 600);
+    const err = hf < 32000 ? o.KIAS - 250 : (o.M - 0.70) * 600;            // AFM climb schedule (Fig 5-31): 250 KIAS to FL320, M0.70 above
     // pitch for speed: too fast -> climb steeper (PI + rate damping so the phugoid stays quiet)
     dE += ((err - prevE) / DT - dE) * DT / 2; prevE = err;
     vsI = clamp(vsI + err * 0.01 * DT, 0, 40);
@@ -143,7 +143,7 @@ for (const f of [0, 0.2, 0.5, 1]) rec(`stall KCAS flaps ${f * 40}°, 14k / 23.5k
     for (const mk of marks) if (mk.t === null && hf >= mk.a) { mk.t = t; roc.push(`${mk.a / 1000}k ${(t / 60).toFixed(1)}m ${(o.vs / FT * 60).toFixed(0)}fpm ${o.KIAS.toFixed(0)}kt`); }
     if (process.env.TRACE && Math.abs(t % 60) < DT) console.log('climb', (t / 60).toFixed(0), hf.toFixed(0), o.KIAS.toFixed(0), o.M.toFixed(3), (o.vs / FT * 60).toFixed(0));
   }
-  rec('time to climb MTOW -> FL410 (min)', marks[3].t ? (marks[3].t / 60).toFixed(1) : `>${(t / 60).toFixed(0)} (stuck ${(o.h / FT).toFixed(0)} ft)`, '~18-18.5', roc.join(', '));
+  rec('time to climb MTOW -> FL410 (min)', marks[3].t ? (marks[3].t / 60).toFixed(1) : `>${(t / 60).toFixed(0)} (stuck ${(o.h / FT).toFixed(0)} ft)`, '~17-17.5 (18-18.5 from brake release, published)', roc.join(', '));
   rec('fuel burned in climb (lb)', ((MTOW - ac.m) / LB).toFixed(0), '~700-900');
 }
 
