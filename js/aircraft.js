@@ -6,6 +6,19 @@ import { DEG, RAD, clamp, lerp, smoothstep, qfromEuler, qmat, mulMV, mulMTV, eul
 import { isa, G0, KT, RHO0 } from './atmo.js';
 
 const KIASest = (V, rho) => V * Math.sqrt(rho / RHO0) / KT;
+const ALPHA0 = -1.5 * DEG;
+// Max lift coefficient: falls with Mach (shock-induced separation), and with wing ice
+export const clMaxAt = (M, ice = 0) =>
+  lerp(1.25, 0.62, smoothstep(0.35, 0.86, M)) * (1 - 0.22 * ice * (1 - 0.7 * smoothstep(0.5, 0.8, M)));
+// Lift-curve slope with Prandtl-Glauert compressibility, collapsing past drag divergence
+export const clAlphaAt = (M) =>
+  5.0 / Math.sqrt(Math.max(0.2, 1 - Math.min(M, 0.86) ** 2)) * (1 - 0.3 * smoothstep(0.86, 0.98, M));
+// High-speed (shock) buffet onset Mach. Falls as the wing works harder: at 1g cruise
+// (CL ~0.4) it sits near 0.85; a 1.5g pull at FL370 brings it down to ~0.81, so the top
+// edge of the envelope comes down in a bank or gust, not only the bottom edge up.
+export const hiBuffetMach = (CL) => 0.86 - 0.2 * Math.max(0, Math.abs(CL) - 0.35);
+// Speed indication used by the model and the tape: EAS with a crude compressibility bump
+const kiasOf = (V, rho, M) => V * Math.sqrt(rho / RHO0) / KT * (1 + 0.02 * M * M);
 export class Learjet60 {
   constructor() {
     this.m = 9400;                       // kg, ~20,700 lb after 2h of fuel burn
@@ -28,6 +41,7 @@ export class Learjet60 {
     this.rw = 0;                         // random-walk asymmetry for stall
     this.out = {};
     this.maxG = 1; this.minG = 1; this.maxM = 0; this.maxKEAS = 0; this.maxVS = 0;
+    this.nzBand = 1; this.bands = null; this.bandsAge = 0;
   }
   setState({ n, e, d, psi, theta, phi, V }) {
     this.pos = [n, e, d];
@@ -42,6 +56,33 @@ export class Learjet60 {
     if (hf < 8000) return 300;
     if (hf < 25000) return 340;
     return 340;
+  }
+  /**
+   * Speed envelope (KIAS) at altitude h (m), load factor n and wing ice — the coffin corner.
+   *  shaker:   stick-shaker speed at n (shaker fires at 80% of stall AOA, same rule as step())
+   *  shakerM:  shaker speed with 30% more g — below it a gust or pull reaches the shaker
+   *  buffet:   high-speed buffet onset at n;  buffetM: the same with 30% more g
+   *  vmo:      Vmo/Mmo barber pole
+   * The window is closed when shakerM >= min(buffetM, vmo).
+   */
+  speedEnvelope(h, n = 1, ice = this.ice, dT = 7) {
+    const atm = isa(Math.max(0, h), dT);
+    const W = this.m * G0;
+    const clReq = (M, g) => g * W / (0.5 * atm.rho * (M * atm.a) ** 2 * this.S);
+    const clShaker = (M) => 0.8 * clMaxAt(M, ice) - 0.2 * clAlphaAt(M) * ALPHA0;
+    const kias = (M) => kiasOf(M * atm.a, atm.rho, M);
+    const lowEdge = (g) => {           // slowest Mach at which g-load stays under the shaker
+      for (let M = 0.15; M < 0.98; M += 0.0025) if (clReq(M, g) <= clShaker(M)) return kias(M);
+      return Infinity;
+    };
+    const highEdge = (g) => {          // shock-buffet onset at this g-load, scanning down from high Mach
+      // (at very low Mach the required CL is so large the test trips too: that is the stall
+      // side, not shock buffet, so only the top crossing counts). 0 = no buffet-free speed.
+      for (let M = 0.98; M > 0.15; M -= 0.0025) if (M <= hiBuffetMach(clReq(M, g))) return kias(M + 0.0025);
+      return 0;
+    };
+    const vmo = Math.min(this.vmoKias(h), kias(0.81));
+    return { n, shaker: lowEdge(n), shakerM: lowEdge(n * 1.3), buffet: highEdge(n), buffetM: highEdge(n * 1.3), vmo };
   }
   step(dt, env) {
     const { wind = [0, 0, 0], dT = 7 } = env;
@@ -60,10 +101,9 @@ export class Learjet60 {
     const ice = this.ice;
 
     // ---- Longitudinal aerodynamics ----
-    const PG = 1 / Math.sqrt(Math.max(0.2, 1 - Math.min(M, 0.86) ** 2));
-    const CLa = 5.0 * PG * (1 - 0.3 * smoothstep(0.86, 0.98, M));
-    const alpha0 = -1.5 * DEG;
-    let CLmax = lerp(1.25, 0.62, smoothstep(0.35, 0.86, M)) * (1 - 0.22 * ice * (1 - 0.7 * smoothstep(0.5, 0.8, M)));
+    const CLa = clAlphaAt(M);
+    const alpha0 = ALPHA0;
+    let CLmax = clMaxAt(M, ice);
     const CLmin = -0.7 * CLmax;
     const aStall = alpha0 + CLmax / CLa, aStallN = alpha0 + CLmin / CLa;
     let CL, stalled = false, stallEx = 0;
@@ -74,8 +114,10 @@ export class Learjet60 {
     const Mcr = 0.75 - 0.05 * Math.abs(CL) - 0.03 * ice;
     let CD = 0.021 + 0.014 * ice + 0.058 * CL * CL + (M > Mcr ? 35 * Math.pow(M - Mcr, 4) : 0)
       + 0.035 * ctl.sb + 0.025 * ctl.gear + 0.06 * ctl.flaps + 1.0 * stallEx * stallEx;
-    // Control effectiveness decays at high Mach (shock-induced separation ahead of hinges)
-    const effM = 1 - 0.6 * smoothstep(0.84, 0.96, M);
+    // Control effectiveness decays past shock-buffet onset (separation ahead of the hinges).
+    // Onset is lift-dependent, so pulling g at high Mach loses elevator authority sooner.
+    const Mbuf = hiBuffetMach(CL);
+    const effM = 1 - 0.6 * smoothstep(Mbuf - 0.02, Mbuf + 0.10, M);
     // Tailplane: downwash-reduced local angle; ice contaminates the T-tail and lowers its stall margin
     // Stall warning: shaker at ~80% of stall AOA, pusher at ~90% (the Learjet pusher is aggressive; with wing ice it fires at low AOA)
     this.shaker = !this.broken && alpha > 0 && alpha > aStall * 0.8;
@@ -97,7 +139,7 @@ export class Learjet60 {
     }
     if (this.tailStalled) Cm += this.hard ? -0.17 : -0.22;              // tail unload -> pitch down
     if (stalled) Cm += -0.12 * Math.sign(alpha) * Math.min(1, stallEx / 0.08);   // pitch break grows with stall depth
-    const buffet = stalled || M > 0.86 || (alpha > aStall * 0.85 && alpha > 0);
+    const buffet = stalled || M > Mbuf || (alpha > aStall * 0.85 && alpha > 0);
 
     // ---- Lateral-directional ----
     this.rw += ((Math.random() * 2 - 1) * 6 - this.rw * 2) * dt; this.rw = clamp(this.rw, -1, 1);
@@ -172,6 +214,11 @@ export class Learjet60 {
     const eu = eulerFromMat(qmat(this.q));
     const vs = -this.vel[2];
     this.maxG = Math.max(this.maxG, nz); this.minG = Math.min(this.minG, nz);
+    // Load factor for the speed-tape bands, smoothed so turbulence doesn't make them flicker
+    this.nzBand += (clamp(nz, 1, 2.5) - this.nzBand) * Math.min(1, dt / 0.8);
+    // The envelope scan is ~1k evaluations: refresh it at 10 Hz, not every physics step
+    this.bandsAge += dt;
+    if (!this.bands || this.bandsAge >= 0.1) { this.bands = this.speedEnvelope(h, this.nzBand, ice, dT); this.bandsAge = 0; }
     this.maxM = Math.max(this.maxM, M); this.maxKEAS = Math.max(this.maxKEAS, KEAS); this.maxVS = Math.min(this.maxVS, vs);
     const Vmo = this.vmoKias(h);
     this.out = {
@@ -179,6 +226,7 @@ export class Learjet60 {
       p, q: qq, r, stalled, buffet, overspeed: KIAS > Vmo || M > 0.81, Vmo, tailStalled: this.tailStalled,
       OAT: atm.T - 273.15, gs: Math.hypot(this.vel[0], this.vel[1]), track: Math.atan2(this.vel[1], this.vel[0]),
       thrust: T, n1: this.n1, damage: this.damage, aStall, CL, CD, tailCrit, alphaT, mach_a: atm.a, pusher: this.pusher, shaker: this.shaker, iceTail: this.iceTail, engIce: this.engIce,
+      Mbuf, bands: this.bands,
     };
     return this.out;
   }

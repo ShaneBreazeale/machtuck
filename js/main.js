@@ -1,11 +1,11 @@
-import { Learjet60 } from './aircraft.js';
+import { Learjet60, hiBuffetMach } from './aircraft.js';
 import { Environment, Autopilot, buildGhost, ghostAt, STORM, TIMELINE, HYPOTHESES, clockStr, NexradField, NEXRAD_VOLUMES } from './scenario.js';
 import { Renderer } from './render.js';
 import { HUD } from './hud.js';
 import { Input } from './input.js';
 import { Audio } from './audio.js';
 import { DEG, RAD, clamp, qmat, mulMV, nedToWorld, lerp, smoothstep, qfromEuler, wrap180 } from './util.js';
-import { isa, RHO0 } from './atmo.js';
+import { isa, RHO0, G0 } from './atmo.js';
 import { FT, KT } from './atmo.js';
 
 const glc = document.getElementById('gl'), hc = document.getElementById('hud');
@@ -234,7 +234,8 @@ function replayStep(dt) {
   const vs = L('vs_fpm') * FT / 60;
   ac.vel = [V * Math.cos(hdg), V * Math.sin(hdg), -vs];
   const out = { ...ac.out, h, KIAS: L('kias'), KEAS: L('kias'), M: L('mach'), vs, theta, phi, psi: hdg, track: hdg, alpha: L('alpha') * DEG, beta: 0, nz: L('nz'), V, qbar: 0.5 * atm.rho * V * V,
-    gs: V, OAT: atm.T - 273.15, stalled: a[C.wingStall] > 0.5, buffet: a[C.wingStall] > 0.5 || L('mach') > 0.86, overspeed: L('mach') > 0.81 || L('kias') > ac.vmoKias(h), Vmo: ac.vmoKias(h), aStall: 0.1, tailStalled: ac.tailStalled, n1: ac.n1, damage: ac.damage, p: 0, q: 0, r: 0 };
+    gs: V, OAT: atm.T - 273.15, stalled: a[C.wingStall] > 0.5, buffet: a[C.wingStall] > 0.5 || L('mach') > hiBuffetMach(L('nz') * ac.m * G0 / Math.max(1, 0.5 * atm.rho * V * V * ac.S)),
+    bands: ac.speedEnvelope(h, clamp(L('nz'), 1, 2.5), ac.ice, 7), overspeed: L('mach') > 0.81 || L('kias') > ac.vmoKias(h), Vmo: ac.vmoKias(h), aStall: 0.1, tailStalled: ac.tailStalled, n1: ac.n1, damage: ac.damage, p: 0, q: 0, r: 0 };
   ac.out = out; G.ap.on = a[C.ap] > 0.5;
   G.env.wind(ac.pos, G.t, dt * G.timeScale);
   while (G.logIdx > 0 && TIMELINE[G.logIdx - 1].t > G.t) G.logIdx--;

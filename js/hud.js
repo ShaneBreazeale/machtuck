@@ -129,9 +129,27 @@ export class HUD {
     ctx.restore();
     ctx.strokeStyle = '#555'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.roundRect(cx - s / 2, cy - s / 2, s, s, 8); ctx.stroke();
     const tw = s * 0.21, tx = cx - s / 2 - 6 - tw, ty = cy - s / 2;
-    this.tape(tx, ty, tw, s, o.KIAS, 10, 20, s * 0.062, (v) => v < 0 ? null : v, (v) => { const vmoEff = Math.min(o.Vmo, o.M > 0.01 ? o.KIAS * 0.81 / o.M : 999); return v >= vmoEff ? 'barber' : null; }, '#fff');
+    // Coffin-corner bands (from the model's speed envelope at the current, smoothed g):
+    //   red/white below the stick-shaker speed; amber where 30% more g (a gust or a pull)
+    //   reaches the shaker or shock buffet; red/white above Vmo/Mmo. Bank or climb and
+    //   watch the amber close in from both ends.
+    const B = o.bands, bands = [];
+    if (B) {
+      const top = Math.min(B.buffetM || 0, B.vmo);
+      if (Number.isFinite(B.shaker)) bands.push({ from: 0, to: B.shaker, style: 'barber' }, { from: B.shaker, to: B.shakerM, color: COL.amber });
+      else bands.push({ from: 0, to: 9999, style: 'barber' });
+      bands.push({ from: top, to: 9999, color: COL.amber });
+    }
+    this.tape(tx, ty, tw, s, o.KIAS, 10, 20, s * 0.062, (v) => v < 0 ? null : v, (v) => { const vmoEff = Math.min(o.Vmo, o.M > 0.01 ? o.KIAS * 0.81 / o.M : 999); return v >= vmoEff ? 'barber' : null; }, '#fff', false, bands);
     this.text(`M ${o.M.toFixed(3)}`, tx + tw / 2, ty + s + 14, s * 0.055, o.M > 0.81 ? COL.red : '#fff', 'center', 'bold');
     this.text(`GS ${(o.gs / KT).toFixed(0)}`, tx + tw / 2, ty + s + 32, s * 0.042, '#9ad', 'center');
+    if (B) {
+      // Usable speed window at this g: shaker up to the lower of shock buffet and Vmo/Mmo
+      const win = Math.min(B.buffet || 0, B.vmo) - B.shaker, winM = Math.min(B.buffetM || 0, B.vmo) - B.shakerM;
+      const closed = !(win > 0);   // no speed between the shaker and buffet/Vmo at this g
+      this.text(closed ? 'NO SPEED WINDOW' : `WINDOW ${Math.round(win)} KT`, tx + tw / 2, ty + s + 48, s * 0.042,
+        closed ? COL.red : (winM > 0 ? COL.dim : COL.amber), 'center', 'bold');   // amber: a 1.3g gust would close it
+    }
     const ax = cx + s / 2 + 6, aw = s * 0.24;
     this.tape(ax, ty, aw, s, o.h / FT, 100, 500, s * 0.062 / 100 * 100 * 0.5, (v) => Math.round(v), () => null, '#fff', true);
     const vx = ax + aw + 4, vsf = o.vs / FT * 60;
@@ -148,12 +166,21 @@ export class HUD {
     ctx.restore(); ctx.fillStyle = '#ffe34d'; ctx.beginPath(); ctx.moveTo(cx, hy); ctx.lineTo(cx - 6, hy - 8); ctx.lineTo(cx + 6, hy - 8); ctx.fill();
     this.text(`${Math.round(hdg).toString().padStart(3, '0')}°`, cx, hy + hh + 10, s * 0.05, '#fff', 'center', 'bold');
   }
-  tape(x, y, w, h, val, minor, major, pxPerMinor, fmt, mark, color, isAlt = false) {
+  tape(x, y, w, h, val, minor, major, pxPerMinor, fmt, mark, color, isAlt = false, bands = []) {
     const ctx = this.ctx; ctx.save(); ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip(); ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(x, y, w, h);
     const cy = y + h / 2, pxPerUnit = pxPerMinor / minor; const range = h / pxPerUnit / 2;
     const v0 = Math.floor((val - range) / minor) * minor, v1 = Math.ceil((val + range) / minor) * minor;
     ctx.strokeStyle = '#ddd'; ctx.lineWidth = 1;
     for (let v = v0; v <= v1; v += minor) { const lab = fmt(v); if (lab === null) continue; const yy = cy - (v - val) * pxPerUnit; const isMaj = Math.round(v) % major === 0; ctx.beginPath(); ctx.moveTo(x + w - (isMaj ? 10 : 5), yy); ctx.lineTo(x + w, yy); ctx.stroke(); if (isMaj) this.text(lab, x + w - 14, yy, h * 0.05, color, 'right'); if (mark(v) === 'barber') { ctx.fillStyle = (Math.round(v / minor) % 2) ? COL.red : '#fff'; ctx.fillRect(x + w - 4, yy - pxPerMinor, 4, pxPerMinor); } }
+    // Speed bands: continuous strips on the tick edge (finer than the per-tick barber marks)
+    for (const b of bands) {
+      const yTop = Math.max(y, cy - (b.to - val) * pxPerUnit), yBot = Math.min(y + h, cy - (b.from - val) * pxPerUnit);
+      if (!(yBot > yTop)) continue;
+      if (b.style === 'barber') {
+        const seg = pxPerMinor / 2;
+        for (let yy = yBot; yy > yTop; yy -= seg) { ctx.fillStyle = (Math.floor((cy - yy) / seg + 1e4) % 2) ? COL.red : '#fff'; ctx.fillRect(x + w - 4, Math.max(yTop, yy - seg), 4, Math.min(seg, yy - yTop)); }
+      } else { ctx.fillStyle = b.color; ctx.fillRect(x + w - 4, yTop, 4, yBot - yTop); }
+    }
     ctx.fillStyle = '#000'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.roundRect(x + 2, cy - h * 0.045, w - 4, h * 0.09, 3); ctx.fill(); ctx.stroke();
     this.text(isAlt ? Math.round(val / 20) * 20 : Math.round(val), x + w / 2, cy, h * 0.062, '#fff', 'center', 'bold');
     ctx.restore();
