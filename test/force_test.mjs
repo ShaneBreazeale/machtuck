@@ -85,7 +85,7 @@ function run(hyp, limited, sd, delay = 2.0) {
     if (apOff !== null && t > UPSET_T && Math.abs(out.phi) < 15 * DEG && out.vs > -7.6 && out.nz > 0.6 && out.nz < 1.6) { stable += dt; if (stable > 5 && rec === null) rec = out.h; } else stable = 0;
     t += dt;
   }
-  return { crashed: ac.crashed, broken: ac.broken, rec, minH, maxLb };
+  return { crashed: ac.crashed, broken: ac.broken, rec, minH, maxLb, why: ac.broken ? `${ac.brokenWhat} M${ac.maxM.toFixed(2)} ${Math.round(ac.maxKEAS)}KEAS ${ac.maxG.toFixed(1)}g/${ac.minG.toFixed(1)}g` : '' };
 }
 const fmt = (r) => `${r.broken ? 'BREAKUP' : r.crashed ? 'CRASH' : r.rec !== null ? `recovered ${Math.round(r.rec / FT)} ft` : 'not stabilised'}, lowest ${Math.round(r.minH / FT)} ft${r.maxLb ? `, peak column ${r.maxLb.toFixed(0)} lb` : ''}`;
 const summary = { free: 0, limited: 0 };
@@ -102,7 +102,7 @@ console.log(`\nrecovered (stable 5 s): free controls ${summary.free}/12, force-l
 // How fast the window closes: the same force-limited AFM pilot, starting the recovery N s after the autopilot lets go
 console.log('\nreaction delay sweep (force-limited, seed 1): outcome / lowest altitude');
 for (const hyp of ['combined', 'tail', 'tuck', 'trim']) {
-  const row = [2, 5, 8, 12, 16, 20].map(d => { const r = run(hyp, true, 1, d); return `${String(d).padStart(2)} s: ${r.broken ? 'BREAKUP' : r.crashed ? 'CRASH' : r.rec !== null ? Math.round(r.rec / FT) + ' ft' : 'unstable'}`; });
+  const row = [2, 5, 8, 12, 16, 20].map(d => { const r = run(hyp, true, 1, d); return `${String(d).padStart(2)} s: ${r.broken ? 'BREAKUP ' + r.why : r.crashed ? 'CRASH' : r.rec !== null ? Math.round(r.rec / FT) + ' ft' : 'unstable'}`; });
   console.log(`  ${hyp.padEnd(9)} ${row.join(' | ')}`);
 }
 expect(summary.limited <= summary.free, 'force limits never make the recovery easier');
