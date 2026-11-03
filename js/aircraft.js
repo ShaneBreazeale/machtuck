@@ -182,6 +182,13 @@ export class Learjet60 {
       Cm += tuck;
     }
     if (this.tailStalled) Cm += this.hard ? -0.17 : -0.22;              // tail unload -> pitch down
+    // AFM FM-123 (Overspeed Recovery, Pitch Axis Malfunction): "significant nose-down pitching moment associated with
+    // spoiler deployment" above Vmo/Mmo, hence "do not extend spoilers during any nose-down pitch upset at any speed".
+    // Landing gear lowered at high speed: "a moderate nose-up pitching moment which is easily controllable".
+    const KIASp = casKt(M, atm.p);
+    const overV = Math.max(smoothstep(this.mmo(h) - 0.02, this.mmo(h) + 0.04, M), smoothstep(this.vmoKias(h) - 10, this.vmoKias(h) + 25, KIASp));
+    Cm += -ctl.sb * (0.012 + 0.04 * overV) * effM;
+    Cm += 0.012 * ctl.gear * smoothstep(150, 320, KIASp);
     if (stalled) Cm += -0.12 * Math.sign(alpha) * Math.min(1, stallEx / 0.08);   // pitch break grows with stall depth
     // Buffet: shock or leading-edge separation onset (one criterion, aero.js), or pre-stall
     const buffet = stalled || Math.abs(CL) > clBuffet(M) * iceFactor(M, ice) || (aoaWing > 0.9 && alpha > 0);
@@ -253,8 +260,9 @@ export class Learjet60 {
     if (M > 0.93) dr += (M - 0.93) * 12;
     if (M > 0.88 && nz > 2.2) dr += (nz - 2.2) * (M - 0.88) * 20;
     if (Math.abs(qq) > 1.2 && qbar > 15000) dr += (Math.abs(qq) - 1.2) * 2;   // violent pitch rate at high q
-    // Gear VLE 260 KIAS; flaps VFE 250/200/165
-    if (ctl.gear && KIAS > 260) dr += (KIAS - 260) / 60 * 0.3;
+    // Gear VLE 260 KIAS: beyond it the AFM's overspeed procedure still lowers the gear (flight tested to M0.85 /
+    // 320 KIAS); expected consequence is minor gear-door damage, not structural failure. Flaps VFE 250/200/165.
+    if (ctl.gear && KIAS > 260) this.gearDoorsDamaged = true;
     const flapLim = vfe(ctl.flaps);
     if (ctl.flaps > 0 && KIAS > flapLim) dr += (KIAS - flapLim) / 40 * 0.4;
     if (!this.broken) {

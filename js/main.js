@@ -2,6 +2,7 @@ import { Learjet60, hiBuffetMach } from './aircraft.js';
 import { Environment, Autopilot, buildGhost, ghostAt, STORM, TIMELINE, HYPOTHESES, clockStr, NexradField, NEXRAD_VOLUMES, RecoveryJudge, UPSET_T } from './scenario.js';
 import { Renderer } from './render.js';
 import { scenarioSun } from './sun.js';
+import { PilotControls } from './controls.js';
 import { HUD } from './hud.js';
 import { Cockpit } from './cockpit.js';
 import { Input } from './input.js';
@@ -64,7 +65,7 @@ function newGame(hypKey, hard = true) {
   env.wind(ac.pos, 0, 0); ac.step(0, { wind: [0, 0, 0] });   // prime telemetry for the first frame
   ATC.el.pause();
   G = { ac, env, ap, t: 0, phase: 'run', hypKey, hard, hypName: HYPOTHESES[hypKey].name + (hard ? ' · AS FLOWN' : ' · TRAINER'), fdr: [], lastFdr: -1, lastSave: 0, log: [], logIdx: 0, hist: [], trail: [], lastHist: -1, lastTrail: -1,
-    recovered: null, recoveredAlt: 0, apOffAt: null, apOffWall: -99, ext: false, timeScale: 1, paused: false, help: false, showGhost: true, antiice: false,
+    recovered: null, recoveredAlt: 0, pc: new PilotControls(), slipLogged: false, apOffAt: null, apOffWall: -99, ext: false, timeScale: 1, paused: false, help: false, showGhost: true, antiice: false,
     camPos: null, shake: 0, endMsg: null, judge: new RecoveryJudge(), avoided: null, bangDone: false, upsetT: UPSET_T, time: 0, hideHud: false, camMode: 0, replay: null, recon: false, camEff: 0, ckActive: null, trimRunaway: false };
   document.getElementById('debrief').classList.add('hidden');
 }
@@ -74,8 +75,13 @@ function stepSim(h, held) {
   const { ac, env, ap } = G; const t = G.t;
   const wind = env.wind(ac.pos, t, h);
   const wasOn = ap.on;
-  if (ap.on && held) ap.disconnect('PILOT');
-  if (!ap.on) { ac.ctl.elev = IN.axes.elev; ac.ctl.ail = IN.axes.ail; ac.ctl.rud = IN.axes.rud; }
+  // Pilot forces on unboosted controls (js/controls.js): input = force; the autopilot's clutched servos can be
+  // overpowered but it stays engaged, and keeps trimming, until disconnected (X / yoke button, or manual trim)
+  const pc = G.pc, st = ac.out || {};
+  const surf = pc.step(h, IN.axes, { qbar: st.qbar, M: st.M, tailStalled: ac.tailStalled, iceTail: ac.iceTail, n1: ac.n1 },
+    ap.on ? { on: true, elev: ap.cmdElev ?? ac.ctl.elev, ail: ap.cmdAil ?? ac.ctl.ail } : null);
+  if (ap.on && pc.slipping && !G.slipLogged) { G.slipLogged = true; log('SYS', 'AP SERVO SLIPPING — the autopilot is still engaged and trimming against you. Disconnect: X.'); }
+  ac.ctl.elev = surf.elev; ac.ctl.ail = surf.ail; if (!ap.on) ac.ctl.rud = surf.rud;
   G.trimRunaway = env.hyp.trimRunaway && t > UPSET_T && t < UPSET_T + 12 && ac.sys.trimMode === 'PRI';
   if (G.trimRunaway) ac.ctl.trim = Math.max(-1, ac.ctl.trim - 0.3 * h);
   const out = ac.step(h, { wind });
@@ -83,6 +89,7 @@ function stepSim(h, held) {
   ac.ice = clamp(ac.ice + ir.wing * h, 0, 1); ac.iceTail = clamp(ac.iceTail + ir.tail * h, 0, 1); ac.engIce = clamp(ac.engIce + ir.eng * h, 0, 1);
   ap.hdgTgt = t < 25 ? 58 : Math.min(100, 58 + (t - 25) * (42 / 45));
   ap.step(ac, h, out);
+  if (ap.on) { ac.ctl.elev = surf.elev; ac.ctl.ail = surf.ail; }   // AP wrote its servo command; the surfaces are where the forces put them
   if (ac.tailStalled && ap.on) ap.disconnect('PITCH');
   env.scriptedUpset(ac, ap, t);
   if (ac.tailStalled && ap.on) ap.disconnect('PITCH');
@@ -139,29 +146,31 @@ function toggleSwitch(id) {
 }
 // ---------- Emergency / abnormal procedures (own wording; evaluated live) ----------
 const PROCEDURES = [
+  // 1-2 follow the order of AFM FM-123 Overspeed Recovery (Change 37), in our own words
   { key: '1', title: 'UPSET RECOVERY — NOSE LOW / HIGH SPEED', steps: [
-    ['Autopilot — DISCONNECT (X)', () => !G.ap.on],
     ['Thrust levers — IDLE (0)', () => G.ac.ctl.thr < 0.05],
-    ['Spoilers — EXTEND (B)', () => G.ac.ctl.sb > 0],
-    ['Roll — WINGS LEVEL, nearest horizon', () => Math.abs(G.ac.out.phi) < 15 * DEG],
-    ['Pitch — recover smoothly; respect shaker, ≤ 2.5 g', () => Math.abs(G.ac.out.phi) < 15 * DEG && G.ac.out.vs > -7.6],
-    ['Pitch trim — NOSE UP as speed decreases (.)', () => G.ac.ctl.trim > 0.15],
-    ['Below Vmo/Mmo — spoilers RETRACT, thrust as required', () => !G.ac.out.overspeed && G.ac.ctl.sb === 0 && G.ac.out.vs > -7.6 && G.ac.ctl.thr > 0.2] ] },
+    ['Autopilot — DISCONNECT (X)', () => !G.ap.on],
+    ['Identify pitch AND roll attitude (roll is hard to read nose-low)', () => !G.ap.on && G.ac.ctl.thr < 0.05],
+    ['Wings — LEVEL before any pull (pulling banked tightens the spiral)', () => Math.abs(G.ac.out.phi) < 15 * DEG],
+    ['Elevator + pitch trim NOSE UP (.) to raise the nose; expect > 75 lb', () => Math.abs(G.ac.out.phi) < 15 * DEG && G.ac.ctl.trim > 0.1 && G.ac.out.vs > -15],
+    ['Extreme speed / attitude — LANDING GEAR DOWN (G)', () => G.ac.ctl.gear > 0 || (!G.ac.out.overspeed && G.ac.out.vs > -15)],
+    ['Spoilers — STAY IN (nose-down moment above Vmo/Mmo)', () => G.ac.ctl.sb === 0] ] },
   { key: '2', title: 'OVERSPEED — Vmo / Mmo EXCEEDED', steps: [
-    ['Thrust levers — REDUCE / IDLE', () => G.ac.ctl.thr < 0.1],
-    ['Spoilers — EXTEND', () => G.ac.ctl.sb > 0],
-    ['Pitch — INCREASE gently (no abrupt pull above M.81)', () => G.ac.out.vs > -10],
-    ['Mach trim — CHECK ON', () => G.ac.sys.machTrim && !G.ac.sys.machTrimFail],
+    ['Thrust levers — IDLE', () => G.ac.ctl.thr < 0.05],
+    ['Autopilot — DISCONNECT', () => !G.ap.on],
+    ['Wings level, then pitch — INCREASE gently; limit g to keep roll control', () => Math.abs(G.ac.out.phi) < 15 * DEG && G.ac.out.vs > -10],
+    ['Spoilers — DO NOT EXTEND above Vmo / Mmo', () => G.ac.ctl.sb === 0],
+    ['Severe: LANDING GEAR DOWN (tested to M.85 / 320 KIAS)', () => G.ac.ctl.gear > 0 || !G.ac.out.overspeed],
     ['Airspeed — below Vmo / Mmo', () => !G.ac.out.overspeed] ] },
   { key: '3', title: 'TAILPLANE STALL — ICE CONTAMINATED', steps: [
-    ['Control wheel — PULL, full nose-up as required', () => G.ac.ctl.elev > 0.8 || !G.ac.tailStalled],
+    ['Control wheel — PULL, full nose-up as required', () => IN.axes.elev > 0.8 || !G.ac.tailStalled],
     ['STAB HEAT — ON (verify)', () => G.ac.sys.stabHeat],
     ['Flaps — UP / do not extend', () => G.ac.ctl.flaps === 0],
     ['Thrust — REDUCE', () => G.ac.ctl.thr < 0.4],
     ['Pitch trim — NOSE UP (.)', () => G.ac.ctl.trim > 0.1],
     ['Tail re-attached: airspeed REDUCE, wings level', () => !G.ac.tailStalled && Math.abs(G.ac.out.phi) < 15 * DEG] ] },
   { key: '4', title: 'RUNAWAY PITCH TRIM', steps: [
-    ['Control wheel — HOLD against the trim', () => Math.abs(G.ac.ctl.elev) > 0.3 || !G.trimRunaway],
+    ['Control wheel — HOLD against the trim (> 75 lb)', () => G.pc.pitchLb > 40 || !G.trimRunaway],
     ['Autopilot / trim — DISCONNECT (X)', () => !G.ap.on],
     ['PITCH TRIM selector — OFF (7)', () => G.ac.sys.trimMode !== 'PRI'],
     ['Re-trim on SECONDARY (7 → SEC, then , .)', () => G.ac.sys.trimMode === 'SEC' && G.ac.ctl.trim > -0.2],
@@ -169,7 +178,7 @@ const PROCEDURES = [
   { key: '5', title: 'EMERGENCY DESCENT', steps: [
     ['Thrust levers — IDLE', () => G.ac.ctl.thr < 0.05],
     ['Spoilers — EXTEND', () => G.ac.ctl.sb > 0],
-    ['Landing gear — DOWN below 260 KIAS (G)', () => G.ac.ctl.gear > 0 && G.ac.out.KIAS < 265],
+    ['Spoilers only below Vmo / Mmo; landing gear — DOWN below 260 KIAS (G)', () => G.ac.ctl.gear > 0 && G.ac.out.KIAS < 265],
     ['Descend at Vmo / Mmo — no faster', () => G.ac.out.vs < -20 && !G.ac.out.overspeed],
     ['Level-off: spoilers RETRACT, thrust as required', () => G.ac.out.h < 3500 && G.ac.out.vs > -5] ] },
   { key: '6', title: 'ICING — ANTI-ICE SYSTEMS', steps: [
@@ -289,9 +298,9 @@ function debrief() {
     <tr><td>Upset</td><td>${G.judge.upsetAt !== null ? `${G.judge.why}, ${clockStr(G.judge.upsetAt)}` : 'none'}</td><td>12:48:06 balloon, 12:48:16 descent</td></tr>
     <tr><td>Recovery</td><td>${G.recovered !== null ? `${Math.round(G.recoveredAlt / FT)} ft, ${(G.recovered - UPSET_T).toFixed(0)} s after 12:48:16` : G.avoided !== null ? 'not needed: upset avoided' : 'none'}</td><td>none; 76 s from FL350 to ground</td></tr>`;
   let tip = '';
-  if (ac.broken) tip = ac.maxM > 0.9 ? 'You exceeded roughly Mach 0.9 with load on the airframe. Above Mmo the stabilizer sees enormous loads; thrust to idle and spoilers out before pulling, then pull smoothly.' : 'Pulled too hard. Limit load is about +3 g; a Learjet at high EAS breaks at roughly 1.5× that. Roll level first, then pull progressively, watching the G readout.';
-  else if (ac.crashed) tip = Math.abs(o.phi) > 30 * DEG ? 'The spiral never got unwound: with bank on, pulling only tightens the turn and raises G. Wings level FIRST, then pull.' : 'Not enough nose-up authority in time. Idle, spoilers, nose-up trim, and a steady pull started earlier.';
-  else tip = 'Textbook: idle, spoilers, level the wings, unload, then a smooth sustained pull. The actual crew faced this in a convective core, in severe turbulence, in the dark of the cloud, with ice on the tail, at Mach .8 — and with 20 seconds between "request climb" and Mayday.';
+  if (ac.broken) tip = ac.maxM > 0.9 ? 'You exceeded roughly Mach 0.9 with load on the airframe. Above Mmo the stabilizer sees enormous loads: idle, wings level, nose-up trim to take the column force, gear down if extreme, then pull smoothly. Spoilers stay in: above Vmo/Mmo they pitch the nose down.' : 'Pulled too hard. Limit load is about +3 g; a Learjet at high EAS breaks at roughly 1.5× that. Roll level first, then pull progressively, watching the G readout.';
+  else if (ac.crashed) tip = Math.abs(o.phi) > 30 * DEG ? 'The spiral never got unwound: with bank on, pulling only tightens the turn and raises G. Wings level FIRST, then pull.' : 'Not enough nose-up authority in time. With unboosted controls the column force at this speed is more than a pilot can hold for long: idle, wings level, nose-up trim to take the load off, gear down, and start sooner. The recovery window closes within seconds.';
+  else tip = 'Textbook (AFM): idle, autopilot off, read the attitude, level the wings, then elevator and nose-up trim; gear down if extreme; no spoilers. The actual crew faced this in a convective core, in severe turbulence, in the dark of the cloud, with ice on the tail, at Mach .8 — and with 20 seconds between "request climb" and Mayday.';
   d.querySelector('p.tip').textContent = tip;
 }
 
@@ -333,7 +342,9 @@ function frame(now) {
   let out = ac.out;
   if (G.phase === 'run' && !G.paused) {
     const held = IN.update(dt);
-    if (!ap.on) { ac.ctl.thr = clamp(ac.ctl.thr + IN.thrDelta, 0, 1); const tr = ac.sys.trimMode === 'PRI' ? 1 : ac.sys.trimMode === 'SEC' ? 0.45 : 0; ac.ctl.trim = clamp(ac.ctl.trim + IN.trimDelta * tr, -1, 1); }
+    if (IN.trimDelta && ap.on) { ap.disconnect('TRIM'); }   // AFM: manual pitch trim input disconnects the autopilot
+    ac.ctl.thr = clamp(ac.ctl.thr + IN.thrDelta, 0, 1);    // no autothrottle: the levers are always the pilot's
+    if (!ap.on) { const tr = ac.sys.trimMode === 'PRI' ? 1 : ac.sys.trimMode === 'SEC' ? 0.45 : 0; ac.ctl.trim = clamp(ac.ctl.trim + IN.trimDelta * tr, -1, 1); }
     const simDt = dt * G.timeScale; const sub = Math.max(1, Math.ceil(simDt / (1 / 240))); const h = simDt / sub;
     for (let i = 0; i < sub; i++) out = stepSim(h, held);
     G.time += simDt;
@@ -412,7 +423,8 @@ function frame(now) {
     efb: { mode: SETTINGS.efb, range: SETTINGS.wxrRange }, checklist: evalProcedures(), trimRunaway: G.trimRunaway,
     map: { n: ac.pos[0], e: ac.pos[1], hdg: out.psi || 0, coastX, ghost: ghostNE, trail: G.trailNE || [], nexImg: nexImgs ? nexImgs[(NEX && G.t > (NEX[0].t + NEX[1].t) / 2) ? 1 : 0] : null, nexN0: NEX ? NEX[0].f.z0 : 0, nexN1: NEX ? NEX[0].f.z0 + NEX[0].f.nz * NEX[0].f.d : 0, nexE0: NEX ? NEX[0].f.x0 : 0, nexE1: NEX ? NEX[0].f.x0 + NEX[0].f.nx * NEX[0].f.d : 0 },
     atcOn: ATC.on, atcShift: ATC.shift, hideHud: G.hideHud, replay: G.phase === 'replay', camMode: G.camEff, camAuto: G.camMode === 3, recon: !!G.recon, nexOn: SETTINGS.nexrad && !!NEX, dbz: env.L.dbz,
-    cockpit3d: !!CK && CK.ready && !G.ext };
+    cockpit3d: !!CK && CK.ready && !G.ext,
+    force: G.phase === 'run' ? { pitchLb: G.pc.pitchLb, rollLb: G.pc.rollLb, availP: G.pc.avail('pitch'), availR: G.pc.avail('roll'), stamina: G.pc.stamina, slipping: ap.on && G.pc.slipping } : null };
   if (HS.cockpit3d) {
     CK.update(HS);
     CK.render({ ctl: ac.ctl, sunWorld: SUN, acBasis: { right, up, fwd }, inCloud: env.L.cloud, core: env.L.core, flash: env.flash },
