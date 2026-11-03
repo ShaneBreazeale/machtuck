@@ -1,0 +1,216 @@
+// Scenario: N722BD, 1 Nov 2026, 12:47:00-12:49:32 EST. Coordinates: NED meters, origin = KPBI runway 10L/28R midpoint.
+// Reconstruction from publicly reported ADS-B / NEXRAD / ATC figures. Provisional; cause under NTSB investigation.
+import { DEG, RAD, clamp, lerp, smoothstep, wrap180, wrap360 } from './util.js';
+import { FT, KT } from './atmo.js';
+
+export const T0_CLOCK = 12 * 3600 + 47 * 60;   // 12:47:00 EST = t 0
+export const clockStr = (t) => { const s = Math.max(0, Math.floor(T0_CLOCK + t)); const hh = Math.floor(s / 3600), mm = Math.floor(s / 60) % 60, ss = s % 60; return `${hh}:${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`; };
+
+// Convective cell (KAMX radar): ~9.5 mi W, 2 mi N of PBI. 30 dBZ top 33,600 ft @12:43 -> 41,000 @12:48 -> 48,300 @12:56.
+export const STORM = {
+  n: 3200, e: -15300,                 // core center (NED)
+  rCore: 2600,                        // radius of 30+ dBZ core, m
+  rCloud: 7000,                       // visible cloud tower radius
+  base: 1200,                         // m
+  top: (t) => 11900 + 7.6 * t,        // m; 39,000 ft at 12:47 growing ~1,500 ft/min (30 dBZ top + ~1 km)
+  wUp: 18,                            // peak updraft, m/s
+  drift: [2.5, -2.5],                 // NW drift, m/s (n, e)
+};
+
+// Piecewise-linear helpers
+const pl = (pts, t) => { if (t <= pts[0][0]) return pts[0][1]; for (let i = 1; i < pts.length; i++) if (t <= pts[i][0]) { const [a, va] = pts[i - 1], [b, vb] = pts[i]; return lerp(va, vb, (t - a) / (b - a)); } return pts[pts.length - 1][1]; };
+
+// Ghost schedule (reported figures): heading, vertical speed, true airspeed vs t.
+const HDG = [[0, 58], [25, 58], [70, 100], [76, 100], [151, 292]];
+const VS = [[0, 0], [56, 0], [58, 5.1], [70, 5.1], [76, 0], [84, -51], [100, -102], [116, -163], [133, -173], [147, -267], [160, -267]];
+const TAS = [[0, 232], [76, 232], [92, 278], [120, 300], [135, 305], [152, 290]];
+
+export function buildGhost() {
+  const pts = []; let n = 0, e = 0, alt = 35000 * FT; const dt = 0.1;
+  for (let t = 0; t < 200; t += dt) {
+    const hdg = pl(HDG, t) * DEG, vs = pl(VS, t), V = pl(TAS, t);
+    const vh = Math.sqrt(Math.max(0, V * V - vs * vs));
+    if (Math.round(t * 10) % 5 === 0) pts.push({ t: +t.toFixed(1), n, e, d: -alt, hdg, V, vs, gamma: Math.asin(clamp(vs / V, -1, 1)) });
+    n += vh * Math.cos(hdg) * dt; e += vh * Math.sin(hdg) * dt; alt += vs * dt;
+    if (alt <= 0) { pts.push({ t: +t.toFixed(1), n, e, d: 0, hdg, V, vs, gamma: Math.asin(clamp(vs / V, -1, 1)) }); break; }
+  }
+  // Anchor: core entry at t=56 (12:47:56) at the storm center.
+  const a = pts.find(p => p.t >= 56);
+  const dn = STORM.n - a.n, de = STORM.e - a.e;
+  for (const p of pts) { p.n += dn; p.e += de; }
+  return pts;
+}
+export function ghostAt(ghost, t) {
+  if (t <= ghost[0].t) return ghost[0];
+  const last = ghost[ghost.length - 1]; if (t >= last.t) return last;
+  const i = Math.min(ghost.length - 1, Math.max(1, Math.floor(t * 2)));
+  let lo = i; while (lo > 0 && ghost[lo].t > t) lo--; while (lo < ghost.length - 2 && ghost[lo + 1].t <= t) lo++;
+  const A = ghost[lo], B = ghost[lo + 1], f = (t - A.t) / (B.t - A.t);
+  return { t, n: lerp(A.n, B.n, f), e: lerp(A.e, B.e, f), d: lerp(A.d, B.d, f), hdg: A.hdg + wrap180((B.hdg - A.hdg) * RAD) * DEG * f, V: lerp(A.V, B.V, f), vs: lerp(A.vs, B.vs, f), gamma: lerp(A.gamma, B.gamma, f) };
+}
+
+// Annotations on the actual flight (from ATC/LiveATC + radar graphic timeline). Crew final words intentionally omitted.
+export const TIMELINE = [
+  { t: 0, who: 'FO', txt: 'Miami Center, 722 Bravo Delta: light clear ice, manageable. Moderate turbulence, plus or minus seven hundred.' },
+  { t: 8, who: 'MIA', txt: '722 Bravo Delta, roger. Deviations left and right of course approved, moderate precipitation to the southeast.' },
+  { t: 33, who: 'FO', txt: 'Managing the ice, minus fifty-three Fahrenheit.' },
+  { t: 56, who: 'SYS', txt: 'ENTERING CONVECTIVE CORE (34 dBZ at FL350, 52 dBZ below)' },
+  { t: 62, who: 'FO', txt: 'Picking up more precip, request flight level three seven zero.' },
+  { t: 70, who: 'MIA', txt: '722 Bravo Delta, standby for higher.' },
+  { t: 88, who: 'ACT', txt: 'ACTUAL FLIGHT 12:48:28: Mayday, descending 10,000 ft/min.' },
+  { t: 97, who: 'ACT', txt: 'ACTUAL FLIGHT 12:48:37: Overspeed, descending 20,000 ft/min.' },
+  { t: 122, who: 'ACT', txt: 'ACTUAL FLIGHT 12:49:02: Banking 60 degrees.' },
+  { t: 152, who: 'ACT', txt: 'ACTUAL FLIGHT 12:49:32: Impact, Military Trail near Greenacres.' },
+];
+
+export const HYPOTHESES = {
+  combined: { name: 'Convective core: shear + rapid SLD icing + Mach tuck (most consistent with data)', tailIce: true, tuck: true, trimRunaway: false, iceGain: 1.0, shear: 1.0 },
+  tail:     { name: 'Ice-contaminated tailplane stall', tailIce: true, tuck: false, trimRunaway: false, iceGain: 1.3, shear: 0.7 },
+  tuck:     { name: 'Updraft overshoot, overspeed and Mach tuck (Mach trim fails)', tailIce: false, tuck: true, trimRunaway: false, iceGain: 0.6, shear: 1.3, apFail: true, machTrimFail: true },
+  trim:     { name: 'Runaway nose-down pitch trim in turbulence', tailIce: false, tuck: true, trimRunaway: true, iceGain: 0.5, shear: 0.6 },
+};
+
+// ---------------- NEXRAD reflectivity volume (gridded by tools/grid_nexrad.py) ----------------
+export class NexradField {
+  constructor(meta, data) { Object.assign(this, meta); this.data = data; }
+  static async load(base) {
+    const meta = await (await fetch(base + '.json')).json();
+    const data = new Uint8Array(await (await fetch(base + '.bin')).arrayBuffer());
+    return new NexradField(meta, data);
+  }
+  idx(n, e, h) {
+    const ix = Math.floor((e - this.x0) / this.d), iy = Math.floor((h - this.y0) / this.d), iz = Math.floor((n - this.z0) / this.d);
+    if (ix < 0 || iy < 0 || iz < 0 || ix >= this.nx || iy >= this.ny || iz >= this.nz) return -1;
+    return (iz * this.ny + iy) * this.nx + ix;
+  }
+  dbz(n, e, h) { const i = this.idx(n, e, h); if (i < 0) return -30; const v = this.data[i]; return v === 0 ? -30 : v / 4 - 10; }
+  // max dBZ in a height band (for the cockpit radar)
+  dbzBand(n, e, h0, h1) {
+    let m = -30; for (let h = h0; h <= h1; h += this.d) m = Math.max(m, this.dbz(n, e, h)); return m;
+  }
+}
+// Sim-time (s after 12:47:00 EST) of the gridded volumes
+export const NEXRAD_VOLUMES = [{ base: 'data/kamx_174548', t: -72 }, { base: 'data/kamx_175104', t: 244 }];
+
+// ---------------- Storm environment ----------------
+export class Environment {
+  constructor(hyp = 'combined', hard = true) {
+    this.hyp = HYPOTHESES[hyp]; this.hypKey = hyp; this.hard = hard;
+    this.seed = Math.random() * 1000;
+    this.flash = 0; this.nextFlash = 3;
+    this.phases = Array.from({ length: 12 }, () => Math.random() * 6.28);
+    this.gust = [0, 0, 0];
+    this.nex = null; this.useNex = true;     // set by main once the volumes load
+  }
+  nexDbz(pos, t, which = 'mix') {
+    if (!this.nex) return -30;
+    const h = -pos[2]; const a = this.nex[0], b = this.nex[1];
+    const da = a.f.dbz(pos[0], pos[1], h), db = b.f.dbz(pos[0], pos[1], h);
+    if (which === 'a') return da; if (which === 'b') return db;
+    const w = clamp((t - a.t) / (b.t - a.t), 0, 1); return lerp(da, db, w);
+  }
+  // Returns {core: 0..1 (in-core intensity), cloud: 0..1 (in cloud), updraft m/s, turb 0..1}
+  local(pos, t) {
+    const h = -pos[2];
+    const cn = STORM.n + STORM.drift[0] * t, ce = STORM.e + STORM.drift[1] * t;
+    const r = Math.hypot(pos[0] - cn, pos[1] - ce);
+    const top = STORM.top(t);
+    const hf = (h - STORM.base) / (top - STORM.base);
+    const vert = smoothstep(0, 0.05, hf) * (1 - smoothstep(0.8, 1.0, hf));
+    const core = Math.exp(-((r / STORM.rCore) ** 2)) * vert;
+    const cloudT = (1 - smoothstep(0.6, 1.0, r / STORM.rCloud)) * vert;
+    // stratiform deck 22,000-33,000 ft around the cell (broken), plus the tower
+    const deck = (h > 6400 && h < 10400) ? 0.6 : (h < 10700 ? 0.25 : 0);
+    let cloud = clamp(Math.max(cloudT, deck), 0, 1);
+    let coreN = core, dbz = -30, growth = 0;
+    if (this.nex && this.useNex) {
+      // Real echoes: cloud where >5 dBZ, core where >25 dBZ; growth between volumes marks the updraft
+      const da = this.nexDbz(pos, t, 'a'), db = this.nexDbz(pos, t, 'b');
+      dbz = lerp(da, db, clamp((t - this.nex[0].t) / (this.nex[1].t - this.nex[0].t), 0, 1));
+      growth = db - da;
+      const cloudR = smoothstep(3, 16, dbz), coreR = smoothstep(22, 42, dbz);
+      cloud = clamp(Math.max(cloud, cloudR), 0, 1);
+      coreN = clamp(Math.max(0.5 * core, coreR + 0.3 * smoothstep(5, 20, growth) * cloudR), 0, 1);
+    }
+    // updraft: strong in core, compensating downdraft ring just outside (exit shear)
+    const ring = Math.exp(-(((r - STORM.rCore * 1.5) / (STORM.rCore * 0.5)) ** 2));
+    // Exit shear: the ADS-B climb ends at 12:48:16 (t=76) with an abrupt reversal. Scripted downdraft pulse on the core's edge.
+    // 12:48:06-16 balloon (+450 ft) on a gust inside the cell, then an abrupt reversal at 12:48:16.
+    const balloon = smoothstep(64, 67, t) * (1 - smoothstep(74, 76, t));
+    const pulse = smoothstep(75, 77, t) * (1 - smoothstep(81, 85, t));
+    let updraft = (STORM.wUp * coreN - 9 * ring * vert + 14 * balloon - 24 * pulse) * this.hyp.shear;
+    // Real echoes: reflectivity growing between volumes marks the updraft, decaying marks downdraft
+    if (this.nex && this.useNex) updraft += (6 * smoothstep(5, 20, growth) - 5 * smoothstep(5, 20, -growth)) * (cloud > 0.2 ? 1 : 0) * this.hyp.shear;
+    // Severe turbulence persists in the dive: the track stays in and under the cell's downshear for ~40 s after exit
+    const under = (this.hard ? 1 : 0) * smoothstep(70, 78, t) * (1 - smoothstep(110, 125, t));
+    const turb = clamp(0.25 * (cloud > 0 ? 1 : 0.3) + 1.2 * coreN + 0.6 * ring * vert + 0.9 * under, 0, 1.6);
+    return { core: coreN, cloud, updraft, turb, r, hf, top, dbz, growth };
+  }
+  // Wind in NED at aircraft position. Mean wind 20 kt from 230 at altitude.
+  wind(pos, t, dt) {
+    const L = this.local(pos, t);
+    const h = -pos[2];
+    const alt = clamp(h / 10668, 0, 1);
+    const meanSpd = 10 * alt, meanDir = (230 + 180) * DEG;   // blowing toward 050
+    const mean = [meanSpd * Math.cos(meanDir), meanSpd * Math.sin(meanDir), 0];
+    // turbulence: sum of sines + random walk, scaled by local intensity (moderate outside, severe in core)
+    const A = 3.5 * L.turb;
+    const ph = this.phases;
+    const sx = Math.sin(t * 0.9 + ph[0]) * 0.5 + Math.sin(t * 2.3 + ph[1]) * 0.3 + Math.sin(t * 5.1 + ph[2]) * 0.2;
+    const sy = Math.sin(t * 0.7 + ph[3]) * 0.5 + Math.sin(t * 1.9 + ph[4]) * 0.3 + Math.sin(t * 4.3 + ph[5]) * 0.2;
+    const sz = Math.sin(t * 0.17 + ph[6]) * 0.6 + Math.sin(t * 1.3 + ph[7]) * 0.5 + Math.sin(t * 3.7 + ph[8]) * 0.3 + Math.sin(t * 7.9 + ph[9]) * 0.15;
+    for (let i = 0; i < 3; i++) this.gust[i] += ((Math.random() * 2 - 1) * 9 * L.turb - this.gust[i] * 1.5) * dt;
+    const w = [mean[0] + A * sx + this.gust[0], mean[1] + A * sy + this.gust[1], -L.updraft + A * 1.6 * sz + this.gust[2]];
+    // lightning
+    this.nextFlash -= dt * (0.3 + 2.5 * L.core + 0.6 * (L.cloud > 0.3 ? 1 : 0));
+    this.flash = Math.max(0, this.flash - dt * 6);
+    if (this.nextFlash <= 0) { this.flash = 1; this.nextFlash = 1.5 + Math.random() * 6; }
+    this.L = L;
+    return w;
+  }
+  // Deterministic upset trigger at 12:48:16 so every hypothesis starts from the recorded moment.
+  scriptedUpset(ac, ap, t) {
+    if (t < 76 || t > 77.5) return;
+    if (this.hyp.tailIce && !ac.tailStalled && ac.iceTail > 0.35) ac.tailStalled = true;
+    // As flown: the servo had been trimming nose-down chasing the balloon; the airplane is handed over trimmed ND
+    if (this.hard && this.hyp.tailIce) ac.ctl.trim = Math.min(ac.ctl.trim, -0.35);
+    if (this.hyp.apFail && ap.on) { ac.ctl.trim = Math.min(ac.ctl.trim, -0.45); ap.disconnect('OVERSPEED'); }
+  }
+  // Ice accretion rates per second for wing, T-tail and engine inlets, given the anti-ice systems.
+  // Wing heat is bleed air: weak at idle. Stab heat is electric. Supercooled large drops in the core overwhelm both.
+  iceRates(L, ac) {
+    const sys = ac.sys, n1 = ac.n1;
+    let r = 0.004 * (L.cloud > 0.2 ? 1 : 0) + 0.04 * L.core;
+    r *= this.hyp.iceGain;
+    const clear = L.cloud < 0.2;
+    const wingEff = sys.wingHeat ? clamp((n1 - 0.2) / 0.3, 0.1, 1) : 0;
+    const wing = clear ? -0.003 - 0.02 * wingEff : r * (1 - 0.75 * wingEff) - 0.012 * wingEff;
+    // SLD in the growing core overwhelms stab heat: heat trims accretion ~25% there, but clears the tail fast once out of it
+    const tail = clear ? -0.003 - (sys.stabHeat ? 0.025 : 0) : r * (sys.stabHeat ? 0.78 : 1.15) - (sys.stabHeat ? 0.003 : 0);
+    const eng = sys.nacelleHeat ? -0.05 : (clear ? -0.01 : r * 0.8);
+    return { wing, tail, eng };
+  }
+  iceRate(L, h, antiIce) { return this.iceRates(L, { sys: { wingHeat: antiIce, stabHeat: antiIce, nacelleHeat: true }, n1: 0.6 }).wing; }
+}
+
+// ---------------- Autopilot (ALT hold, HDG select, auto-trim) ----------------
+export class Autopilot {
+  constructor(hard = true) { this.on = true; this.altTgt = 35000 * FT; this.hdgTgt = 58; this.trimRate = hard ? 0.35 : 0.08; this.why = ''; }
+  disconnect(why) { if (this.on) { this.on = false; this.why = why; } }
+  engage(out) { if (Math.abs(out.phi) > 30 * DEG || Math.abs(out.theta) > 15 * DEG || out.stalled) return false; this.on = true; this.why = ''; this.altTgt = out.h; this.hdgTgt = wrap360(out.psi * RAD); return true; }
+  step(ac, dt, out) {
+    if (!this.on) return;
+    const { h, vs, theta, phi, psi, p, q, M, KIAS } = out;
+    // Limited-authority servo: real APs saturate in a 4,000 ft/min updraft, which is how the +450 ft excursion happened.
+    const vsCmd = clamp((this.altTgt - h) * 0.10, -8, 8);
+    const thetaCmd = clamp(theta + (vsCmd - vs) * 0.0025, -2.5 * DEG, 4 * DEG);
+    let elev = clamp(2.5 * (thetaCmd - theta) - 1.0 * q, -0.12, 0.12);
+    ac.ctl.elev = elev;
+    ac.ctl.trim = clamp(ac.ctl.trim + elev * this.trimRate * dt, -1, 1);   // auto-trim offloads the servo
+    const hErr = wrap180(this.hdgTgt - psi * RAD);
+    const phiCmd = clamp(hErr * 1.5, -25, 25) * DEG;
+    ac.ctl.ail = clamp(1.2 * (phiCmd - phi) - 0.5 * p, -0.6, 0.6);
+    // No autothrottle on the Learjet 60: thrust stays where the crew left it.
+    if (M > 0.845 || Math.abs(phi) > 50 * DEG || vs < -45) this.disconnect(M > 0.845 ? 'OVERSPEED' : 'ATTITUDE');
+  }
+}

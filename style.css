@@ -1,0 +1,31 @@
+html, body { margin: 0; height: 100%; background: #000; overflow: hidden; font-family: "SF Mono", Menlo, Consolas, monospace; color: #ddd; }
+canvas { position: absolute; inset: 0; width: 100vw; height: 100vh; display: block; }
+#gl { image-rendering: auto; }
+#hud { outline: none; touch-action: none; }
+.overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.72); z-index: 10; }
+.overlay.hidden { display: none; }
+.panel { max-width: 1000px; width: 92vw; max-height: 92vh; overflow: auto; background: #101216; border: 1px solid #2a2e36; border-radius: 10px; padding: 22px 28px; box-shadow: 0 20px 60px rgba(0,0,0,0.6); }
+.panel.small { max-width: 720px; }
+h1 { margin: 0 0 6px; font-size: 20px; color: #ffe34d; letter-spacing: 0.5px; }
+h2 { margin: 0 0 12px; font-size: 22px; }
+h3 { margin: 10px 0 6px; font-size: 13px; color: #9ab; text-transform: uppercase; letter-spacing: 1px; }
+.sub { margin: 0 0 8px; color: #bbb; font-size: 14px; }
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+ul { margin: 0; padding-left: 18px; font-size: 12.5px; line-height: 1.5; }
+label { display: block; margin-top: 14px; font-size: 13px; }
+select { font: inherit; background: #1b1e25; color: #fff; border: 1px solid #3a3f4a; padding: 6px; border-radius: 4px; width: 100%; margin-top: 6px; }
+.keys { font-size: 12px; color: #aab; margin: 14px 0 10px; }
+button { font: inherit; font-size: 15px; background: #ffe34d; color: #000; border: 0; border-radius: 6px; padding: 10px 22px; cursor: pointer; font-weight: bold; margin-right: 10px; }
+button:hover { background: #fff07a; }
+.note { font-size: 11px; color: #778; margin: 14px 0 0; line-height: 1.5; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; margin-bottom: 12px; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #22262e; }
+th { color: #9ab; font-weight: normal; }
+td:first-child { color: #9ab; }
+.tip { font-size: 13px; line-height: 1.5; color: #ddd; background: #171a20; padding: 10px 12px; border-radius: 6px; }
+.row { margin-top: 14px; }
+
+label.chk { font-size: 12px; color: #bcd; display: flex; gap: 8px; align-items: flex-start; margin-top: 10px; }
+label.chk input { margin-top: 2px; }
+button.alt { background: #2b3440; color: #fff; }
+button.alt:hover { background: #3a4656; }

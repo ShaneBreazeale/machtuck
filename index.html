@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>N722BD — Learjet 60 Convective Upset Simulator</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<canvas id="gl"></canvas>
+<canvas id="hud" tabindex="0"></canvas>
+
+<div id="brief" class="overlay">
+  <div class="panel">
+    <h1>N722BD · Learjet 60 · 12:47 EST, 1 November 2026</h1>
+    <p class="sub">Austin (AUS) → North Eleuthera (MYEH). FL350 over western Palm Beach County, inside a rapidly growing thunderstorm. Can you recover what the crew could not?</p>
+    <div class="cols">
+      <div>
+        <h3>What the data shows</h3>
+        <ul>
+          <li><b>12:47:16</b> crew reports moderate turbulence, ±700 ft; light clear ice, OAT −47 °C (−53 °F)</li>
+          <li><b>12:47:56</b> enters the 34 dBZ echo at FL350; 52 dBZ core below; cell tops growing 33,600 → 48,300 ft in 13 min (violent updraft, supercooled large drops lofted to FL350)</li>
+          <li><b>12:48:06</b> brief climb to ~35,450 ft; FO requests FL370 for precipitation</li>
+          <li><b>12:48:16</b> rapid descent begins · <b>12:48:28</b> Mayday, 10,000 ft/min · <b>12:48:37</b> overspeed, 20,000 ft/min</li>
+          <li><b>12:49:02</b> banking 60° · vertical-rate encoder pegged at −32,640 ft/min · ~M 0.9 · tightening right spiral 100° → 292°</li>
+          <li><b>12:49:32</b> impact near Military Trail, Greenacres. NTSB: indications of in-flight breakup. Cause: <b>undetermined</b>.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Your airplane</h3>
+        <ul>
+          <li>6-DOF Learjet 60 model: Mach tuck above M.80, shock buffet, ice-degraded wing and T-tail, structural limits (+3.6 g yield, ~370 KEAS, M.93), spoilers usable at any speed</li>
+          <li>Growing cumulonimbus with updraft core, exit shear, severe turbulence, rapid icing, lightning</li>
+          <li>Autopilot flies the cruise; it will hand you the airplane when it can no longer cope</li>
+          <li>Magenta ghost = reconstructed ADS-B track of N722BD; chart (top right) compares your altitude profile</li>
+        </ul>
+        <label>Upset hypothesis (all are speculation): <select id="hyp"></select></label>
+        <label class="chk"><input type="checkbox" id="nexbox" checked> Real NEXRAD storm (KAMX Level II, 17:45:48Z → 17:51:04Z, gridded 500 m) drives the clouds, icing zones and the cockpit weather radar</label>
+        <label class="chk"><input type="checkbox" id="atcbox"> Real ATC audio (LiveATC recording via the posted clip, synced to the clock). <b>Listener discretion:</b> contains the crew's final transmissions. Off by default; T toggles in flight.</label>
+        <label>Difficulty: <select id="diff"><option value="hard">As flown — handed over trimmed nose-down, iced tail stays stalled until forced, asymmetric ice, severe turbulence through the dive, strong Mach tuck</option><option value="trainer">Trainer — forgiving tail, calm after the core, nose-up trim</option></select></label>
+      </div>
+    </div>
+    <p class="keys"><b>Fly:</b> ↑↓←→ / WASD or mouse-drag · Q/E rudder · −/= throttle · 0 idle · B spoilers · , . trim · X autopilot · C camera (right-drag orbits) · T ATC audio · U NEXRAD · O/J weather radar · N skip to core entry · H all keys</p>
+    <button id="begin">Fly it · 12:47:00 EST</button><button id="watch" class="alt">Watch the reconstruction (no flying)</button>
+    <p class="note">Built from public reporting (Flightradar24, ADS-B Exchange, NEXRAD KAMX via MyRadar/LiveStormChasers, LiveATC, NTSB briefing). The flight model and the storm are approximations; the hypotheses are not findings. Nine people died on this flight. The crew's final transmissions are not reproduced here.</p>
+  </div>
+</div>
+
+<div id="debrief" class="overlay hidden">
+  <div class="panel small">
+    <h2></h2>
+    <table></table>
+    <p class="tip"></p>
+    <div class="row"><button id="again">Fly it again</button><button id="continue">Keep flying</button><button id="brief-again">Briefing</button><button id="replay">Replay with cameras</button><button id="csv">Download flight data (CSV)</button></div>
+  </div>
+</div>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

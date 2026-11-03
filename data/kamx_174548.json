@@ -1,0 +1,15 @@
+{
+ "file": "KAMX20261101_174548_V06",
+ "time_utc": "2026-11-01T17:45:48.587000",
+ "x0": -50000,
+ "y0": 0,
+ "z0": -45000,
+ "d": 500,
+ "nx": 160,
+ "ny": 32,
+ "nz": 170,
+ "encode": "(dBZ+10)*4, 0=no echo",
+ "layout": "[north][up][east]",
+ "radar": "KAMX",
+ "origin": "KPBI"
+}
