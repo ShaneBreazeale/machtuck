@@ -69,9 +69,10 @@ export class HUD {
   }
 
   // ---------------- Glareshield: annunciators + flight guidance strip ----------------
-  annunciators(S, blink, x, y, w, h) {
-    const o = S.out, ac = S.ac; this.box(x, y, w, h, COL.bezel, '#3a3f48', 6);
-    const lights = [
+  // Glareshield annunciator lights: [label, lit, colour, flashing]
+  annLights(S) {
+    const o = S.out, ac = S.ac;
+    return [
       ['MASTER WARN', ac.broken || o.stalled && o.alpha > 0 || (o.vs < -30 && o.h < 3000), COL.red, true],
       ['MASTER CAUT', o.overspeed || ac.iceTail > 0.5 || ac.engIce > 0.3 || (!S.ap.on && S.apOffAt !== null && S.t - S.apOffAt < 4), COL.amber, true],
       ['AP OFF', !S.ap.on, COL.amber], ['SHAKER', ac.shaker, COL.amber], ['OVERSPEED', o.overspeed, COL.red],
@@ -79,6 +80,13 @@ export class HUD {
       ['TRIM', ac.sys.trimMode !== 'PRI' || (S.trimRunaway), ac.sys.trimMode === 'OFF' ? COL.amber : COL.red], ['MACH TRIM', ac.sys.machTrimFail || !ac.sys.machTrim, COL.amber],
       ['SPOILER', ac.ctl.sb > 0, COL.green], ['GEAR', ac.ctl.gear > 0, COL.green], ['YD OFF', !ac.ctl.yd, COL.amber],
     ];
+  }
+  // Flight-guidance mode strip: [label, active] and the target / status readout
+  fgcModes(S) { return [['AP', S.ap.on], ['YD', S.ac.ctl.yd], ['HDG', S.ap.on], ['ALT', S.ap.on], ['MACH', S.ap.on]]; }
+  fgcText(S) { return S.ap.on ? `ALT ${Math.round(S.ap.altTgt / FT / 100) * 100}  HDG ${Math.round(S.ap.hdgTgt)}°` : (S.ap.why ? `AP OFF · ${S.ap.why}` : 'AP OFF'); }
+  annunciators(S, blink, x, y, w, h) {
+    const ac = S.ac; this.box(x, y, w, h, COL.bezel, '#3a3f48', 6);
+    const lights = this.annLights(S);
     const n = lights.length, lw = (w * 0.62) / n, ly = y + h * 0.5;
     lights.forEach((L, i) => {
       const lx = x + 10 + i * lw; const on = L[1] && (L[3] ? blink : true);
@@ -88,10 +96,10 @@ export class HUD {
     // FGC (flight guidance) mode strip
     const fx = x + w * 0.64, fw = w * 0.355;
     this.box(fx, y + 4, fw, h - 8, COL.face, '#3a3f48', 4);
-    const modes = [['AP', S.ap.on], ['YD', ac.ctl.yd], ['HDG', S.ap.on], ['ALT', S.ap.on], ['MACH', S.ap.on]];
+    const modes = this.fgcModes(S);
     const mw = fw / (modes.length + 1.2);
     modes.forEach((m, i) => this.text(m[0], fx + 10 + i * mw, y + h / 2, 12, m[1] ? COL.green : '#3b434d', 'left', 'bold'));
-    this.text(S.ap.on ? `ALT ${Math.round(S.ap.altTgt / FT / 100) * 100}  HDG ${Math.round(S.ap.hdgTgt)}°` : (S.ap.why ? `AP OFF · ${S.ap.why}` : 'AP OFF'), fx + fw - 8, y + h / 2, 11, S.ap.on ? COL.cyan : COL.amber, 'right');
+    this.text(this.fgcText(S), fx + fw - 8, y + h / 2, 11, S.ap.on ? COL.cyan : COL.amber, 'right');
   }
 
   // ---------------- PFD ----------------

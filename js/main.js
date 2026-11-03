@@ -387,7 +387,7 @@ function frame(now) {
     efb: { mode: SETTINGS.efb, range: SETTINGS.wxrRange }, checklist: evalProcedures(), trimRunaway: G.trimRunaway,
     map: { n: ac.pos[0], e: ac.pos[1], hdg: out.psi || 0, coastX, ghost: ghostNE, trail: G.trailNE || [], nexImg: nexImgs ? nexImgs[(NEX && G.t > (NEX[0].t + NEX[1].t) / 2) ? 1 : 0] : null, nexN0: NEX ? NEX[0].f.z0 : 0, nexN1: NEX ? NEX[0].f.z0 + NEX[0].f.nz * NEX[0].f.d : 0, nexE0: NEX ? NEX[0].f.x0 : 0, nexE1: NEX ? NEX[0].f.x0 + NEX[0].f.nx * NEX[0].f.d : 0 },
     atcOn: ATC.on, atcShift: ATC.shift, hideHud: G.hideHud, replay: G.phase === 'replay', camMode: G.camEff, camAuto: G.camMode === 3, recon: !!G.recon, nexOn: SETTINGS.nexrad && !!NEX, dbz: env.L.dbz,
-    cockpit3d: !!CK && !G.ext };
+    cockpit3d: !!CK && CK.ready && !G.ext };
   if (HS.cockpit3d) {
     CK.update(HS);
     CK.render({ ctl: ac.ctl, sunWorld: SUN, acBasis: { right, up, fwd }, inCloud: env.L.cloud, core: env.L.core, flash: env.flash },
@@ -429,7 +429,7 @@ document.getElementById('nexbox').checked = true; document.getElementById('atcbo
 newGame('combined'); G.paused = true;
 IN.onClick = (x, y) => {
   let h = null;
-  if (CK && !G.ext && G.head) { const p = CK.pick(2 * x / innerWidth - 1, 1 - 2 * y / innerHeight, G.head, G.lastFov || 64 * DEG, innerWidth / innerHeight); h = p && p.hit; }
+  if (CK && CK.ready && !G.ext && G.head) { const p = CK.pick(2 * x / innerWidth - 1, 1 - 2 * y / innerHeight, G.head, G.lastFov || 64 * DEG, innerWidth / innerHeight); h = p && p.hit; }
   else h = H.hit(x, y);
   if (!h) return false; toggleSwitch(h.id); return true;
 };

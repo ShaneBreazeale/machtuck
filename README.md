@@ -23,6 +23,7 @@ SDF Learjet) so a discrete GPU or Apple Silicon is recommended; press `K` to cyc
 - `js/scenario.js` — storm environment, ADS-B ghost reconstruction, ATC timeline, autopilot, hypotheses
 - `js/render.js` — WebGL2 raymarcher + line program
 - `js/hud.js` — PFD, system panel, profile chart, comm log
+- `js/cockpit.js`, `js/vcgauges.js` — 3D virtual cockpit and its standby gauges; `tools/fs9_vc.py` converts the FS2004 model
 - `js/input.js`, `js/audio.js`, `js/main.js`
 - `test/` — headless Node checks: `sim_test.mjs` (upset scenario), `stab_test.mjs`, `flight_test.mjs` (flight-test
   card), `afm_validate.mjs` (model vs ~1,860 cells of AFM tables in `afm_tables.json`)
@@ -47,9 +48,17 @@ rating (4,600 lbf, flat to 23.3 C) at the AFM takeoff N1. Current agreement (`no
 
 ## Cockpit, systems, procedures
 
-3D cockpit from the left seat (`js/cockpit.js`): procedural glareshield, windshield frame, panel, pedestal, yokes, thrust levers
-and rudder pedals that follow the controls, lit by the sun and dimmed in cloud; the instruments are drawn onto the panel
-screens and stay clickable. Right-drag looks around, the mouse wheel zooms. The exterior cameras (C) keep the 2D instruments.
+3D cockpit from the left seat (`js/cockpit.js`): the textured virtual cockpit of the Premier Aircraft Design Learjet 60
+(panel, glareshield, yokes, pedestal, seats, side consoles, window glass; `data/vc/`, see its README for credits and licence).
+The model's own animations drive the yokes (pitch and roll), rudder pedals, thrust, flap and spoiler levers from our controls.
+Our live instruments are mapped onto the panel at the gauge positions of the original panel.cfg: PFDs with HSI rose, MFDs with the
+weather radar, engine column, glareshield annunciators + flight-guidance strip, master warning/caution, standby attitude,
+airspeed and altimeter, RMI, clocks, gear lights and lever, trim, flap/spoiler indicators, fuel quantity, the whiskey compass,
+the systems switch panel and an EFB on the left. Everything is clickable where the 2D panel was. Right-drag looks around, the
+mouse wheel zooms. The exterior cameras (C) keep the 2D instruments, as does the cockpit until `data/vc/` has loaded.
+
+Regenerate the cockpit assets from the FS2004 model (`tools/fs9_vc.py` decodes the MDL8 BGL bytecode and DXT textures):
+`python3 tools/fs9_vc.py "<PAD_Learjet 60_FSX>/model/lear60_ver25.mdl" "<PAD_Learjet 60_FSX>/texture.N838" data/vc`
 
 
 Pro Line 4-style panel: glareshield annunciators + flight-guidance strip, PFD, engine column (N1/ITT/N2/FF), MFD with
