@@ -5,6 +5,10 @@
 // Static at start-up: atmosphere transmittance + multiple-scattering LUTs, baked tileable cloud noise volumes.
 import * as SH from './shaders.js';
 import { mul4, track } from './anim.js';
+import { AIRPORT, RUNWAYS, runwayFrame } from './ground.js';
+const AIRPORT_F = new Float32Array(AIRPORT.flat());
+const RWY_F = new Float32Array(RUNWAYS.flatMap((r) => { const f = runwayFrame(r); return [f.thr[1], f.thr[0], f.u[1], f.u[0]]; }));   // (east, north) frame
+const RWY_D = new Float32Array(RUNWAYS.flatMap((r) => { const f = runwayFrame(r); return [f.L, f.w]; }));
 
 function compile(gl, type, src) {
   const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
@@ -132,7 +136,7 @@ export class Renderer {
   async loadGround(base = 'data/ground/') {
     const meta = await (await fetch(base + 'ground.json')).json();
     const load = (f) => new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = base + f; });
-    const [near, far, site, wn, wf, det] = await Promise.all(['near.jpg', 'far.jpg', 'site.jpg', 'near_water.png', 'far_water.png', 'detail.jpg'].map(f => load(f).catch(() => null)));
+    const [near, far, site, wn, wf, det, apt] = await Promise.all(['near.jpg', 'far.jpg', 'site.jpg', 'near_water.png', 'far_water.png', 'detail.jpg', 'airport.jpg'].map(f => load(f).catch(() => null)));
     if (!near || !far) throw new Error('ground imagery incomplete');
     const b = (k) => { const m = meta[k] || meta.bounds?.[k]; return m ? [m.e0, m.e1, m.n0, m.n1] : [0, 0, 0, 0]; };
     // water mask -> alpha channel of the imagery (one sampler per image)
@@ -146,7 +150,8 @@ export class Renderer {
     this.expoSnap = 3;
     this.ground = { near: nearTex, far: farTex, site: site ? this.imageTex(pack(site, null), true, true) : this.dummy2,
       detail: det ? this.imageTex(pack(det, null), true, true) : this.dummy2, bDetail: det ? b('detail') : [0, 0, 0, 0],
-      bNear: b('near'), bFar: b('far'), bSite: site ? b('site') : [0, 0, 0, 0] };
+      bNear: b('near'), bFar: b('far'), bSite: site ? b('site') : [0, 0, 0, 0],
+      airport: apt ? this.imageTex(pack(apt, null), true, true) : null, bAirport: apt ? b('airport') : [0, 0, 0, 0] };
     return meta;
   }
   // GOES-19 ABI cloud field (data/goes, see tools/fetch_goes.py): visible reflectance, cloud-top height, mask
@@ -185,7 +190,7 @@ export class Renderer {
     const c = ctl || {}; const cl = (v, a, b) => Math.min(b, Math.max(a, v || 0));
     const t = new Map([[110, 50 + 50 * cl(c.ail, -1, 1)], [112, 50 + 50 * cl(c.ail, -1, 1)], [118, 50 + 50 * cl(c.elev, -1, 1)], [120, 50 + 50 * cl(c.rud, -1, 1)],
       [440, 100 * cl(c.flaps, 0, 1)], [444, 100 * cl(c.flaps, 0, 1)], [164, 100 * cl(c.sb, 0, 1)], [168, 100 * cl(c.sb, 0, 1)],
-      [152, c.gear ? 100 : 0], [156, c.gear ? 100 : 0], [160, c.gear ? 100 : 0]]);
+      [152, c.gear ? 100 : 0], [156, c.gear ? 100 : 0], [160, c.gear ? 100 : 0], [176, c.rev > 0 ? 200 : 0], [172, c.rev > 0 ? 200 : 0]]);
     const W = this.ext.W;
     this.ext.nodes.forEach((n, i) => { let m = track(n.keys, n.type, t.has(n.var) ? t.get(n.var) : (n.vicall ? 50 : 0)); if (n.m) m = mul4(m, n.m); W[i] = n.p < 0 ? m : mul4(m, W[n.p]); });
     return W;
@@ -415,8 +420,11 @@ export class Renderer {
   groundU(u) {
     const gl = this.gl, G = this.ground; gl.uniform1i(u.uGround, G ? 1 : 0);
     this.tex(u, 'uGNear', G ? G.near : this.dummy2, 10); this.tex(u, 'uGFar', G ? G.far : this.dummy2, 11); this.tex(u, 'uGSite', G ? G.site : this.dummy2, 12);
-    this.tex(u, 'uGDetail', G ? G.detail : this.dummy2, 15);
-    if (G) { gl.uniform4fv(u.uGBNear, G.bNear); gl.uniform4fv(u.uGBFar, G.bFar); gl.uniform4fv(u.uGBSite, G.bSite); gl.uniform4fv(u.uGBDetail, G.bDetail); }
+    // the high-resolution patch: the crash site, or KPBI in free flight (one sampler: the scene shader has no spare unit)
+    const apt = G && this.detailLayer === 'airport' && G.airport;
+    this.tex(u, 'uGDetail', G ? (apt ? G.airport : G.detail) : this.dummy2, 15);
+    if (u.uRwy) { gl.uniform4fv(u.uRwy, RWY_F); gl.uniform2fv(u.uRwyD, RWY_D); gl.uniform1f(u.uRwyCamH, this.camH || 100); }
+    if (G) { gl.uniform4fv(u.uGBNear, G.bNear); gl.uniform4fv(u.uGBFar, G.bFar); gl.uniform4fv(u.uGBSite, G.bSite); gl.uniform4fv(u.uGBDetail, apt ? G.bAirport : G.bDetail); }
   }
   cloudU(u, S) {
     const gl = this.gl;
@@ -459,6 +467,8 @@ export class Renderer {
     gl.disable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE); gl.frontFace(gl.CCW); gl.bindVertexArray(null);
   }
   render(S) {
+    this.detailLayer = S.detailLayer || 'crash';
+    { const c = S.cam.pos; this.camH = Math.max(0.5, c[1] - (c[0] * c[0] + c[2] * c[2]) / 12720000); }
     if (this.dbg) S = Object.assign({}, S, this.dbg);   // console overrides, e.g. SIM.R.dbg = {cloudCover: 0}
     const gl = this.gl; this.resize(); const T = this.T;
     gl.disable(gl.BLEND); gl.disable(gl.DEPTH_TEST);
@@ -488,9 +498,9 @@ export class Renderer {
     const rel = [a.pos[0] - c.pos[0], a.pos[1] - c.pos[1], a.pos[2] - c.pos[2]];
     // cell map for the 3D houses / trees: regenerate when low and >2 km from its centre (or imagery just arrived)
     const CELL = 16, NC = 512, low = this.ground && c.pos[1] < 2200 && S.city !== false;
-    if (low && (!this.cityO || this.cityGround !== this.ground || Math.hypot(c.pos[0] - (this.cityO[0] + NC * CELL / 2), c.pos[2] - (this.cityO[1] + NC * CELL / 2)) > 2000)) {
-      this.cityO = [Math.floor(c.pos[0] / CELL - NC / 2) * CELL, Math.floor(c.pos[2] / CELL - NC / 2) * CELL, NC, CELL]; this.cityGround = this.ground;
-      this.pass(this.pCity, this.city, (u) => { this.groundU(u); gl.uniform4fv(u.uCityO, this.cityO); gl.uniform4fv(u.uOsmB, this.bld ? this.bld.bounds : [0, 0, 0, 0]); });
+    if (low && (!this.cityO || this.cityGround !== this.ground || this.cityLayer !== this.detailLayer || Math.hypot(c.pos[0] - (this.cityO[0] + NC * CELL / 2), c.pos[2] - (this.cityO[1] + NC * CELL / 2)) > 2000)) {
+      this.cityO = [Math.floor(c.pos[0] / CELL - NC / 2) * CELL, Math.floor(c.pos[2] / CELL - NC / 2) * CELL, NC, CELL]; this.cityGround = this.ground; this.cityLayer = this.detailLayer;
+      this.pass(this.pCity, this.city, (u) => { this.groundU(u); if (u.uAirport) { gl.uniform2fv(u.uAirport, AIRPORT_F); gl.uniform1i(u.uAirportN, AIRPORT.length); } gl.uniform4fv(u.uCityO, this.cityO); gl.uniform4fv(u.uOsmB, this.bld ? this.bld.bounds : [0, 0, 0, 0]); });
     }
     const mesh = !!(this.ext && S.ext && Math.hypot(...rel) < 25000);
     this.pass(this.pScene, T.scene, (u) => {

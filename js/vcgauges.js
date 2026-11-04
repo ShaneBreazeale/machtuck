@@ -3,6 +3,7 @@
 // every: redraw interval in frames, bg: background (null = transparent), draw(ctx, S, hud, blink) }.
 import { DEG, RAD, clamp, wrap360, lerp } from './util.js';
 import { FT } from './atmo.js';
+import { stabDeg } from './aircraft.js';
 
 const FONT = '"SF Mono", Menlo, Consolas, monospace';
 const txt = (ctx, s, x, y, size, color = '#e8eef4', align = 'center', weight = 'bold') => {
@@ -176,7 +177,8 @@ export const GAUGES = {
   // pitch trim indicator
   trim: { w: 81, h: 264, every: 3, at: [['$panL', 892, 363, 27, 88]], draw(ctx, S) {
     const tr = S.ac.ctl.trim; ctx.fillStyle = '#111'; ctx.fillRect(4, 4, 73, 256); txt(ctx, 'NU', 40, 18, 14, '#bbb'); txt(ctx, 'ND', 40, 246, 14, '#bbb');
-    ctx.fillStyle = '#2a7a2a'; ctx.fillRect(30, 90, 20, 60); ctx.fillStyle = '#eee'; const y = 132 - tr * 100; ctx.beginPath(); ctx.moveTo(20, y); ctx.lineTo(60, y - 9); ctx.lineTo(60, y + 9); ctx.fill();
+    // PITCH TRIM indicator, 1 deg (N DN, bottom) to 12 deg (N UP, top); green T.O. segment 5.7-8.75 deg (AFM Fig 2-2)
+    const yOf = (d) => 236 - (d - 1) / 11 * 208; ctx.fillStyle = '#2a7a2a'; ctx.fillRect(30, yOf(8.75), 20, yOf(5.7) - yOf(8.75)); ctx.fillStyle = '#eee'; const y = yOf(Math.max(1, Math.min(12, stabDeg(tr)))); ctx.beginPath(); ctx.moveTo(20, y); ctx.lineTo(60, y - 9); ctx.lineTo(60, y + 9); ctx.fill();
   } },
   // whiskey compass on the windshield centre post: the card is read from behind, so headings increase to the left
   compass: { w: 256, h: 256, every: 2, at: [['$pancompass', 65, 70, 125, 140]], draw(ctx, S) {

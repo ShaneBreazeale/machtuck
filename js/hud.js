@@ -2,6 +2,8 @@
 // radar, anti-ice / stall-warning / trim switch panel, pedestal), EFB tablet (moving map with the NEXRAD composite,
 // procedures), profile chart, comm log, windshield weather effects.
 import { DEG, RAD, clamp, wrap360, lerp } from './util.js';
+import { stabDeg } from './aircraft.js';
+import { RUNWAYS } from './ground.js';
 import { FT, KT } from './atmo.js';
 import { clockStr, TIMELINE } from './scenario.js';
 
@@ -188,7 +190,7 @@ export class HUD {
       else bands.push({ from: 0, to: 9999, style: 'barber' });
       bands.push({ from: top, to: 9999, color: COL.amber });
     }
-    this.tape(tx, ty, tw, s, o.KIAS, 10, 20, s * 0.062, (v) => v < 0 ? null : v, (v) => { const vmoEff = Math.min(o.Vmo, o.M > 0.01 ? o.KIAS * (o.Mmo || 0.81) / o.M : 999); return v >= vmoEff ? 'barber' : null; }, '#fff', false, bands);
+    this.tape(tx, ty, tw, s, o.KIAS, 10, 20, s * 0.062, (v) => v < 0 ? null : v, (v) => { const vmoEff = Math.min(o.Vmo, o.M > 0.01 ? o.KIAS * (o.Mmo || 0.81) / o.M : 999); return v >= vmoEff ? 'barber' : null; }, '#fff', false, bands, S.free ? S.free.bugs : []);
     this.text(`M ${o.M.toFixed(3)}`, tx + tw / 2, ty + s + 14, s * 0.055, o.M > (o.Mmo || 0.81) ? COL.red : '#fff', 'center', 'bold');
     this.text(`GS ${(o.gs / KT).toFixed(0)}`, tx + tw / 2, ty + s + 32, s * 0.042, '#9ad', 'center');
     if (B) {
@@ -214,7 +216,7 @@ export class HUD {
     ctx.restore(); ctx.fillStyle = '#ffe34d'; ctx.beginPath(); ctx.moveTo(cx, hy); ctx.lineTo(cx - 6, hy - 8); ctx.lineTo(cx + 6, hy - 8); ctx.fill();
     this.text(`${Math.round(hdg).toString().padStart(3, '0')}°`, cx, hy + hh + 10, s * 0.05, '#fff', 'center', 'bold');
   }
-  tape(x, y, w, h, val, minor, major, pxPerMinor, fmt, mark, color, isAlt = false, bands = []) {
+  tape(x, y, w, h, val, minor, major, pxPerMinor, fmt, mark, color, isAlt = false, bands = [], bugs = []) {
     const ctx = this.ctx; ctx.save(); ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip(); ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(x, y, w, h);
     const cy = y + h / 2, pxPerUnit = pxPerMinor / minor; const range = h / pxPerUnit / 2;
     const v0 = Math.floor((val - range) / minor) * minor, v1 = Math.ceil((val + range) / minor) * minor;
@@ -229,6 +231,8 @@ export class HUD {
         for (let yy = yBot; yy > yTop; yy -= seg) { ctx.fillStyle = (Math.floor((cy - yy) / seg + 1e4) % 2) ? COL.red : '#fff'; ctx.fillRect(x + w - 4, Math.max(yTop, yy - seg), 4, Math.min(seg, yy - yTop)); }
       } else { ctx.fillStyle = b.color; ctx.fillRect(x + w - 4, yTop, 4, yBot - yTop); }
     }
+    // speed bugs (V1 / VR / V2, VREF): cyan marks on the tick edge
+    for (const b of bugs) { const yy = cy - (b.v - val) * pxPerUnit; if (yy < y || yy > y + h) continue; ctx.fillStyle = '#3ff'; ctx.fillRect(x + w - 12, yy - 1, 12, 2); this.text(b.t, x + w - 14, yy, Math.max(8, h * 0.04), '#3ff', 'right', 'bold'); }
     ctx.fillStyle = '#000'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.roundRect(x + 2, cy - h * 0.045, w - 4, h * 0.09, 3); ctx.fill(); ctx.stroke();
     this.text(isAlt ? Math.round(val / 20) * 20 : Math.round(val), x + w / 2, cy, h * 0.062, '#fff', 'center', 'bold');
     ctx.restore();
@@ -249,7 +253,7 @@ export class HUD {
     this.text('L            R', x + w / 2, y + 7, 8, COL.dim, 'center');
     let iy = gy - r * 0.9; const barW = w - 16; const fs = Math.max(7.5, Math.min(9, w * 0.085));
     const ind = (label, f, col, marker) => { if (iy + 14 > y + h) return; this.text(label, x + 8, iy, fs, COL.dim); iy += 9; this.box(x + 8, iy - 3, barW, 6, '#2a2e36', '#3a3f48', 2); this.ctx.fillStyle = col; if (marker) this.ctx.fillRect(x + 8 + f * barW - 2, iy - 5, 4, 10); else this.ctx.fillRect(x + 8, iy - 3, f * barW, 6); iy += 13; };
-    ind(`TRIM ${ac.ctl.trim < 0 ? 'ND' : 'NU'} ${Math.abs(ac.ctl.trim).toFixed(2)} ${ac.sys.trimMode}`, 0.5 + ac.ctl.trim * 0.48, ac.ctl.trim < -0.4 ? COL.red : '#fff', true);
+    ind(`TRIM ${stabDeg(ac.ctl.trim).toFixed(1)}° ${ac.sys.trimMode}`, clamp((stabDeg(ac.ctl.trim) - 1) / 11, 0, 1), ac.ctl.trim < -0.4 ? COL.red : '#fff', true);
     ind(`SPLR ${ac.ctl.sb ? 'EXT' : 'RET'} · FLAP ${ac.ctl.flaps ? Math.round(ac.ctl.flaps * 40) : 'UP'}`, Math.max(ac.ctl.sb, ac.ctl.flaps), COL.green);
     ind(`STRESS ${Math.round(ac.damage * 100)}%`, ac.damage, ac.damage > 0.7 ? COL.red : COL.amber);
     ind(`ICE W ${Math.round(ac.ice * 100)}% · STAB ${Math.round(ac.iceTail * 100)}%`, ac.iceTail, ac.iceTail > 0.5 ? COL.red : COL.cyan);
@@ -325,7 +329,7 @@ export class HUD {
     lever(cx - 40, 'L', ac.ctl.thr, '#ddd'); lever(cx - 22, 'R', ac.ctl.thr, '#ddd');
     lever(cx + 10, 'SPLR', ac.ctl.sb, COL.green); lever(cx + 32, 'FLAP', ac.ctl.flaps, COL.green);
     this.text(`THRUST ${Math.round(ac.ctl.thr * 100)}%   N1 ${Math.round(lerp(28, 98, ac.n1))}%`, cx - 60, y + h / 2, 10, '#dfe6ee', 'right');
-    this.text(`TRIM ${ac.ctl.trim >= 0 ? 'NU' : 'ND'} ${Math.abs(ac.ctl.trim).toFixed(2)}  [, .]   ${ac.sys.trimMode}`, cx + 60, y + h / 2, 10, ac.ctl.trim < -0.4 ? COL.red : '#dfe6ee', 'left');
+    this.text(`TRIM ${stabDeg(ac.ctl.trim).toFixed(1)}°  [, .]   ${ac.sys.trimMode}`, cx + 60, y + h / 2, 10, ac.ctl.trim < -0.4 ? COL.red : '#dfe6ee', 'left');
     this.text(`−/= thrust · 0 idle · B spoilers · F flaps · G gear`, x + w - 10, y + h / 2, 9, COL.dim, 'right');
   }
 
@@ -355,10 +359,10 @@ export class HUD {
     // range rings
     ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1; for (const f of [0.5, 1]) { ctx.beginPath(); ctx.arc(cx, cy, rangeM * sc * f, 0, 6.28); ctx.stroke(); }
     // airport
-    const [ax, ay] = P(0, 0); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(ax - 1500 * sc * Math.cos(10 * DEG), ay - 1500 * sc * Math.sin(10 * DEG)); ctx.lineTo(ax + 1500 * sc * Math.cos(10 * DEG), ay + 1500 * sc * Math.sin(10 * DEG)); ctx.stroke(); this.text('KPBI', ax + 6, ay - 8, 9, '#fff');
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; for (const rw of RUNWAYS) { const [x1, y1] = P(rw.a[0], rw.a[1]), [x2, y2] = P(rw.b[0], rw.b[1]); ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); }
     // reported track (magenta) and own trail (green)
     ctx.strokeStyle = COL.magenta; ctx.lineWidth = 1.5; ctx.setLineDash([4, 3]); ctx.beginPath(); M.ghost.forEach((p, i) => { const [px, py] = P(p[0], p[1]); i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }); ctx.stroke(); ctx.setLineDash([]);
-    const [gx, gy] = P(M.ghost[M.ghost.length - 1][0], M.ghost[M.ghost.length - 1][1]); ctx.strokeStyle = COL.magenta; ctx.beginPath(); ctx.moveTo(gx - 5, gy - 5); ctx.lineTo(gx + 5, gy + 5); ctx.moveTo(gx + 5, gy - 5); ctx.lineTo(gx - 5, gy + 5); ctx.stroke();
+    if (M.ghost.length) { const [gx, gy] = P(M.ghost[M.ghost.length - 1][0], M.ghost[M.ghost.length - 1][1]); ctx.strokeStyle = COL.magenta; ctx.beginPath(); ctx.moveTo(gx - 5, gy - 5); ctx.lineTo(gx + 5, gy + 5); ctx.moveTo(gx + 5, gy - 5); ctx.lineTo(gx - 5, gy + 5); ctx.stroke(); }
     ctx.strokeStyle = COL.green; ctx.lineWidth = 2; ctx.beginPath(); M.trail.forEach((p, i) => { const [px, py] = P(p[0], p[1]); i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }); ctx.stroke();
     // own ship
     ctx.save(); ctx.translate(cx, cy); ctx.rotate(M.hdg); ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.moveTo(0, -9); ctx.lineTo(6, 7); ctx.lineTo(0, 3); ctx.lineTo(-6, 7); ctx.closePath(); ctx.fill(); ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.beginPath(); ctx.moveTo(0, -9); ctx.lineTo(0, -h * 0.45); ctx.stroke(); ctx.restore();
@@ -418,6 +422,12 @@ export class HUD {
   }
   header(S) {
     const y = 14;
+    if (S.free) {
+      this.text(`LEARJET 60 · FREE FLIGHT · KPBI${S.replay ? '  ·  REPLAY · ' + ['COCKPIT', 'CHASE', 'GROUND CAM'][S.camMode] : ''}`, 12, y, 13, '#ffe34d', 'left', 'bold');
+      this.text(S.hypName.replace(/^FREE FLIGHT · /, ''), 12, y + 17, 11, '#9ab');
+      this.text('[H] help  [C] camera  [R] restart  [Shift] brakes  [G] gear  [F] flaps  [B] spoilers  [X] autopilot  [/] controls  [Z] hide HUD', 12, y + 33, 11, '#678');
+      return;
+    }
     this.text(`N722BD · LEARJET 60 · ${clockStr(S.t)} EST${S.replay ? (S.recon ? '  ·  RECONSTRUCTION · ' : '  ·  REPLAY · ') + (S.camAuto ? 'AUTO/' : '') + ['COCKPIT', 'CHASE', 'GROUND CAM'][S.camMode] : ''}`, 12, y, 13, '#ffe34d', 'left', 'bold');
     this.text(S.recon ? S.hypName : `HYPOTHESIS: ${S.hypName}`, 12, y + 17, 11, S.recon ? '#ff80d0' : '#9ab');
     this.text(`[H] help  [C] camera  [V] ghost  [N] skip  [R] restart  [T] ATC ${S.atcOn ? 'ON' : 'off'}${S.atcShift ? ` (${S.atcShift > 0 ? '+' : ''}${S.atcShift}s)` : ''}  [U] NEXRAD ${S.nexOn ? 'ON' : 'off'}  [TAB] EFB  [1-6] procedures  [Z] hide HUD`, 12, y + 33, 11, '#678');
@@ -429,7 +439,26 @@ export class HUD {
     else if (S.apOffAt !== null && S.t - S.apOffAt < 4 && blink) { msg = 'AUTOPILOT DISCONNECT'; col = COL.amber; }
     if (msg) { const ctx = this.ctx; ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(W / 2 - 300, H * 0.09, 600, 44); this.text(msg, W / 2, H * 0.09 + 22, 22, col, 'center', 'bold'); }
   }
+  // free flight: ground and approach status in place of the accident's altitude chart
+  freePanel(S) {
+    const ctx = this.ctx, W = this.W, F = S.free; const w = Math.min(W * 0.2, 300), lh = 17, rows = [];
+    const ft = Math.max(0, (F.agl - 1.6) / FT);
+    rows.push([F.wow ? 'ON GROUND' : 'RADIO ALT', F.wow ? `${Math.round(F.gs / KT)} kt GS` : ft < 2500 ? `${Math.round(ft)} ft` : '—', F.wow ? COL.green : '#ddd']);
+    rows.push(['GEAR', S.ac.ctl.gear ? (F.gearDamage > 0 ? 'DOWN · DAMAGED' : 'DOWN') : 'UP', S.ac.ctl.gear ? (F.gearDamage > 0 ? COL.amber : COL.green) : (!F.wow && ft < 1000 && S.out.KIAS < 200 ? COL.red : '#ddd')]);
+    rows.push(['FLAPS', `${Math.round(F.flaps * 40)}°`, '#ddd']);
+    if (F.sb) rows.push(['SPOILERS', 'EXTENDED', COL.amber]);
+    if (F.rev > 0) rows.push(['REVERSERS', `${Math.round(F.rev * 100)} %`, COL.green]);
+    if (F.engFail) rows.push(['ENGINE', `${F.engFail === 'L' ? 'LEFT' : 'RIGHT'} FAILED`, COL.red]);
+    rows.push(['BRAKES', F.park ? 'PARKING BRAKE' : F.brake > 0.05 ? `${Math.round(F.brake * 100)} %` : 'off', F.park ? COL.amber : F.brake > 0.05 ? COL.green : '#888']);
+    if (F.wow) rows.push(['NOSEWHEEL', `${Math.round(F.steer * 57.3)}°`, '#ddd']);
+    rows.push(['LAST TOUCHDOWN', F.touchFpm !== null ? `${Math.round(F.touchFpm)} ft/min` : '—', F.touchFpm === null ? '#888' : F.touchFpm > 600 ? COL.red : F.touchFpm > 360 ? COL.amber : COL.green]);
+    if (F.wind && F.wind.wind) rows.push(['WIND', `${String(F.wind.from).padStart(3, '0')}° ${F.wind.wind}${F.wind.gust ? 'G' + F.wind.gust : ''} kt`, '#9cf']);
+    const h = rows.length * lh + 14, x = W - w - 12, y = 12;
+    ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.beginPath(); ctx.roundRect(x, y, w, h, 6); ctx.fill();
+    rows.forEach(([k, v, c], i) => { this.text(k, x + 10, y + 14 + i * lh, 10, '#9ab', 'left', 'bold'); this.text(v, x + w - 10, y + 14 + i * lh, 11, c, 'right', 'bold'); });
+  }
   profile(S) {
+    if (S.free) return this.freePanel(S);
     const ctx = this.ctx, W = this.W; const w = Math.min(W * 0.26, 400), h = w * 0.48, x = W - w - 12, y = 12;
     ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.beginPath(); ctx.roundRect(x, y, w, h, 6); ctx.fill();
     const px = (t) => x + 36 + (t / 160) * (w - 46), py = (alt) => y + 8 + (1 - alt / 42000) * (h - 30);
@@ -449,7 +478,7 @@ export class HUD {
   }
   help() {
     const ctx = this.ctx, W = this.W, H = this.H;
-    const L = ['CONTROLS', '', 'Pitch: ↑/↓ or W/S (↓ or S = pull)  ·  Roll: ←/→ or A/D  ·  Rudder: Q/E  ·  inputs are FORCE on unboosted controls (gauge: COLUMN FORCE)', 'Throttle: − / =   ·   0 = idle   ·   B spoilers   ·   G gear (VLO 200 / VLE 260 KIAS)   ·   F flaps 8/20/40 (VFE 250/200/165 KIAS)', 'Pitch trim: , nose-down  . nose-up (PRI/SEC only)   ·   7 = trim PRI/SEC/OFF   ·   8 = Mach trim', 'I = wing+stab heat   ·   9 = nacelle heat   ·   6 = stall warning (shaker) cutout   ·   Y = yaw damper', 'X = autopilot off / engage   ·   TAB = EFB map / procedures / off   ·   1–6 = procedure card   ·   ` = back', 'C camera (right-drag orbits)   ·   V ghost   ·   T ATC audio   ·   ; / \' nudge tape   ·   U NEXRAD   ·   O/J radar', 'N skip   ·   [ ] sim rate   ·   K quality   ·   P pause   ·   R restart   ·   M mute   ·   Z hide HUD   ·   / controls & hardware   ·   H help', 'Controller (DualShock/DualSense/Xbox): L stick pitch/roll · R stick rudder · R2/L2 thrust · R1/L1 trim up/down · ✕ AP · ○ spoilers · □ idle · △ camera · D-pad ↑ gear ↓ flaps · L3 yaw damper · Options pause · Create help · rumble on shaker/buffet (Chrome)', 'Force-feedback joystick (USB PID, Chrome/Edge): connect in Controls (/)  ·  stick position = column position, its motor = the hinge moment', '3D cockpit: right-drag to look around, mouse wheel to zoom; the switch panel and EFB are clickable.', '', 'UPSET / OVERSPEED RECOVERY (after AFM FM-123; our wording):', '1. Thrust IDLE, AP off (X).  2. Identify pitch AND roll on the PFD.  3. LEVEL THE WINGS before pulling.', '4. Elevator + nose-up TRIM (.) to raise the nose; forces can exceed 75 lb, trim takes them off you.', '5. Extreme speed or attitude: GEAR DOWN (G).  NO SPOILERS: nose-down pitch above Vmo/Mmo.'];
+    const L = ['CONTROLS', '', 'Pitch: ↑/↓ or W/S (↓ or S = pull)  ·  Roll: ←/→ or A/D  ·  Rudder: Q/E  ·  inputs are FORCE on unboosted controls (gauge: COLUMN FORCE)', 'Throttle: − / =   ·   0 = idle   ·   B spoilers   ·   G gear (VLO 200 / VLE 260 KIAS)   ·   F flaps 8/20/40 (VFE 250/200/165 KIAS)', 'Brakes: hold Shift (or toe brakes, a bound button, D-pad left)  ·  a runway start has the parking brake set: brakes release it  ·  pedals / Q·E steer the nosewheel', 'On the ground: − past idle (or L2) = thrust reversers, = stows  ·  spoilers deploy themselves at idle above 60 kt  ·  V1 / VR / V2 and VREF bugs on the speed tape', 'Pitch trim: , nose-down  . nose-up (PRI/SEC only)   ·   7 = trim PRI/SEC/OFF   ·   8 = Mach trim', 'I = wing+stab heat   ·   9 = nacelle heat   ·   6 = stall warning (shaker) cutout   ·   Y = yaw damper', 'X = autopilot off / engage   ·   TAB = EFB map / procedures / off   ·   1–6 = procedure card   ·   ` = back', 'C camera (right-drag orbits)   ·   V ghost   ·   T ATC audio   ·   ; / \' nudge tape   ·   U NEXRAD   ·   O/J radar', 'N skip   ·   [ ] sim rate   ·   K quality   ·   P pause   ·   R restart   ·   M mute   ·   Z hide HUD   ·   / controls & hardware   ·   H help', 'Controller (DualShock/DualSense/Xbox): L stick pitch/roll · R stick rudder · R2/L2 thrust · R1/L1 trim up/down · ✕ AP · ○ spoilers · □ idle · △ camera · D-pad ↑ gear ↓ flaps · L3 yaw damper · Options pause · Create help · rumble on shaker/buffet (Chrome)', 'Force-feedback joystick (USB PID, Chrome/Edge): connect in Controls (/)  ·  stick position = column position, its motor = the hinge moment', '3D cockpit: right-drag to look around, mouse wheel to zoom; the switch panel and EFB are clickable.', '', 'UPSET / OVERSPEED RECOVERY (after AFM FM-123; our wording):', '1. Thrust IDLE, AP off (X).  2. Identify pitch AND roll on the PFD.  3. LEVEL THE WINGS before pulling.', '4. Elevator + nose-up TRIM (.) to raise the nose; forces can exceed 75 lb, trim takes them off you.', '5. Extreme speed or attitude: GEAR DOWN (G).  NO SPOILERS: nose-down pitch above Vmo/Mmo.'];
     // wrap to the screen, then size the box to the text
     ctx.font = `12px ${FONT}`;
     const maxW = Math.min(W - 80, 1000), rows = [];

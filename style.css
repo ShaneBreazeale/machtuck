@@ -58,3 +58,11 @@ button.alt:hover { background: #3a4656; }
 .hwlive .dot.on { background: #6f6; }
 button.sm { font-size: 12px; padding: 4px 10px; margin-right: 4px; }
 .hwtab td.hwb.dflt { color: #8a94a6; font-style: italic; }
+
+.freebox { border-top: 1px solid #333; margin-top: 12px; padding-top: 8px; }
+.freebox h3 { margin: 4px 0; }
+.freebox .dim { color: #9ab; font-weight: normal; font-size: 0.85em; }
+.freebox .sub2 { color: #bcd; font-size: 13px; margin: 4px 0 8px; }
+.freebox .ffrow { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; }
+.freebox .ffrow label { display: inline-flex; gap: 6px; align-items: center; }
+.freebox select { width: auto; margin-top: 0; }

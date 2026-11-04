@@ -1,4 +1,4 @@
-import { Learjet60, hiBuffetMach } from './aircraft.js';
+import { Learjet60, hiBuffetMach, STAB } from './aircraft.js';
 import { Environment, Autopilot, buildGhost, ghostAt, STORM, TIMELINE, HYPOTHESES, clockStr, NexradField, NEXRAD_VOLUMES, RecoveryJudge, UPSET_T } from './scenario.js';
 import { Renderer } from './render.js';
 import { scenarioSun } from './sun.js';
@@ -8,8 +8,11 @@ import { Cockpit } from './cockpit.js';
 import { Input } from './input.js';
 import { HardwarePanel } from './hwui.js';
 import { ForceFeedback } from './ffb.js';
+import { FreeEnv, setupStart, setWeight, STARTS, WEATHER, WEIGHTS, FAILURES } from './freeflight.js';
+import { takeoffSpeeds, vref, MAX_LANDING_LB } from './afm.js';
+import { runwayAt } from './ground.js';
 import { Audio } from './audio.js';
-import { DEG, RAD, clamp, qmat, mulMV, nedToWorld, lerp, smoothstep, qfromEuler, wrap180 } from './util.js';
+import { DEG, RAD, clamp, qmat, mulMV, nedToWorld, lerp, smoothstep, qfromEuler, wrap180, wrap360 } from './util.js';
 import { isa, RHO0, G0 } from './atmo.js';
 import { FT, KT } from './atmo.js';
 
@@ -71,13 +74,61 @@ function newGame(hypKey, hard = true) {
   env.nex = NEX; env.useNex = SETTINGS.nexrad; env.glm = GLM;
   env.wind(ac.pos, 0, 0); ac.step(0, { wind: [0, 0, 0] });   // prime telemetry for the first frame
   ATC.el.pause();
-  G = { ac, env, ap, t: 0, phase: 'run', hypKey, hard, hypName: HYPOTHESES[hypKey].name + (hard ? ' · AS FLOWN' : ' · TRAINER'), fdr: [], lastFdr: -1, lastSave: 0, log: [], logIdx: 0, hist: [], trail: [], lastHist: -1, lastTrail: -1,
+  G = { mode: 'accident', ac, env, ap, t: 0, phase: 'run', hypKey, hard, hypName: HYPOTHESES[hypKey].name + (hard ? ' · AS FLOWN' : ' · TRAINER'), fdr: [], lastFdr: -1, lastSave: 0, log: [], logIdx: 0, hist: [], trail: [], lastHist: -1, lastTrail: -1,
     recovered: null, recoveredAlt: 0, pc: new PilotControls(), slipLogged: false, apOffAt: null, apOffWall: -99, ext: false, timeScale: 1, paused: false, help: false, showGhost: true, antiice: false,
     camPos: null, shake: 0, endMsg: null, judge: new RecoveryJudge(), avoided: null, bangDone: false, upsetT: UPSET_T, time: 0, hideHud: false, camMode: 0, replay: null, recon: false, camEff: 0, ckActive: null, trimRunaway: false };
   document.getElementById('debrief').classList.add('hidden');
 }
+// Free flight (js/freeflight.js): KPBI without the storm or the accident script. Same game state shape as newGame.
+const FREE_KEY = 'n722bd_free_v1';
+function newFreeFlight(o) {
+  const ac = new Learjet60(), env = new FreeEnv(o.wx), ap = new Autopilot(true); ac.hard = true;
+  setWeight(ac, o.weight);
+  const r = setupStart(ac, o.start, env);
+  ap.on = r.apOn; ap.why = ''; ap.trimLim = [STAB.min, STAB.max];
+  if (r.apOn) { ap.altTgt = -ac.pos[2]; ap.hdgTgt = wrap360(Math.atan2(ac.vel[1], ac.vel[0]) * RAD); }
+  env.wind(ac.pos, 0, 0); ac.step(0, { wind: [0, 0, 0] });
+  ATC.el.pause(); ATC.on = false;
+  newGame('combined', true);   // builds the shared state; then swap in the free-flight pieces
+  const lb = ac.m / 0.45359237, V = takeoffSpeeds(lb, 19);
+  Object.assign(G, { mode: 'free', free: o, ac, env, ap, hypKey: 'free', vsp: { ...V, ref: vref(Math.min(lb, 23100)) }, co: {}, failAt: o.fail === 'climb' ? 400 + Math.random() * 1100 : null, autoSb: true, hypName: `FREE FLIGHT · ${STARTS[o.start].name} · ${WEATHER[o.wx].name} · ${WEIGHTS[o.weight].name}`, showGhost: false, logIdx: TIMELINE.length, log: [], onGround: r.onGround, airT: 0 });
+  log('SYS', r.msg);
+  if (r.onGround) log('SYS', `AFM takeoff speeds, flaps 8, ${Math.round(lb).toLocaleString()} lb: V1 ${Math.round(V.v1)}, VR ${Math.round(V.vr)}, V2 ${Math.round(V.v2)} KIAS (bugs on the speed tape).`);
+  else if (o.start === 'final10L') log('SYS', `VREF flaps 40: ${Math.round(G.vsp.ref)} KIAS${lb > MAX_LANDING_LB ? ` (above the ${MAX_LANDING_LB.toLocaleString()} lb maximum landing weight)` : ''}.`);
+  if (o.fail && o.fail !== 'none') log('SYS', `Failure armed: ${FAILURES[o.fail].name}.`);
+}
 function log(who, txt) { G.log.push({ t: G.t, who, txt }); }
 
+// Free flight per physics step: failures, autospoilers, callouts, liftoff and stopping reports
+function freeTick(h, out) {
+  const { ac } = G, V = G.vsp, co = G.co, kias = out.KIAS, ft = (out.agl - 1.6) / FT;
+  G.airT = ac.wow ? 0 : G.airT + h;
+  if (G.onGround && G.airT > 1 && out.agl > 3) { G.onGround = false; G.td = null; G.stopLogged = false; log('SYS', `LIFTOFF ${Math.round(kias)} KIAS`); }
+  // engine failure (free-flight option): at V1 on the takeoff roll, or at a random height after takeoff
+  if (!ac.engFail && G.free.fail === 'v1' && ac.wow && ac.ctl.thr > 0.8 && kias >= V.v1) failEngine();
+  if (!ac.engFail && G.failAt !== null && !ac.wow && ft > G.failAt && out.vs > 0) failEngine();
+  // autospoilers (armed): deploy on the ground with the levers at idle above 60 kt (landing or rejected takeoff); stow when thrust comes up
+  if (G.autoSb && ac.wow && ac.ctl.thr < 0.05 && out.gs > 60 * KT && !ac.ctl.sb) { ac.ctl.sb = 1; log('SYS', 'SPOILERS — auto deployed'); }
+  if (G.autoSb && ac.wow && ac.ctl.thr > 0.5 && ac.ctl.sb) ac.ctl.sb = 0;
+  // takeoff callouts, then radio altitude on the way down with the gear down
+  if (ac.wow && ac.ctl.thr > 0.8) {
+    if (kias >= V.v1 && !co.v1) { co.v1 = 1; AU.say('V one', 0); }
+    if (kias >= V.vr && !co.vr) { co.vr = 1; AU.say('Rotate', 0); }
+  }
+  if (!ac.wow && co.vr && kias >= V.v2 && !co.v2) { co.v2 = 1; AU.say('V two', 0); }
+  if (ft > 700) co.ra = {};
+  if (!ac.wow && ac.ctl.gear && out.vs < -0.5) { co.ra = co.ra || {}; for (const a of [500, 100, 50, 40, 30, 20, 10]) if (ft <= a && ft > a - 25 && !co.ra[a]) { co.ra[a] = 1; AU.say(a === 500 ? 'Five hundred' : a === 100 ? 'One hundred' : String(a), 0); } }
+  if (ac.wow && out.gs < 0.5 && ac.ctl.thr < 0.1) co.v1 = co.vr = co.v2 = 0;
+  // stopped after a landing: distance from touchdown and runway left
+  if (G.td && !G.stopLogged && ac.wow && out.gs < 1) {
+    G.stopLogged = true; const rw = runwayAt(ac.pos[0], ac.pos[1], out.track) || {};
+    log('SYS', `STOPPED ${Math.round((((rw.s ?? G.td.s) - G.td.s)) / FT).toLocaleString()} ft after touchdown${rw.left !== undefined ? `, ${Math.round(rw.left / FT).toLocaleString()} ft of runway ${G.td.id} left` : ''}.`);
+  }
+}
+function failEngine() {
+  const side = Math.random() < 0.5 ? 'L' : 'R'; G.ac.engFail = side;
+  log('SYS', `ENGINE FAILURE — ${side === 'L' ? 'LEFT' : 'RIGHT'} engine. APR armed: the live engine goes to APR thrust. Rudder against the yaw.`); AU.say('Engine failure', 0);
+}
 function stepSim(h, held) {
   const { ac, env, ap } = G; const t = G.t;
   const wind = env.wind(ac.pos, t, h);
@@ -91,10 +142,11 @@ function stepSim(h, held) {
   ac.ctl.elev = surf.elev; ac.ctl.ail = surf.ail; if (!ap.on) ac.ctl.rud = surf.rud;
   G.trimRunaway = env.hyp.trimRunaway && t > UPSET_T && t < UPSET_T + 12 && ac.sys.trimMode === 'PRI';
   if (G.trimRunaway) ac.ctl.trim = Math.max(-1, ac.ctl.trim - 0.3 * h);
-  const out = ac.step(h, { wind });
+  const out = ac.step(h, { wind, dT: env.dT ?? 7 });   // the accident day is ISA+7 (KMFL sounding); free flight per weather
   const ir = env.iceRates(env.L, ac);
   ac.ice = clamp(ac.ice + ir.wing * h, 0, 1); ac.iceTail = clamp(ac.iceTail + ir.tail * h, 0, 1); ac.engIce = clamp(ac.engIce + ir.eng * h, 0, 1);
-  ap.hdgTgt = t < 25 ? 58 : Math.min(100, 58 + (t - 25) * (42 / 45));
+  if (G.mode === 'accident') ap.hdgTgt = t < 25 ? 58 : Math.min(100, 58 + (t - 25) * (42 / 45));
+  else if (ap.on && ac.wow) ap.disconnect('ON GROUND');
   ap.step(ac, h, out);
   if (ap.on) { ac.ctl.elev = surf.elev; ac.ctl.ail = surf.ail; }   // AP wrote its servo command; the surfaces are where the forces put them
   if (ac.tailStalled && ap.on) ap.disconnect('PITCH');
@@ -103,7 +155,7 @@ function stepSim(h, held) {
   if (ap.on && env.hyp.trimRunaway && ac.ctl.trim < -0.5) ap.disconnect('TRIM');
   if (wasOn && !ap.on) { G.apOffAt = t; G.apOffWall = performance.now() / 1000; AU.apDisconnect(); log('SYS', `AUTOPILOT DISCONNECT — ${ap.why}. YOUR AIRPLANE.`); }
   G.t += h;
-  while (G.logIdx < TIMELINE.length && TIMELINE[G.logIdx].t <= G.t) { const e = TIMELINE[G.logIdx++]; G.log.push({ t: e.t, who: e.who, txt: e.txt }); if (SETTINGS.comms && !ATC.on && (e.who === 'FO' || e.who === 'MIA')) AU.say(e.txt, 0); }
+  while (G.mode === 'accident' && G.logIdx < TIMELINE.length && TIMELINE[G.logIdx].t <= G.t) { const e = TIMELINE[G.logIdx++]; G.log.push({ t: e.t, who: e.who, txt: e.txt }); if (SETTINGS.comms && !ATC.on && (e.who === 'FO' || e.who === 'MIA')) AU.say(e.txt, 0); }
   if (G.t - G.lastHist >= 0.25) { G.lastHist = G.t; G.hist.push({ t: G.t, h: out.h, M: out.M, nz: out.nz, KIAS: out.KIAS }); }
   // Flight data recorder: 4 Hz, persisted to localStorage every 5 s and on end (key n722bd_fdr)
   if (G.t - G.lastFdr >= 0.25) {
@@ -113,9 +165,21 @@ function stepSim(h, held) {
   }
   if (G.t - G.lastTrail >= 0.5) { G.lastTrail = G.t; G.trail.push(...nedToWorld(ac.pos)); (G.trailNE = G.trailNE || []).push([ac.pos[0], ac.pos[1]]); }
   if (ac.broken && !G.bangDone) { G.bangDone = true; AU.bang(); log('SYS', ac.brokenWhat === 'stab' ? 'HORIZONTAL STABILIZER SEPARATED — PITCH CONTROL LOST' : 'WING STRUCTURAL FAILURE'); G.endMsg = ac.brokenWhat === 'stab' ? 'STRUCTURAL FAILURE — HORIZONTAL STABILIZER SEPARATED' : 'STRUCTURAL FAILURE — WING'; }
-  if (ac.crashed && G.phase === 'run') { G.phase = 'end'; G.endMsg = `IMPACT ${clockStr(G.t)} EST`; AU.bang(); debrief(); }
+  // ground contact (js/ground.js): touchdowns, hard landings, strikes
+  for (const e of ac.gnd.drain()) {
+    if (e.type === 'msg') log('SYS', e.txt);
+    else if (e.type === 'touch' && e.leg !== 'nose' && !G.onGround) {
+      G.onGround = true;
+      if (G.mode === 'free') {
+        const rw = runwayAt(ac.pos[0], ac.pos[1], out.track); G.td = rw ? { s: rw.s, id: rw.id } : null;
+        log('SYS', `TOUCHDOWN ${Math.round(Math.max(0, e.fps) * 60)} ft/min, ${Math.round(out.KIAS)} KIAS${rw ? `, ${Math.round(rw.s / FT).toLocaleString()} ft past the ${rw.id} threshold, ${Math.abs(rw.c / FT).toFixed(0)} ft ${rw.c >= 0 ? 'right' : 'left'} of the centreline` : ', off the runway'}`);
+      }
+    }
+  }
+  if (G.mode === 'free') freeTick(h, out);
+  if (ac.crashed && G.phase === 'run') { G.phase = 'end'; G.endMsg = G.mode === 'free' ? ac.crashWhy || 'IMPACT' : `IMPACT ${clockStr(G.t)} EST`; AU.bang(); debrief(); }
   // pass / fail (RecoveryJudge, scenario.js): a real upset during the event first, then 10 s of stable flight
-  const ev = G.phase === 'run' ? G.judge.update(G.t, h, out, ac) : null;
+  const ev = G.phase === 'run' && G.mode === 'accident' ? G.judge.update(G.t, h, out, ac) : null;
   if (ev === 'upset') log('SYS', `UPSET — ${G.judge.why}, ${Math.round(out.h / FT)} ft`);
   else if (ev === 'recovered') {
     G.recovered = G.t; G.recoveredAlt = out.h;
@@ -140,7 +204,7 @@ function toggleSwitch(id) {
     case 'stallWarn': sys.stallWarn = !sys.stallWarn; log('SYS', `STALL WARN L/R ${sys.stallWarn ? 'ON' : 'OFF — shaker silenced'}`); break;
     case 'machTrim': if (!sys.machTrimFail) { sys.machTrim = !sys.machTrim; log('SYS', `MACH TRIM ${sys.machTrim ? 'ON' : 'OFF'}`); } else log('SYS', 'MACH TRIM — FAIL (inop this scenario)'); break;
     case 'trimMode': sys.trimMode = sys.trimMode === 'PRI' ? 'SEC' : sys.trimMode === 'SEC' ? 'OFF' : 'PRI'; log('SYS', `PITCH TRIM selector — ${sys.trimMode}`); break;
-    case 'ap': if (ap.on) ap.disconnect('PILOT'); else if (ap.engage(ac.out)) log('SYS', 'AUTOPILOT ENGAGED — ALT/HDG hold'); else log('SYS', 'AP will not engage: attitude out of limits'); break;
+    case 'ap': if (ap.on) ap.disconnect('PILOT'); else if (ac.wow) log('SYS', 'AP will not engage on the ground'); else if (ap.engage(ac.out)) log('SYS', 'AUTOPILOT ENGAGED — ALT/HDG hold'); else log('SYS', 'AP will not engage: attitude out of limits'); break;
     case 'yd': ac.ctl.yd = !ac.ctl.yd; break;
     case 'sb': ac.ctl.sb = ac.ctl.sb ? 0 : 1; break;
     case 'gear': ac.ctl.gear = ac.ctl.gear ? 0 : 1; if (ac.ctl.gear && ac.out.KIAS > 200) log('SYS', `GEAR extended above VLO 200 KIAS${ac.out.KIAS > 260 ? ' and VLE 260 — door damage' : ''}`); break;
@@ -279,6 +343,20 @@ function debrief() {
   const { ac } = G, o = ac.out; const d = document.getElementById('debrief'); d.classList.remove('hidden');
   const title = G.recon ? 'RECONSTRUCTION — IMPACT 12:49:32 (reported)' : ac.crashed ? (ac.broken ? 'AIRFRAME FAILURE, THEN IMPACT' : 'IMPACT') : G.recovered !== null ? 'RECOVERED' : G.avoided !== null ? 'UPSET AVOIDED' : 'DEBRIEF';
   const fmt = (v, u = '') => `${v}${u}`;
+  if (G.mode === 'free') {
+    const why = ac.crashWhy || (ac.broken ? 'STRUCTURAL FAILURE' : 'FLIGHT ENDED');
+    d.querySelector('h2').textContent = why; d.querySelector('h2').style.color = '#ff3b3b';
+    d.querySelector('table').innerHTML = `<tr><th></th><th>This flight</th><th>Limit</th></tr>
+      <tr><td>Last touchdown</td><td>${ac.gnd.touchFpm !== null ? Math.round(ac.gnd.touchFpm) + ' ft/min' : '—'}</td><td>600 ft/min (Part 25 limit, 10 ft/s); collapse near 960</td></tr>
+      <tr><td>Peak load factor</td><td>${ac.maxG.toFixed(2)} g / ${ac.minG.toFixed(2)} g</td><td>+3.0 / −1.0 g flaps up, +2.0 g flaps down</td></tr>
+      <tr><td>Peak speed</td><td>${Math.round(ac.maxKEAS)} KEAS, M ${ac.maxM.toFixed(2)}</td><td>Vmo 300 / 340 KIAS, Mmo 0.81</td></tr>
+      <tr><td>Airframe stress</td><td>${Math.round(ac.damage * 100)}%${ac.gnd.gearDamage > 0 ? `, gear damage ${Math.round(Math.min(1, ac.gnd.gearDamage) * 100)}%` : ''}</td><td>—</td></tr>`;
+    d.querySelector('p.tip').textContent = /GEAR-UP/.test(why) ? 'Gear down (G) before 200 KIAS on the approach; the gear horn is not modelled yet.'
+      : /COLLAPSE|HARD/.test(why) ? 'Flare from about 30 ft: ease the nose up, thrust to idle, let the descent rate come back to 100-300 ft/min before the mains touch.'
+      : /IMPACT/.test(why) ? 'Keep the descent rate under control close to the ground, and the wings level: the wingtips touch at about 14° of bank on the runway.'
+      : 'Fly it again, or change the start and weather on the briefing screen.';
+    return;
+  }
   if (G.recon) {
     const r = G.fdr; const col = (i) => r.map(x => x[i]);
     d.querySelector('table').innerHTML = `<tr><th></th><th>Reconstruction (from reports)</th></tr>
@@ -327,9 +405,10 @@ function handleEvents() {
     else if (e === 'cam') { G.camMode = (G.camMode + 1) % (G.phase === 'replay' ? 4 : 2); G.ext = G.camMode > 0; }
     else if (e === 'hud') G.hideHud = !G.hideHud;
     else if (e === 'pause') G.paused = !G.paused;
-    else if (e === 'restart') { newGame(G.hypKey, G.hard); }
+    else if (e === 'restart') { if (G.mode === 'free') newFreeFlight(G.free); else newGame(G.hypKey, G.hard); }
+    else if (e === 'park') { if (ac.ctl.park) { ac.ctl.park = false; log('SYS', 'PARKING BRAKE released'); } else if (ac.out.gs < 1) { ac.ctl.park = true; log('SYS', 'PARKING BRAKE set'); } else log('SYS', 'Parking brake: stop first'); }
     else if (e === 'skip' && G.phase === 'replay') { if (G.t < 70) G.t = 70; else if (G.t < 118) G.t = 118; }
-    else if (e === 'skip' && G.t < 50) { while (G.t < 50) stepSim(1 / 120, false); }
+    else if (e === 'skip' && G.t < 50 && G.mode === 'accident') { while (G.t < 50) stepSim(1 / 120, false); }
     else if (e === 'quality') { R.quality = R.quality >= 1.4 ? 0.6 : +(R.quality + 0.4).toFixed(1); R.scale = R.quality >= 1.4 ? 0.75 : R.quality >= 1 ? 0.5 : 0.4; }
     else if (e === 'slower') G.timeScale = Math.max(0.25, G.timeScale / 2);
     else if (e === 'faster') G.timeScale = Math.min(1, G.timeScale * 2);
@@ -337,7 +416,7 @@ function handleEvents() {
     else if (e === 'yd') toggleSwitch('yd');
     else if (e === 'help') G.help = !G.help;
     else if (e === 'ghost') G.showGhost = !G.showGhost;
-    else if (e === 'idle') ac.ctl.thr = 0;
+    else if (e === 'idle') { ac.ctl.thr = 0; ac.ctl.rev = 0; }
     else if (e === 'mute') AU.muted = !AU.muted;
     else if (e === 'controls') HP.toggle();
   }
@@ -353,8 +432,16 @@ function frame(now) {
     const held = IN.update(dt);
     if (IN.trimDelta && ap.on) { ap.disconnect('TRIM'); }   // AFM: manual pitch trim input disconnects the autopilot
     if (IN.thrSet !== null) { ac.ctl.thr = IN.thrSet; IN.thrSet = null; }   // a moved hardware lever sets the thrust levers
-    ac.ctl.thr = clamp(ac.ctl.thr + IN.thrDelta, 0, 1);    // no autothrottle: the levers are always the pilot's
-    if (!ap.on) { const tr = ac.sys.trimMode === 'PRI' ? 1 : ac.sys.trimMode === 'SEC' ? 0.45 : 0; ac.ctl.trim = clamp(ac.ctl.trim + IN.trimDelta * tr, -1, 1); }
+    ac.ctl.brakeL = IN.brakeL; ac.ctl.brakeR = IN.brakeR;                   // wheel brakes (js/ground.js); a press releases the parking brake
+    if (ac.ctl.park && Math.max(IN.brakeL, IN.brakeR) > 0.5) { ac.ctl.park = false; log('SYS', 'PARKING BRAKE released'); }
+    // thrust reversers on the ground: pulling the levers back past idle lifts them into reverse; forward stows first
+    if (IN.revHold && ac.wow) { if (!ac.ctl.rev) log('SYS', 'THRUST REVERSERS deployed'); ac.ctl.thr = 0; ac.ctl.rev = 1; G.revBtn = true; }
+    else if (G.revBtn) { G.revBtn = false; ac.ctl.rev = 0; log('SYS', 'THRUST REVERSERS stowed'); }
+    else if (ac.wow && (ac.ctl.rev > 0 || (ac.ctl.thr <= 0 && IN.thrDelta < 0))) {
+      const was = ac.ctl.rev; ac.ctl.rev = clamp(ac.ctl.rev - IN.thrDelta * 2, 0, 1); ac.ctl.thr = 0;
+      if (!was && ac.ctl.rev > 0) log('SYS', 'THRUST REVERSERS deployed'); else if (was && !ac.ctl.rev) log('SYS', 'THRUST REVERSERS stowed');
+    } else ac.ctl.thr = clamp(ac.ctl.thr + IN.thrDelta, 0, 1);    // no autothrottle: the levers are always the pilot's
+    if (!ap.on) { const tr = ac.sys.trimMode === 'PRI' ? 1 : ac.sys.trimMode === 'SEC' ? 0.45 : 0; ac.ctl.trim = clamp(ac.ctl.trim + IN.trimDelta * tr, G.mode === 'free' ? STAB.min : -1, G.mode === 'free' ? STAB.max : 1); }
     const simDt = dt * G.timeScale; const sub = Math.max(1, Math.ceil(simDt / (1 / 240))); const h = simDt / sub;
     for (let i = 0; i < sub; i++) out = stepSim(h, held);
     G.time += simDt;
@@ -423,6 +510,10 @@ function frame(now) {
   };
   // precipitation around the camera (NEXRAD reflectivity at the aircraft) and cloud-to-ground strokes for ~35% of GLM flashes
   S.precip = SETTINGS.nexrad ? smoothstep(12, 50, env.L.dbz || -30) : 0.4 * env.L.core;
+  if (G.mode === 'free') {   // no storm, no radar volume, no satellite deck: the chosen weather's cumulus only
+    Object.assign(S, { useNex: false, useGoes: false, cloudCover: env.wx.cu, deckBase: 1e7, stormCB: 1e7, precip: 0, showGhost: false, detailLayer: 'airport' });
+    S.storm = { pos: S.storm.pos, r: S.storm.r, base: 1e7 }; S.lines[0].color[3] = 0;
+  }
   S.precipFall = [WX.drift[0], posW[1] > 4780 ? -1.5 : -7, WX.drift[1]];   // snow/graupel above the freezing level (KMFL 4,780 m), rain below
   S.precipBright = 0.55 + 0.35 * clamp(posW[1] / 10000, 0, 1);
   S.camVel = CO || G.camEff === 2 ? [0, 0, 0] : [ac.vel[1], -ac.vel[2], ac.vel[0]];   // attached cameras move with the airplane
@@ -436,6 +527,12 @@ function frame(now) {
     atcOn: ATC.on, atcShift: ATC.shift, hideHud: G.hideHud, replay: G.phase === 'replay', camMode: G.camEff, camAuto: G.camMode === 3, recon: !!G.recon, nexOn: SETTINGS.nexrad && !!NEX, dbz: env.L.dbz,
     cockpit3d: !!CK && CK.ready && !G.ext,
     force: G.phase === 'run' ? { pitchLb: G.pc.pitchLb, rollLb: G.pc.rollLb, availP: G.pc.avail('pitch'), availR: G.pc.avail('roll'), stamina: G.pc.stamina, slipping: ap.on && G.pc.slipping } : null };
+  if (G.mode === 'free') {
+    const c = ac.ctl;
+    const V = G.vsp, bugs = ac.wow || (out.agl < 300 && c.flaps <= 0.25 && !G.td) ? [{ v: V.v1, t: '1' }, { v: V.vr, t: 'R' }, { v: V.v2, t: '2' }] : c.flaps >= 0.5 || c.gear ? [{ v: V.ref, t: 'REF' }] : [];
+    HS.free = { agl: out.agl, wow: ac.wow, gs: out.gs, park: c.park, brake: Math.max(c.brakeL, c.brakeR), flaps: c.flaps, gear: c.gear, touchFpm: ac.gnd.touchFpm, steer: ac.gnd.steer, wind: env.wx, gearDamage: ac.gnd.gearDamage, rev: c.rev, sb: c.sb, engFail: ac.engFail, bugs };
+    HS.ghostProfile = null; HS.wxr = null; HS.nexOn = false; HS.map.nexImg = null; HS.map.ghost = []; HS.dbz = -30;   // clear air: nothing on the radar
+  }
   if (HS.cockpit3d) {
     CK.update(HS);
     CK.render({ ctl: ac.ctl, sunWorld: SUN, acBasis: { right, up, fwd }, inCloud: env.L.cloud, core: env.L.core, flash: env.flash },
@@ -463,6 +560,16 @@ document.getElementById('begin').addEventListener('click', () => {
   ATC.on = document.getElementById('atcbox').checked; SETTINGS.nexrad = document.getElementById('nexbox').checked;
   newGame(sel.value, document.getElementById('diff').value === 'hard'); hc.focus();
 });
+{ // free-flight selectors (remembered in this browser)
+  const keep = (() => { try { return JSON.parse(localStorage.getItem(FREE_KEY) || '{}'); } catch { return {}; } })();
+  const fill = (id, obj, def) => { const el = document.getElementById(id); for (const [k, v] of Object.entries(obj)) { const o = document.createElement('option'); o.value = k; o.textContent = v.name; el.appendChild(o); } el.value = keep[id] && obj[keep[id]] ? keep[id] : def; return el; };
+  const st = fill('ffstart', STARTS, 'rwy10L'), wx = fill('ffwx', WEATHER, 'calm'), wt = fill('ffwt', WEIGHTS, 'typical'), fl = fill('ffail', FAILURES, 'none');
+  document.getElementById('ffgo').addEventListener('click', () => {
+    localStorage.setItem(FREE_KEY, JSON.stringify({ ffstart: st.value, ffwx: wx.value, ffwt: wt.value, ffail: fl.value }));
+    document.getElementById('brief').classList.add('hidden'); AU.start();
+    newFreeFlight({ start: st.value, wx: wx.value, weight: wt.value, fail: fl.value }); hc.focus();
+  });
+}
 document.getElementById('replay').addEventListener('click', () => { if (G.recon) startReconstruction(); else startReplay(); hc.focus(); });
 document.getElementById('watch').addEventListener('click', () => {
   document.getElementById('brief').classList.add('hidden'); AU.start();
@@ -473,7 +580,7 @@ document.getElementById('csv').addEventListener('click', () => {
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([fdrCsv()], { type: 'text/csv' })); a.download = `n722bd_${G.hypKey}_${G.hard ? 'asflown' : 'trainer'}_${Math.round(G.t)}s.csv`; a.click();
 });
 document.getElementById('hwbtn').addEventListener('click', () => HP.show());
-document.getElementById('again').addEventListener('click', () => { newGame(G.hypKey, G.hard); });
+document.getElementById('again').addEventListener('click', () => { if (G.mode === 'free') newFreeFlight(G.free); else newGame(G.hypKey, G.hard); });
 document.getElementById('continue').addEventListener('click', () => { document.getElementById('debrief').classList.add('hidden'); });
 document.getElementById('brief-again').addEventListener('click', () => { document.getElementById('debrief').classList.add('hidden'); document.getElementById('brief').classList.remove('hidden'); });
 document.getElementById('nexbox').checked = true; document.getElementById('atcbox').checked = false;   // Chrome restores form state on reload

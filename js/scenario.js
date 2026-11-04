@@ -2,7 +2,7 @@
 // Reconstruction from publicly reported ADS-B / NEXRAD / ATC figures. Provisional; cause under NTSB investigation.
 import { DEG, RAD, clamp, lerp, smoothstep, wrap180, wrap360 } from './util.js';
 import { FT, KT } from './atmo.js';
-import { shakerAoaN } from './aircraft.js';
+import { shakerAoaN, ELEV_K } from './aircraft.js';
 
 export const T0_CLOCK = 12 * 3600 + 47 * 60;   // 12:47:00 EST = t 0
 export const clockStr = (t) => { const s = Math.max(0, Math.floor(T0_CLOCK + t)); const hh = Math.floor(s / 3600), mm = Math.floor(s / 60) % 60, ss = s % 60; return `${hh}:${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`; };
@@ -209,7 +209,7 @@ export class Environment {
 
 // ---------------- Autopilot (ALT hold, HDG select, auto-trim) ----------------
 export class Autopilot {
-  constructor(hard = true) { this.on = true; this.altTgt = 35000 * FT; this.hdgTgt = 58; this.trimRate = hard ? 0.35 : 0.08; this.why = ''; }
+  constructor(hard = true) { this.on = true; this.altTgt = 35000 * FT; this.hdgTgt = 58; this.trimRate = hard ? 0.35 : 0.08; this.why = ''; this.trimLim = [-1, 1]; }
   disconnect(why) { if (this.on) { this.on = false; this.why = why; } }
   engage(out) { if (Math.abs(out.phi) > 30 * DEG || Math.abs(out.theta) > 15 * DEG || out.stalled) return false; this.on = true; this.why = ''; this.altTgt = out.h; this.hdgTgt = wrap360(out.psi * RAD); return true; }
   step(ac, dt, out) {
@@ -218,9 +218,9 @@ export class Autopilot {
     // Limited-authority servo: real APs saturate in a 4,000 ft/min updraft, which is how the +450 ft excursion happened.
     const vsCmd = clamp((this.altTgt - h) * 0.10, -8, 8);
     const thetaCmd = clamp(theta + (vsCmd - vs) * 0.0025, -2.5 * DEG, 4 * DEG);
-    let elev = clamp(2.5 * (thetaCmd - theta) - 1.0 * q, -0.12, 0.12);
+    let elev = clamp((2.5 * (thetaCmd - theta) - 1.0 * q) / ELEV_K, -0.12 / ELEV_K, 0.12 / ELEV_K);
     ac.ctl.elev = elev; this.cmdElev = elev;
-    ac.ctl.trim = clamp(ac.ctl.trim + elev * this.trimRate * dt, -1, 1);   // auto-trim offloads the servo (and trims against a pilot fighting it)
+    ac.ctl.trim = clamp(ac.ctl.trim + elev * ELEV_K * this.trimRate * dt, this.trimLim[0], this.trimLim[1]);   // auto-trim offloads the servo (and trims against a pilot fighting it)
     const hErr = wrap180(this.hdgTgt - psi * RAD);
     const phiCmd = clamp(hErr * 1.5, -25, 25) * DEG;
     ac.ctl.ail = clamp(1.2 * (phiCmd - phi) - 0.5 * p, -0.6, 0.6); this.cmdAil = ac.ctl.ail;

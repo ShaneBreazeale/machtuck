@@ -15858,5 +15858,7 @@
 "shaded": true
 }
 ]
-}
+},
+"takeoff_field_length_f8": {"figure": "Fig 5-38 (page 5-55), uncorrected takeoff field length, flaps 8, rudder boost ON, 60-049 & subsequent / SB 60-8-1; zero wind and gradient, anti-ice off, anti-skid on, APR/autospoilers armed. The larger of accelerate-go (engine failure at V1 to 35 ft, V2 by 35 ft), accelerate-stop (failure just before V1, max braking at V1, idle, spoilers) and 115% of the all-engine distance to 35 ft (V2+8).", "units": "ft", "weights_lb": [16000, 18000, 20000, 22000, 23500], "rows": [{"alt_ft": 0, "oat_F": 60, "ft": [3140, 3580, 4290, 5120, 5830]}, {"alt_ft": 0, "oat_F": 90, "ft": [3480, 3970, 4800, 5760, 6610]}, {"alt_ft": 5000, "oat_F": 40, "ft": [3640, 4150, 5010, 6010, 6870]}]},
+"landing_distance": {"figure": "Fig 5-74 (page 5-94, 60-079, 60-094 & subsequent / SB 60-27-6), uncorrected actual landing distance from 50 ft, zero wind and gradient, anti-skid on. VREF, 3 deg glideslope, idle at 25 ft, firm touchdown with little flare, maximum braking, spoilers.", "units": "ft", "weights_lb": [16000, 18000, 19500], "rows": [{"alt_ft": 0, "oat_F": 60, "ft": [2910, 3190, 3420]}, {"alt_ft": 5000, "oat_F": 40, "ft": [3220, 3580, 3870]}]}
 }

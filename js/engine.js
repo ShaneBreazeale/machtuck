@@ -107,6 +107,17 @@ export function maxN1(M, p0, T0) {
   return n;
 }
 export const idleN1 = () => ENG.idleN1;
+// Takeoff rating (thrust levers at T/O, AFM Fig 5-25): corrected N1 93.3 % on the flat-rated side; the sea-level line
+// meets the temperature limit at 74 F with 94.6 % N1, which sets the takeoff ITT line (above the MCT one). Above sea level
+// (not transcribed) the rating keeps the sea-level ISA margin of 0.8 % N1 over maximum continuous: an estimate.
+// APR (automatic performance reserve, armed for takeoff; fires when an engine fails): the same 4,600 lbf, flat-rated to
+// 31.6 C instead of 23.3 C (PTM ch. 7), i.e. a higher ITT line on the live engine.
+export function takeoffN1(M, p0, T0, apr = false) {
+  const e = ENG, th2 = T0 * (1 + 0.2 * M * M) / 288.15, s = Math.sqrt(th2), Tt2 = th2 * 288.15;
+  const itt = (apr ? e.ittAPR : e.ittTO) * Tt2 ** -e.ittExp * s;
+  // at altitude the sea-level corrected-N1 anchor would fall below MCT: keep the sea-level ISA margin over MCT there
+  return Math.min(e.N1mech, itt, Math.max(93.3 * s, maxN1(M, p0, T0) + 0.8));
+}
 // Anchor the cycle at the AIAA 90-2520 design point. At 40,000 ft, M0.8, ISA the max-cruise N1 is on
 // the turbine-temperature limit, so its corrected speed rDes comes from the AFM rating law alone.
 {
@@ -135,4 +146,10 @@ export const idleN1 = () => ENG.idleN1;
 }
 // Flat-rated thrust: the AFM shows corrected N1 held at ~91.2% on the cold side at sea level at the
 // 250 KIAS climb speed (M ~0.38): that thrust is the flat rating.
+ENG.ittTO = 94.6 / (296.5 ** -ENG.ittExp * Math.sqrt(296.5 / 288.15));
+{ // APR: N1 for 4,600 lbf static at sea level and 31.6 C sets its ITT line
+  const T = 304.75, want = 4600 * 4.44822, save = [ENG.bleed, ENG.pExt]; ENG.bleed = 0; ENG.pExt = 0;
+  let lo = 80, hi = 105; for (let i = 0; i < 40; i++) { const mid = (lo + hi) / 2; if (cycle(mid, 0, 101325, T).F > want) hi = mid; else lo = mid; }
+  [ENG.bleed, ENG.pExt] = save; ENG.ittAPR = lo / (T ** -ENG.ittExp * Math.sqrt(T / 288.15));
+}
 ENG.Fflat = cycle(ENG.N1cFlat * Math.sqrt(1 + 0.2 * 0.38 * 0.38), 0.38, 101325, 288.15).F;

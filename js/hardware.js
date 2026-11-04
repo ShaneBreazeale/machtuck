@@ -14,6 +14,8 @@ export const AXIS_FNS = {
   roll:     { label: 'Roll', prompt: 'Roll fully right, then fully left', centred: true },
   rudder:   { label: 'Rudder (pedals / twist)', prompt: 'Push the right pedal fully, then the left', centred: true },
   throttle: { label: 'Throttle lever', prompt: 'Move the throttle from idle to FULL, then back to idle', centred: false },
+  brake_l:  { label: 'Left toe brake', prompt: 'Press the left toe brake fully, then release it', centred: false },
+  brake_r:  { label: 'Right toe brake', prompt: 'Press the right toe brake fully, then release it', centred: false },
 };
 export const BUTTON_FNS = {
   ap_toggle: { label: 'Autopilot disconnect', hold: false },
@@ -24,6 +26,9 @@ export const BUTTON_FNS = {
   sb:        { label: 'Spoilers', hold: false },
   idle:      { label: 'Throttle idle', hold: false },
   cam:       { label: 'Camera', hold: false },
+  brakes:    { label: 'Brakes (both, hold)', hold: true },
+  park:      { label: 'Parking brake', hold: false },
+  reverse:   { label: 'Thrust reversers (hold)', hold: true },
 };
 const KEY = 'n722bd_hw_v1';
 const DEAD = 0.03;                       // hardware dead zone around centre (fraction of half-travel)
@@ -212,12 +217,12 @@ export class Hardware {
   bound(fn, pads) { const b = this.bind[fn]; return !!(b && this.padFor(b.id, pads)); }
 
   // ---- per-frame poll: everything every connected device is doing ----
-  // returns { elev, ail, rud } (-1..1, summed over devices, positive = pull / right / right pedal),
+  // returns { elev, ail, rud } (-1..1, summed over devices, positive = pull / right / right pedal), brakeL / brakeR (0..1),
   //         thrRate (-1..1, gamepad triggers), thrSet (0..1 when a bound lever has moved, else null),
   //         trim (-1..1, nose-up positive), events [] (edge-triggered actions, same names as the keyboard's),
   //         posElev / posAil: pitch and roll from a force-feedback stick (column position), null without one
   poll() {
-    const pads = this.pads(), o = { elev: 0, ail: 0, rud: 0, thrRate: 0, thrSet: null, trim: 0, events: [], active: pads.length > 0, posElev: null, posAil: null };
+    const pads = this.pads(), o = { elev: 0, ail: 0, rud: 0, thrRate: 0, thrSet: null, trim: 0, events: [], active: pads.length > 0, posElev: null, posAil: null, brakeL: 0, brakeR: 0, rev: false };
     const B = (fn) => this.bound(fn, pads);
     const ffb = (gp) => !!(this.isFfb && gp && this.isFfb(gp));
     const addE = (gp, v) => { if (ffb(gp)) o.posElev = (o.posElev || 0) + v; else o.elev += v; };
@@ -231,11 +236,16 @@ export class Hardware {
       if (this.thrLast === null) this.thrLast = v;              // first sight: remember where it is, do not grab the engines
       else if (Math.abs(v - this.thrLast) > 0.004) { this.thrLast = v; o.thrSet = v; }
     }
+    // toe brakes (levers, 0 released .. 1 full)
+    if (B('brake_l')) o.brakeL = Math.max(o.brakeL, this.value('brake_l', pads));
+    if (B('brake_r')) o.brakeR = Math.max(o.brakeR, this.value('brake_r', pads));
     // bound buttons
     for (const fn of Object.keys(BUTTON_FNS)) {
       if (!B(fn)) { this.prev[fn] = false; continue; }
       const p = this.value(fn, pads) > 0;
       if (fn === 'trim_up' && p) o.trim += 1; else if (fn === 'trim_dn' && p) o.trim -= 1;
+      else if (fn === 'brakes') { if (p) { o.brakeL = 1; o.brakeR = 1; } }
+      else if (fn === 'reverse') { if (p) o.rev = true; }
       else if (p && !this.prev[fn]) o.events.push(fn);
       this.prev[fn] = p;
     }
@@ -257,6 +267,7 @@ export class Hardware {
         for (const [i, ev] of Object.entries(MAP)) if (b(+i) && !prev[+i]) o.events.push(ev);
         this.padPrev.set(key, gp.buttons.map((x) => x.pressed));
         if (b(5)) o.trim += 1; if (b(4)) o.trim -= 1;               // R1 nose-up, L1 nose-down
+        if (b(14)) { o.brakeL = 1; o.brakeR = 1; }                    // D-pad left: brakes
       } else if (kind === 'gamepad') {
         // no standard layout (e.g. Firefox on macOS): axes resting near -1 are analog triggers, a centred third axis is the right stick
         addA(gp, ax('roll', 0)); addE(gp, ax('pitch', 1));

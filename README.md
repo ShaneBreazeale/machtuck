@@ -27,6 +27,9 @@ Manual (AFM). It is pure WebGL2 and ES modules with no build step.
 - **Four upset hypotheses.** Fly the combined convective-core case, a tailplane stall, Mach tuck with a failed Mach
   trim, or a runaway nose-down trim, each "as flown" or in a forgiving trainer mode.
 - **A reconstruction mode.** Watch the reported ADS-B track replayed with chase, cockpit and ground cameras.
+- **Free flight from Palm Beach.** Separate from the accident: take off, fly and land at KPBI on real runway geometry
+  with landing gear, tyres, brakes, nosewheel steering and ground effect, in calm air, the day's METAR wind or a
+  crosswind.
 - **A debrief.** Compares your flight with the real one and exports a 4 Hz flight data recorder as CSV.
 - **A physically based renderer.** Atmosphere scattering, volumetric clouds, imagery-driven ground with 62,000 real
   buildings and 512,000 measured trees around the impact area.
@@ -51,6 +54,15 @@ Apple Silicon is recommended. Press `K` to trade quality for frame rate.
 Click **Fly it**, or press `N` to skip ahead to core entry. The autopilot flies the cruise and hands you the airplane
 when it can no longer cope.
 
+**Free flight** is a separate mode at the bottom of the briefing screen, with no storm and no accident script. Pick a
+start (runway 10L or 28R lined up, a 6 nm final to 10L, or cruise at FL350), weather and weight, then **Free flight**.
+You can also arm an engine failure at V1 or after takeoff. On the runway the parking brake is set and takeoff trim
+is dialled in. The AFM V1, VR and V2 for your weight appear on the speed tape and are called out. Hold Shift to release
+the brake, add full thrust, and rotate at VR to about +9° (the tail strikes at 11°). On approach the bug shows VREF and
+radio altitude is called from 500 ft. Touch down below 600 ft/min; harder than that the gear is damaged, and near
+960 ft/min it collapses. On the ground the spoilers deploy themselves at idle above 60 kt, and pulling thrust back past
+idle (`−` or L2) deploys the thrust reversers. The log reports touchdown point, centreline offset and runway left.
+
 ## Controls
 
 | Action | Keyboard | Controller |
@@ -61,6 +73,8 @@ when it can no longer cope.
 | Pitch trim | `,` nose-down, `.` nose-up | R1 / L1 |
 | Autopilot off or on | X | Cross |
 | Spoilers, gear, flaps | B, G, F | Circle, D-pad |
+| Brakes (free flight) | Hold Shift; toe brakes bind in the controls panel | D-pad left |
+| Thrust reversers (on the ground) | `−` past idle, `=` to stow; or a bound button | L2 past idle |
 | Camera | C, right-drag to orbit | Triangle |
 | Tablet (map and procedure cards) | Tab, then 1 to 6 for a card | |
 | Real weather on or off | U | |
@@ -112,6 +126,33 @@ AFM, which warns that a nose-down overspeed can need more than 75 lb to recover.
 150 lb, and tires within about 10 seconds. The autopilot's clutched servos can be overpowered, but it keeps trimming
 against you until you disconnect it.
 
+Full elevator is worth ΔCm 0.45 at low speed, a T-tail estimate (tail about 5.6 m², arm about 7.5 m) that rotation
+at VR needs: the main wheels sit about 0.6 m behind the CG (the TCDS CG range against the gear contact points). The
+stabilizer trims over the PTM's 1–12° range at 0.054 Cm per degree. Takeoff trim works out to 7.3°, inside the AFM's
+takeoff segment, and cruise trims near 5°. The upset scenario keeps its earlier calibration: column force, tail-stall
+onset and autopilot authority per unit of pitching moment are unchanged, and so are its ±1 trim limits.
+
+### Ground
+
+[`js/ground.js`](js/ground.js) models three oleo struts (stiffness and damping set so each sits about a third into its
+stroke), tyres with rolling and cornering friction, anti-skid brakes, and nosewheel steering that narrows from 45° at
+taxi speed to 7° at takeoff speed. The geometry comes from the exterior model: the nose wheel carries 7.7 % of the
+weight, and the tail and wingtips touch at 11.3° of pitch and 14.5° of bank. Touchdown follows Part 25: 10 ft/s is the
+limit, more than 12 ft/s damages the gear, and about 16 ft/s collapses it. Ground effect cuts induced drag, adds lift
+and pitches the nose down below one wingspan. Runways come from OpenStreetMap, are painted with FAA markings over a
+1.25 m/px NAIP image of the airport, and the imagery-driven 3D houses are kept off the aerodrome.
+
+Takeoff and landing are checked against the AFM tables (see Validation). That pinned down four things:
+- **Flaps.** Slotted flaps shift the whole lift curve up by more than they raise maximum lift: +0.27 CL at flaps 8,
+  which is what reaching V2 at the AFM's +9° rotation attitude on one engine needs. Stall speeds are unchanged.
+- **Thrust.** Takeoff thrust (corrected N1 93.3 %, flat-rated to 23.3 °C) applies below 1,500 ft with the levers full
+  forward. APR, armed for takeoff, keeps 4,600 lbf on the live engine to 31.6 °C after a failure (PTM ch. 7). A failed
+  engine runs down over about 1.5 s and windmills.
+- **Brakes.** Anti-skid braking at μ 0.40 with a brake-torque limit of 13 kN per main gear reproduces the AFM landing
+  rolls, including how they grow with weight.
+- **Spoilers.** With flaps out they dump most of the flap lift. Thrust reversers give about 45 % reverse thrust and
+  aren't credited in the AFM distances.
+
 ### Structure
 
 Vmo/Mmo is an operating limit, not a structural one. Below the design dive speed, speed alone does no damage. Strength
@@ -141,7 +182,9 @@ In the sim's breakups the killer is negative g. When the iced tail stalls, the p
 
 ## Validation
 
-Run `node test/flight_test.mjs` and `node test/afm_validate.mjs` to reproduce these.
+Run `node test/flight_test.mjs`, `node test/afm_validate.mjs` and `node test/performance_test.mjs` to reproduce these.
+The performance test flies the AFM procedures: accelerate-go with an engine failure at V1, accelerate-stop, 115 % of
+the all-engine distance, and the landing from 50 ft at VREF.
 
 | Check | Model | Reference |
 |---|---|---|
@@ -153,6 +196,8 @@ Run `node test/flight_test.mjs` and `node test/afm_validate.mjs` to reproduce th
 | Time to climb, MTOW to FL410 | ~18 min | 18 to 18.5 min published |
 | NBAA IFR range, 4 passengers | 2,455 nm | 2,405 nm published |
 | Max level speed | 458 KTAS | 453 to 466 KTAS published |
+| Takeoff field length, flaps 8, 15 cases (sea level 60 °F and 90 °F, 5,000 ft) | rms 4.1 %, all within 7 % | AFM Fig 5-38 |
+| Landing distance from 50 ft, 6 cases | rms 1.3 %, all within 2.2 % | AFM Fig 5-74 |
 
 `node test/force_test.mjs` flies the upset with a force-limited pilot following the AFM procedure. Starting the
 recovery 2 seconds after the autopilot lets go saves the airplane in three of the four hypotheses. At 5 seconds it
@@ -167,6 +212,7 @@ costs about 8,000 ft. From 8 seconds on, the wing fails before the pilot acts.
 | `data/glm_flashes.json` | GOES-19 Geostationary Lightning Mapper, 17:44 to 17:52Z | Lightning times and positions |
 | `data/metar.json`, `data/sounding_kmfl.json` | KPBI METARs, KMFL 12Z radiosonde | Cumulus layer, deck base, freezing level |
 | `data/ground/` | USGS orthoimagery (NAIP), NASA Blue Marble, USGS NHD water | Terrain texture and water |
+| KPBI runways and boundary (in `js/ground.js`) | OpenStreetMap (ODbL) | Runway geometry, markings, ground friction |
 | `data/ground/buildings.bin` | Overture Maps (OpenStreetMap + Microsoft) | 62,192 buildings with measured heights |
 | `data/ground/trees.bin` | Meta / WRI 1 m canopy height map | 511,964 trees with measured heights and crowns |
 | `audio/atc_liveatc.mp3` | LiveATC recording as publicly posted | Optional ATC audio, off by default |
@@ -198,11 +244,12 @@ node tools/bench.mjs 2560x1320 8080
 | `js/aircraft.js`, `js/aero.js`, `js/engine.js` | Flight model, aerodynamics, engine cycle |
 | `js/controls.js` | Column and wheel forces, pilot strength, autopilot clutches |
 | `js/input.js`, `js/hardware.js`, `js/hwui.js` | Keyboard and mouse, all connected flight hardware, the binding panel |
+| `js/ground.js`, `js/freeflight.js` | Landing gear and ground contact; free-flight starts, weather and trim solver |
 | `js/ffb.js` | USB PID force-feedback driver over WebHID |
 | `js/scenario.js` | Storm environment, ADS-B reconstruction, ATC timeline, autopilot, hypotheses |
 | `js/render.js`, `js/shaders.js` | WebGL2 renderer |
 | `js/hud.js`, `js/cockpit.js`, `js/vcgauges.js` | Instruments, 3D cockpit, standby gauges |
-| `test/` | Flight-test card, AFM table validation, upset, recovery, force, hardware and force-feedback checks |
+| `test/` | Flight-test card, AFM table validation, upset, recovery, force, ground, hardware and force-feedback checks |
 | `tools/` | Data fetchers, model and livery converters, benchmark |
 
 Debug views load the reconstruction paused at a given time:
