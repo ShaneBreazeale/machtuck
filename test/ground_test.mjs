@@ -2,23 +2,23 @@
 // braking, nosewheel steering, touchdown limits (Part 25: 10 ft/s limit, 12 ft/s reserve), gear-up landing, ground
 // effect, and the trim solver used for airborne starts.
 import { Learjet60, ELEV_K } from '../js/aircraft.js';
-import { setupStart, setWeight, FreeEnv, trimFlight, tasFor, placeOnRunway, rwyByStart, STARTS } from '../js/freeflight.js';
-import { groundAlt, groundEffect, surfaceAt, RUNWAYS, runwayFrame } from '../js/ground.js';
+import { setupStart, setWeight, FreeEnv, trimFlight, tasFor, placeOnRunway, frameFor } from '../js/freeflight.js';
+import { groundAlt, groundEffect, surfaceAt, runwayById, runwayFrame } from '../js/ground.js';
 import { DEG } from '../js/util.js';
 import { FT, KT } from '../js/atmo.js';
 
 let fail = 0;
 const expect = (ok, msg) => { console.log(`${ok ? 'PASS' : 'FAIL'}  ${msg}`); if (!ok) fail++; };
 const DT = 1 / 240, still = { wind: [0, 0, 0], dT: 0 };   // free flight 'calm' is ISA
-const onRunway = (w = 'typical') => { const ac = new Learjet60(); setWeight(ac, w); setupStart(ac, 'rwy10L', new FreeEnv('calm')); return ac; };
+const onRunway = (w = 'typical') => { const ac = new Learjet60(); setWeight(ac, w); setupStart(ac, { apt: 'KDJT', start: 'rwy', rwy: '10L' }, new FreeEnv('calm')); return ac; };
 const run = (ac, secs, each) => { const evs = []; for (let t = 0; t < secs; t += DT) { if (each && each(ac.out, t) === false) break; ac.step(DT, still); evs.push(...ac.gnd.drain()); if (ac.crashed) break; } return evs; };
 const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
 
 // ---- runway data ----
 {
-  const f = runwayFrame(RUNWAYS[0]);
+  const f = runwayFrame(runwayById('KDJT', '10L'));
   expect(Math.abs(f.L - 3048) < 2 && Math.abs(f.hdg / DEG - 92.8) < 0.2 && surfaceAt(f.thr[0] + f.u[0] * 1000, f.thr[1] + f.u[1] * 1000) === 'paved' && surfaceAt(f.thr[0] + 200, f.thr[1] + 1000) === 'grass',
-    `KPBI 10L/28R from OpenStreetMap: ${f.L.toFixed(0)} m, 10L heading ${(f.hdg / DEG).toFixed(1)}° true, paved on the centreline, grass 200 m off it`);
+    `KDJT 10L/28R from the FAA CIFP: ${f.L.toFixed(0)} m of pavement (1,200 ft displaced threshold), 10L heading ${(f.hdg / DEG).toFixed(1)}° true, paved on the centreline, grass 200 m off it`);
 }
 // ---- at rest ----
 {
@@ -76,7 +76,7 @@ function takeoff(w, vr, pitchTgt, pullFrom = null) {
 // ---- touchdown ----
 function landing(fps, gear = 1) {
   const ac = new Learjet60(); setWeight(ac, 'typical');
-  const f = rwyByStart('rwy10L'), V = tasFor(125, 10), gamma = -Math.asin(fps * FT / V);
+  const f = frameFor('KDJT', '10L'), V = tasFor(125, 10), gamma = -Math.asin(fps * FT / V);
   Object.assign(ac.ctl, { gear, flaps: 1, sb: 0, park: false, brakeL: 0, brakeR: 0 });
   const n = f.thr[0] + f.u[0] * 400, e = f.thr[1] + f.u[1] * 400;
   // trimmed descent with the wheels 0.5 m up (inside ground effect, so the trim includes it), attitude held to touchdown
@@ -106,11 +106,11 @@ function landing(fps, gear = 1) {
   const near = groundEffect(0.1 * 13.34, 13.34), far = groundEffect(20, 13.34);
   expect(near.kInd < 0.8 && near.lift > 1.08 && near.cm < 0 && far.kInd > 0.99 && far.lift === 1, `ground effect at h/b 0.1: induced drag x${near.kInd.toFixed(2)}, lift x${near.lift.toFixed(2)}, nose-down ${near.cm.toFixed(3)}; none above a span`);
   const ac = new Learjet60(); setWeight(ac, 'typical'); const env = new FreeEnv('calm');
-  setupStart(ac, 'final10L', env); const h0 = ac.out.h ?? -ac.pos[2];
+  setupStart(ac, { apt: 'KDJT', start: 'final', app: 'I10L' }, env); const h0 = ac.out.h ?? -ac.pos[2];
   let o; for (let t = 0; t < 20; t += DT) o = ac.step(DT, still);
   const fpm = o.vs / FT * 60;
   expect(Math.abs(fpm + 800) < 120 && Math.abs(o.KIAS - 150) < 4 && Math.abs(o.phi) < 2 * DEG, `6 nm final start holds itself: ${fpm.toFixed(0)} ft/min (3° at 150 kt ≈ -800), ${o.KIAS.toFixed(0)} KIAS after 20 s hands-off`);
-  const cr = new Learjet60(); setupStart(cr, 'cruise', env); let oc; for (let t = 0; t < 20; t += DT) oc = cr.step(DT, still);
+  const cr = new Learjet60(); setupStart(cr, { apt: 'KDJT', start: 'cruise', rwy: '10L' }, env); let oc; for (let t = 0; t < 20; t += DT) oc = cr.step(DT, still);
   expect(Math.abs(oc.vs / FT * 60) < 150 && Math.abs(oc.M - 0.77) < 0.01, `cruise start trimmed: ${(oc.vs / FT * 60).toFixed(0)} ft/min, M ${oc.M.toFixed(3)} after 20 s`);
   const dive = new Learjet60(); dive.setState({ n: 0, e: -20000, d: -300, psi: 0, theta: -20 * DEG, phi: 0, V: 150 }); dive.vel = [150 * Math.cos(20 * DEG), 0, 150 * Math.sin(20 * DEG)];
   for (let t = 0; t < 10 && !dive.crashed; t += DT) dive.step(DT, still);

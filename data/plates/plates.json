@@ -1,0 +1,589 @@
+{
+ "airport": "PRESIDENT DONALD J TRUMP INTL",
+ "faa": "DJT",
+ "icao": "KDJT",
+ "cycle": "2611",
+ "valid_from": "0901Z  10/29/26",
+ "valid_to": "0901Z  11/26/26",
+ "source": "https://aeronav.faa.gov/d-tpp/2611/",
+ "licence": "FAA d-TPP: US Government work, public domain. Not for navigation.",
+ "charts": [
+  {
+   "code": "IAP",
+   "title": "ILS OR LOC RWY 10L",
+   "file": "00449IL10L.png",
+   "amdt": "29A",
+   "amdt_date": "",
+   "minimums": [
+    {
+     "type": "S-ILS",
+     "rwy": "10L",
+     "cat": {
+      "A": {
+       "alt": 216,
+       "rvr": 2400
+      },
+      "B": {
+       "alt": 216,
+       "rvr": 2400
+      },
+      "C": {
+       "alt": 216,
+       "rvr": 2400
+      },
+      "D": {
+       "alt": 216,
+       "rvr": 2400
+      }
+     }
+    },
+    {
+     "type": "S-LOC",
+     "rwy": "10L",
+     "cat": {
+      "A": {
+       "alt": 380,
+       "rvr": 2400
+      },
+      "B": {
+       "alt": 380,
+       "rvr": 2400
+      },
+      "C": {
+       "alt": 380,
+       "rvr": 3500
+      },
+      "D": {
+       "alt": 380,
+       "rvr": 3500
+      }
+     }
+    }
+   ]
+  },
+  {
+   "code": "IAP",
+   "title": "ILS OR LOC RWY 28R",
+   "file": "00449IL28R.png",
+   "amdt": "4B",
+   "amdt_date": "",
+   "minimums": [
+    {
+     "type": "S-ILS",
+     "rwy": "28R",
+     "cat": {
+      "A": {
+       "alt": 218,
+       "rvr": 4000
+      },
+      "B": {
+       "alt": 218,
+       "rvr": 4000
+      },
+      "C": {
+       "alt": 218,
+       "rvr": 4000
+      },
+      "D": {
+       "alt": 218,
+       "rvr": 4000
+      }
+     }
+    },
+    {
+     "type": "S-LOC",
+     "rwy": "28R",
+     "cat": {
+      "A": {
+       "alt": 460,
+       "rvr": 5500
+      },
+      "B": {
+       "alt": 460,
+       "rvr": 5500
+      },
+      "C": {
+       "alt": 460,
+       "rvr": null
+      },
+      "D": {
+       "alt": 460,
+       "rvr": null
+      }
+     }
+    }
+   ]
+  },
+  {
+   "code": "IAP",
+   "title": "RNAV (RNP) W RWY 28R",
+   "file": "00449RRW28R.png",
+   "amdt": "0A",
+   "amdt_date": "07/09/2026",
+   "minimums": [
+    {
+     "type": "RNP 0.30",
+     "rwy": null,
+     "cat": {
+      "A": {
+       "alt": 725,
+       "rvr": null
+      },
+      "B": {
+       "alt": 725,
+       "rvr": null
+      },
+      "C": {
+       "alt": 725,
+       "rvr": null
+      },
+      "D": {
+       "alt": 725,
+       "rvr": null
+      }
+     }
+    }
+   ]
+  },
+  {
+   "code": "IAP",
+   "title": "RNAV (RNP) Z RWY 10L",
+   "file": "00449RRZ10L.png",
+   "amdt": "2B",
+   "amdt_date": "07/09/2026",
+   "minimums": [
+    {
+     "type": "RNP 0.30",
+     "rwy": null,
+     "cat": {
+      "A": {
+       "alt": 355,
+       "rvr": 2600
+      },
+      "B": {
+       "alt": 355,
+       "rvr": 2600
+      },
+      "C": {
+       "alt": 355,
+       "rvr": 2600
+      },
+      "D": {
+       "alt": 355,
+       "rvr": 2600
+      }
+     }
+    }
+   ]
+  },
+  {
+   "code": "IAP",
+   "title": "RNAV (RNP) Z RWY 14",
+   "file": "00449RRZ14.png",
+   "amdt": "1A",
+   "amdt_date": "07/09/2026",
+   "minimums": [
+    {
+     "type": "RNP 0.30",
+     "rwy": null,
+     "cat": {
+      "A": {
+       "alt": 354,
+       "rvr": null
+      },
+      "B": {
+       "alt": 354,
+       "rvr": null
+      },
+      "C": {
+       "alt": 354,
+       "rvr": null
+      },
+      "D": {
+       "alt": 354,
+       "rvr": null
+      }
+     }
+    }
+   ]
+  },
+  {
+   "code": "IAP",
+   "title": "RNAV (RNP) Z RWY 28R",
+   "file": "00449RRZ28R.png",
+   "amdt": "1A",
+   "amdt_date": "07/09/2026",
+   "minimums": [
+    {
+     "type": "RNP 0.30",
+     "rwy": null,
+     "cat": {
+      "A": {
+       "alt": 404,
+       "rvr": 6000
+      },
+      "B": {
+       "alt": 404,
+       "rvr": 6000
+      },
+      "C": {
+       "alt": 404,
+       "rvr": 6000
+      },
+      "D": {
+       "alt": 404,
+       "rvr": 6000
+      }
+     }
+    }
+   ]
+  },
+  {
+   "code": "IAP",
+   "title": "RNAV (RNP) Z RWY 32",
+   "file": "00449RRZ32.png",
+   "amdt": "2A",
+   "amdt_date": "07/09/2026",
+   "minimums": [
+    {
+     "type": "RNP 0.11",
+     "rwy": null,
+     "cat": {
+      "A": {
+       "alt": 322,
+       "rvr": null
+      },
+      "B": {
+       "alt": 322,
+       "rvr": null
+      },
+      "C": {
+       "alt": 322,
+       "rvr": null
+      },
+      "D": {
+       "alt": 322,
+       "rvr": null
+      }
+     }
+    },
+    {
+     "type": "RNP 0.30",
+     "rwy": null,
+     "cat": {
+      "A": {
+       "alt": 376,
+       "rvr": null
+      },
+      "B": {
+       "alt": 376,
+       "rvr": null
+      },
+      "C": {
+       "alt": 376,
+       "rvr": null
+      },
+      "D": {
+       "alt": 376,
+       "rvr": null
+      }
+     }
+    }
+   ]
+  },
+  {
+   "code": "IAP",
+   "title": "RNAV (GPS) X RWY 28R",
+   "file": "00449RX28R.png",
+   "amdt": "0A",
+   "amdt_date": "07/09/2026",
+   "minimums": [
+    {
+     "type": "LNAV",
+     "rwy": null,
+     "cat": {
+      "A": {
+       "alt": 580,
+       "rvr": null
+      },
+      "B": {
+       "alt": 580,
+       "rvr": null
+      },
+      "C": {
+       "alt": 580,
+       "rvr": null
+      },
+      "D": {
+       "alt": 580,
+       "rvr": null
+      }
+     }
+    }
+   ]
+  },
+  {
+   "code": "IAP",
+   "title": "RNAV (GPS) Y RWY 10L",
+   "file": "00449RY10L.png",
+   "amdt": "5A",
+   "amdt_date": "07/09/2026",
+   "minimums": [
+    {
+     "type": "LNAV",
+     "rwy": null,
+     "cat": {
+      "A": {
+       "alt": 440,
+       "rvr": 6000
+      },
+      "B": {
+       "alt": 440,
+       "rvr": 6000
+      },
+      "C": {
+       "alt": 440,
+       "rvr": 6000
+      },
+      "D": {
+       "alt": 440,
+       "rvr": 6000
+      }
+     }
+    }
+   ]
+  },
+  {
+   "code": "IAP",
+   "title": "RNAV (GPS) Y RWY 14",
+   "file": "00449RY14.png",
+   "amdt": "4B",
+   "amdt_date": "07/09/2026",
+   "minimums": [
+    {
+     "type": "LPV",
+     "rwy": null,
+     "cat": {
+      "A": {
+       "alt": 269,
+       "rvr": null
+      },
+      "B": {
+       "alt": 269,
+       "rvr": null
+      },
+      "C": {
+       "alt": 269,
+       "rvr": null
+      },
+      "D": {
+       "alt": 269,
+       "rvr": null
+      }
+     }
+    },
+    {
+     "type": "LNAV/VNAV",
+     "rwy": null,
+     "cat": {
+      "A": {
+       "alt": 338,
+       "rvr": null
+      },
+      "B": {
+       "alt": 338,
+       "rvr": null
+      },
+      "C": {
+       "alt": 338,
+       "rvr": null
+      },
+      "D": {
+       "alt": 338,
+       "rvr": null
+      }
+     }
+    },
+    {
+     "type": "LNAV",
+     "rwy": null,
+     "cat": {
+      "A": {
+       "alt": 460,
+       "rvr": null
+      },
+      "B": {
+       "alt": 460,
+       "rvr": null
+      },
+      "C": {
+       "alt": 460,
+       "rvr": null
+      },
+      "D": {
+       "alt": 460,
+       "rvr": null
+      }
+     }
+    }
+   ]
+  },
+  {
+   "code": "IAP",
+   "title": "RNAV (GPS) Y RWY 28R",
+   "file": "00449RY28R.png",
+   "amdt": "3B",
+   "amdt_date": "07/09/2026",
+   "minimums": [
+    {
+     "type": "LPV",
+     "rwy": null,
+     "cat": {
+      "A": {
+       "alt": 218,
+       "rvr": 4000
+      },
+      "B": {
+       "alt": 218,
+       "rvr": 4000
+      },
+      "C": {
+       "alt": 218,
+       "rvr": 4000
+      },
+      "D": {
+       "alt": 218,
+       "rvr": 4000
+      }
+     }
+    },
+    {
+     "type": "LNAV/VNAV",
+     "rwy": null,
+     "cat": {
+      "A": {
+       "alt": 342,
+       "rvr": 5000
+      },
+      "B": {
+       "alt": 342,
+       "rvr": 5000
+      },
+      "C": {
+       "alt": 342,
+       "rvr": 5000
+      },
+      "D": {
+       "alt": 342,
+       "rvr": 5000
+      }
+     }
+    },
+    {
+     "type": "LNAV",
+     "rwy": null,
+     "cat": {
+      "A": {
+       "alt": 460,
+       "rvr": 5500
+      },
+      "B": {
+       "alt": 460,
+       "rvr": 5500
+      },
+      "C": {
+       "alt": 460,
+       "rvr": null
+      },
+      "D": {
+       "alt": 460,
+       "rvr": null
+      }
+     }
+    }
+   ]
+  },
+  {
+   "code": "IAP",
+   "title": "RNAV (GPS) Y RWY 32",
+   "file": "00449RY32.png",
+   "amdt": "3A",
+   "amdt_date": "07/09/2026",
+   "minimums": [
+    {
+     "type": "LPV",
+     "rwy": null,
+     "cat": {
+      "A": {
+       "alt": 266,
+       "rvr": null
+      },
+      "B": {
+       "alt": 266,
+       "rvr": null
+      },
+      "C": {
+       "alt": 266,
+       "rvr": null
+      },
+      "D": {
+       "alt": 266,
+       "rvr": null
+      }
+     }
+    },
+    {
+     "type": "LNAV/VNAV",
+     "rwy": null,
+     "cat": {
+      "A": {
+       "alt": 342,
+       "rvr": null
+      },
+      "B": {
+       "alt": 342,
+       "rvr": null
+      },
+      "C": {
+       "alt": 342,
+       "rvr": null
+      },
+      "D": {
+       "alt": 342,
+       "rvr": null
+      }
+     }
+    },
+    {
+     "type": "LNAV",
+     "rwy": null,
+     "cat": {
+      "A": {
+       "alt": 440,
+       "rvr": null
+      },
+      "B": {
+       "alt": 440,
+       "rvr": null
+      },
+      "C": {
+       "alt": 440,
+       "rvr": null
+      },
+      "D": {
+       "alt": 440,
+       "rvr": null
+      }
+     }
+    }
+   ]
+  },
+  {
+   "code": "APD",
+   "title": "AIRPORT DIAGRAM",
+   "file": "00449AD.png",
+   "amdt": "",
+   "amdt_date": ""
+  }
+ ]
+}

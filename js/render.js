@@ -7,8 +7,15 @@ import * as SH from './shaders.js';
 import { mul4, track } from './anim.js';
 import { AIRPORT, RUNWAYS, runwayFrame } from './ground.js';
 const AIRPORT_F = new Float32Array(AIRPORT.flat());
-const RWY_F = new Float32Array(RUNWAYS.flatMap((r) => { const f = runwayFrame(r); return [f.thr[1], f.thr[0], f.u[1], f.u[0]]; }));   // (east, north) frame
-const RWY_D = new Float32Array(RUNWAYS.flatMap((r) => { const f = runwayFrame(r); return [f.L, f.w]; }));
+// Runway paint: the shader takes three runways; each frame sends the three nearest the camera (the nav database has
+// every runway within range). Painted from the start of the pavement over its whole length.
+const RWY_ALL = RUNWAYS.map((r) => { const f = runwayFrame(r); return { n: (f.start[0] + f.end[0]) / 2, e: (f.start[1] + f.end[1]) / 2, F: [f.start[1], f.start[0], f.u[1], f.u[0]], D: [f.L, f.w] }; });
+const RWY_F = new Float32Array(12), RWY_D = new Float32Array(6);
+function nearestRunways(n, e) {
+  const k = RWY_ALL.map((r) => ({ r, d: (r.n - n) ** 2 + (r.e - e) ** 2 })).sort((a, b) => a.d - b.d).slice(0, 3);
+  RWY_F.fill(0); RWY_D.fill(0);
+  k.forEach(({ r }, i) => { RWY_F.set(r.F, i * 4); RWY_D.set(r.D, i * 2); });
+}
 
 function compile(gl, type, src) {
   const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
@@ -468,7 +475,8 @@ export class Renderer {
   }
   render(S) {
     this.detailLayer = S.detailLayer || 'crash';
-    { const c = S.cam.pos; this.camH = Math.max(0.5, c[1] - (c[0] * c[0] + c[2] * c[2]) / 12720000); }
+    { const c = S.cam.pos; this.camH = Math.max(0.5, c[1] - (c[0] * c[0] + c[2] * c[2]) / 12720000);
+      const q = this.rwyAt; if (!q || Math.abs(q[0] - c[2]) + Math.abs(q[1] - c[0]) > 500) { this.rwyAt = [c[2], c[0]]; nearestRunways(c[2], c[0]); } }
     if (this.dbg) S = Object.assign({}, S, this.dbg);   // console overrides, e.g. SIM.R.dbg = {cloudCover: 0}
     const gl = this.gl; this.resize(); const T = this.T;
     gl.disable(gl.BLEND); gl.disable(gl.DEPTH_TEST);

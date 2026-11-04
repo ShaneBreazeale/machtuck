@@ -2,7 +2,7 @@
 // a calm / steady-wind environment with the same interface as the storm (js/scenario.js Environment), and a trim solver
 // so airborne starts begin in steady flight.
 import { clamp, DEG } from './util.js';
-import { RUNWAYS, runwayFrame, groundAlt } from './ground.js';
+import { runwayById, runwayFrame, groundAlt } from './ground.js';
 import { isa, FT, KT } from './atmo.js';
 import { STAB, stabDeg } from './aircraft.js';
 
@@ -22,15 +22,26 @@ export const WEIGHTS = {
   mtow:    { name: '23,500 lb (max takeoff)', kg: 10659 },
 };
 const BOW_KG = 6700;                                  // basic operating weight with crew, ~14,800 lb
+// Sortie starts. Where the airplane begins is taken from the sortie's airport, runway and approach (the nav database):
+// nothing here names a particular airport.
 export const STARTS = {
-  rwy10L:   { name: 'Runway 10L, lined up (KPBI)', ground: true, rw: '10L/28R', fromB: false },
-  rwy28R:   { name: 'Runway 28R, lined up (KPBI)', ground: true, rw: '10L/28R', fromB: true },
-  final10L: { name: '6 nm final, runway 10L, 1,950 ft, 150 KIAS', nm: 6, kias: 150, flaps: 0.5, gear: 1 },
-  ils10L:   { name: 'ILS 10L intercept: 14 nm, 3,000 ft, 180 KIAS, autopilot on', nm: 14, off: 2, alt: 3000, kias: 180 },
-  cruise:   { name: 'Cruise FL350, M 0.77, autopilot on', alt: 35000, mach: 0.77 },
+  rwy:    { name: 'Lined up on the departure runway, parking brake set' },
+  app:    { name: 'Airborne at the start of the approach, autopilot on (LNAV / VNAV, approach armed)' },
+  final:  { name: '6 nm final for the approach runway, 150 KIAS, hand-flown' },
+  cruise: { name: 'Cruise FL350, M 0.77, autopilot on, approach loaded' },
 };
-export const rwyByStart = (st) => { const s = STARTS[st]; return s && s.rw ? runwayFrame(RUNWAYS.find((r) => r.id === s.rw), s.fromB) : runwayFrame(RUNWAYS[0], false); };
-
+const brgDeg = (a, b) => ((Math.atan2(b[1] - a[1], b[0] - a[0]) / DEG) % 360 + 360) % 360;
+// a runway end ('10L' or 'RW10L') at an airport as a frame (js/ground.js)
+export function frameFor(apt, rwy) {
+  const id = String(rwy).replace(/^RW/, ''), r = runwayById(apt, id);
+  if (!r) throw new Error(`no runway ${id} at ${apt}`);
+  return runwayFrame(r, r.ids[1] === id);
+}
+// the runway an approach lands on: its missed-approach-point fix (RWxx), else the procedure id (I10L -> 10L)
+export function approachRunway(legs, procId = '') {
+  const m = legs.find((l) => l.map && l.fix && /^RW/.test(l.fix.id)); if (m) return m.fix.id.slice(2);
+  const k = procId.match(/(\d\d[LRC]?)/); return k ? k[1] : null;
+}
 // ---- environment: mean wind with a surface boundary layer, gusts as a band-limited random walk ----
 export class FreeEnv {
   constructor(wx = 'calm') {
@@ -61,9 +72,10 @@ export function setWeight(ac, key) {
   const kg = (WEIGHTS[key] || WEIGHTS.typical).kg;
   ac.m = kg; ac.fuel = clamp(kg - BOW_KG, 300, 3588);
 }
-// on the runway centreline `along` metres past the threshold, at rest, struts settled, parking brake set
+// on the runway centreline `along` metres past the start of the pavement (a displaced threshold is usable for takeoff),
+// at rest, struts settled, parking brake set
 export function placeOnRunway(ac, f, along = 60, env = { wind: [0, 0, 0] }) {
-  const n = f.thr[0] + f.u[0] * along, e = f.thr[1] + f.u[1] * along;
+  const n = f.start[0] + f.u[0] * along, e = f.start[1] + f.u[1] * along;
   ac.setState({ n, e, d: -(groundAlt(n, e) + ac.gnd.elev + 1.52), psi: f.hdg, theta: 0.4 * DEG, phi: 0, V: 0 });
   ac.vel = [0, 0, 0];
   Object.assign(ac.ctl, { gear: 1, flaps: 0.2, sb: 0, thr: 0, elev: 0, ail: 0, rud: 0, park: true, brakeL: 0, brakeR: 0 });
@@ -115,27 +127,54 @@ export function trimFlight(ac, { n, e, h, V, gamma = 0, psi = 0, dT = 0 }) {
 }
 export const tasFor = (kias, h, dT = 0) => { const atm = isa(h, dT); return kias * KT * Math.sqrt(1.225 / atm.rho); };
 
-// Set up a start. Returns { onGround, apOn, msg }.
-export function setupStart(ac, key, env) {
-  const st = STARTS[key] || STARTS.rwy10L;
+// Set up a sortie start: s = { apt, start, rwy, app }, legs = the loaded approach (js/navdb.js procedureLegs).
+// Returns { onGround, apOn, msg, legIdx (the flight-plan leg to make active), alt (ft, the altitude to preselect) }.
+export function setupStart(ac, s, env, legs = []) {
   ac.failures.tailIce = false; ac.failures.tuck = true; ac.ice = 0; ac.iceTail = 0; ac.engIce = 0; ac.hard = true;
-  const dT = env ? env.dT : 0;
-  if (st.ground) { placeOnRunway(ac, rwyByStart(key), 60, { wind: [0, 0, 0], dT }); return { onGround: true, apOn: false, msg: `${st.name}. Parking brake set: press Shift (brakes) to release it. Flaps 8, takeoff trim ${stabDeg(ac.ctl.trim).toFixed(1)}°. Full thrust (T/O), rotate at VR to about +9° (tail strike at 11°).` }; }
-  if (key === 'final10L') {
-    const f = rwyByStart('rwy10L'), dist = st.nm * 1852, h = Math.tan(3 * DEG) * dist + 15 + groundAlt(f.thr[0], f.thr[1]);
-    Object.assign(ac.ctl, { gear: 1, flaps: st.flaps, sb: 0, park: false });
-    trimFlight(ac, { n: f.thr[0] - f.u[0] * dist, e: f.thr[1] - f.u[1] * dist, h, V: tasFor(st.kias, h, dT), gamma: -3 * DEG, psi: f.hdg, dT });
-    return { onGround: false, apOn: false, msg: `${st.name}. On the 3° glidepath, gear down, flaps 20. Flaps 40 below 165 KIAS; touch down below 600 ft/min.` };
+  const dT = env ? env.dT : 0, kind = STARTS[s.start] ? s.start : 'rwy';
+  if (kind === 'rwy') {
+    const f = frameFor(s.apt, s.rwy);
+    placeOnRunway(ac, f, 60, { wind: [0, 0, 0], dT });
+    return { onGround: true, apOn: false, legIdx: 0, alt: 3000, msg: `Runway ${f.id}, ${s.apt}, ${Math.round(f.L / FT).toLocaleString()} ft of pavement. Parking brake set: press Shift (brakes) to release it. Flaps 8, takeoff trim ${stabDeg(ac.ctl.trim).toFixed(1)}°. Full thrust (T/O), rotate at VR to about +9° (FD), positive rate: gear up (G), flaps up (F) above 160 KIAS.` };
   }
-  if (key === 'ils10L') {
-    const f = rwyByStart('rwy10L'), dist = st.nm * 1852, off = st.off * 1852, h = st.alt * FT;
-    const n = f.thr[0] - f.u[0] * dist - f.u[1] * off, e = f.thr[1] - f.u[1] * dist + f.u[0] * off;   // on the right of the extended centreline
+  if (kind === 'final') {
+    const rw = approachRunway(legs, s.app), f = frameFor(s.apt, rw), dist = 6 * 1852, h = Math.tan(3 * DEG) * dist + 15 + groundAlt(f.thr[0], f.thr[1]);
+    Object.assign(ac.ctl, { gear: 1, flaps: 0.5, sb: 0, park: false });
+    trimFlight(ac, { n: f.thr[0] - f.u[0] * dist, e: f.thr[1] - f.u[1] * dist, h, V: tasFor(150, h, dT), gamma: -3 * DEG, psi: f.hdg, dT });
+    const k = legs.findIndex((l) => l.map);
+    return { onGround: false, apOn: false, legIdx: Math.max(0, k), alt: null, msg: `6 nm final, runway ${rw}. On the 3° path, gear down, flaps 20. Flaps 40 below 165 KIAS; touch down below 600 ft/min.` };
+  }
+  if (kind === 'app') {
+    // three miles before the first fix of the approach, inbound to it on the first leg's course, at its altitude
+    const i0 = legs.findIndex((l) => l.fix); if (i0 < 0) throw new Error('approach has no fixes');
+    const L0 = legs[i0], nx = legs.slice(i0 + 1).find((l) => l.fix);
+    const crs = L0.crsT ?? (nx ? brgDeg(L0.fix.ne, nx.fix.ne) : 0), u = [Math.cos(crs * DEG), Math.sin(crs * DEG)];
+    const altFt = L0.alt ? (L0.alt.d === 'B' ? L0.alt.a2 : L0.alt.a1) : 3000, h = altFt * FT, back = 3 * 1852;
     Object.assign(ac.ctl, { gear: 0, flaps: 0.2, sb: 0, park: false });
-    trimFlight(ac, { n, e, h, V: tasFor(st.kias, h, dT), gamma: 0, psi: f.hdg - 30 * DEG, dT });
-    return { onGround: false, apOn: true, msg: `${st.name}. Heading ${Math.round(((f.hdg / DEG - 30) % 360 + 360) % 360)}° to intercept. Press \\ to arm the approach (APR): the autopilot captures the localizer, then the glideslope. No autothrottle: thrust is yours. Gear down and flaps 20 as the glideslope comes alive, flaps 40 and VREF + 5 by 1,000 ft; X disconnects for the landing.` };
+    trimFlight(ac, { n: L0.fix.ne[0] - u[0] * back, e: L0.fix.ne[1] - u[1] * back, h, V: tasFor(180, h, dT), gamma: 0, psi: crs * DEG, dT });
+    return { onGround: false, apOn: true, legIdx: i0, alt: altFt, msg: `${L0.fix.id} in 3 nm at ${altFt.toLocaleString()} ft, 180 KIAS, flaps 8. Autopilot on LNAV / VNAV with the approach armed. No autothrottle: thrust is yours. Gear down and flaps 20 at the final approach fix, flaps 40 for landing.` };
   }
-  const h = st.alt * FT, atm = isa(h, dT), V = st.mach * atm.a, f = rwyByStart('rwy10L');
+  // cruise: west of the airport at FL350, heading for it
+  const apt = frameFor(s.apt, s.rwy || approachRunway(legs, s.app) || '10L');
+  const h = 35000 * FT, atm = isa(h, dT), V = 0.77 * atm.a, n = apt.thr[0] + 9000, e = apt.thr[1] - 30000 * 4;
   Object.assign(ac.ctl, { gear: 0, flaps: 0, sb: 0, park: false });
-  trimFlight(ac, { n: 9000, e: -30000, h, V, gamma: 0, psi: f.hdg, dT });
-  return { onGround: false, apOn: true, msg: `${st.name}. Autopilot holding altitude and heading.` };
+  trimFlight(ac, { n, e, h, V, gamma: 0, psi: Math.atan2(apt.thr[1] - e, apt.thr[0] - n), dT });
+  return { onGround: false, apOn: true, legIdx: 0, alt: 35000, msg: `Cruise FL350, M 0.77, 65 nm west. Autopilot on with the approach loaded: LNAV to its first fix (VNAV descends once you preselect a lower altitude).` };
+}
+
+// Flight guidance for a sortie start: load the plan into the FMS and set the autopilot / flight director modes as a crew
+// would have them at that point. ap: js/scenario.js Autopilot; fms: js/fms.js FMS; r: setupStart's result.
+export function configureGuidance(ap, fms, r, s, legs, out) {
+  ap.thetaLim = [-10 * DEG, 15 * DEG]; ap.fine = true; ap.fd = true; ap.why = '';
+  ap.fms = legs.length ? fms : null; if (legs.length) fms.load(legs, r.legIdx);
+  const faf = legs.find((l) => l.faf && l.alt), miss = legs.length ? fms.missedAlt() : null;
+  if (r.onGround) { ap.on = false; ap.takeoff(out.psi / DEG, (r.alt || 3000) * FT); return; }
+  if (s.start === 'app') {          // established on the procedure: LNAV / VNAV, approach armed, cleared down to the FAF altitude
+    ap.on = true; ap.lat = 'LNAV'; ap.vert = 'VNAV'; ap.appr = true; ap.altTgt = (faf ? faf.alt.a1 : r.alt) * FT; return;
+  }
+  if (s.start === 'final') {        // hand-flown, FD with the approach armed; the missed-approach altitude preselected
+    ap.on = false; ap.lat = 'HDG'; ap.hdgTgt = out.psi / DEG; ap.vert = 'ALT'; ap.altTgt = (miss || 3000) * FT; ap.appr = true; return;
+  }
+  ap.on = true; ap.lat = 'HDG'; ap.hdgTgt = out.psi / DEG; ap.vert = 'ALT'; ap.altTgt = out.h;   // cruise
+  if (legs.length) { ap.armLnav(); ap.armVnav(); }
 }

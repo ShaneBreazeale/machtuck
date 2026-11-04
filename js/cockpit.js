@@ -6,7 +6,8 @@
 // positions of the original panel.cfg; clicks are ray-cast onto those quads and handed to the HUD hit-tests.
 import { HUD } from './hud.js';
 import { clamp, lerp, RAD, wrap360 } from './util.js';
-import { GAUGES, rose } from './vcgauges.js';
+import { GAUGES } from './vcgauges.js';
+import { drawPfd } from './pfd.js';
 import { I4, mul4, quatM, track } from './anim.js';
 
 const VS = `#version 300 es
@@ -157,7 +158,7 @@ export class Cockpit {
       const gl = this.gl; gl.bindTexture(gl.TEXTURE_2D, it.tex); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, it.c); gl.generateMipmap(gl.TEXTURE_2D);
     };
-    draw('pfd', 1, (h, ctx) => { h.pfd(S, blink, 386, 300, 520); const o = S.out; rose(ctx, 420, 850, 140, wrap360((o.psi || 0) * RAD), wrap360((o.track ?? o.psi ?? 0) * RAD), 24); });
+    draw('pfd', 1, (h) => drawPfd(h, S, blink, 0, 0, 840, 1000));   // Pro Line 4 PFD (js/pfd.js), the whole display
     draw('mfd', 3, (h) => h.mfd(S, 0, 0, 840, 1000));
     draw('eng', 3, (h) => h.engines(S, 0, 0, 400, 1000));
     for (const [k, g] of Object.entries(GAUGES)) draw(k, g.every || 2, (h, ctx) => g.draw(ctx, S, h, blink), g.bg === undefined ? '#050607' : g.bg);
