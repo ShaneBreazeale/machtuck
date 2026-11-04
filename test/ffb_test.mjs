@@ -272,7 +272,7 @@ const spring = (dev) => [...dev.fx.values()].find((e) => e.type === 0x40);
   const KTS = 0.514444, qOf = (keas) => 0.5 * 1.225 * (keas * KTS) ** 2;
   const pc = new PilotControls();
   let s = pc.step(1 / 60, { elev: 0, ail: 0, rud: 0, posElev: 0.5, posAil: -0.2 }, { qbar: qOf(250), M: 0.4 }, null);
-  expect(near(s.elev, 0.5, 1e-9) && near(s.ail, -0.2, 1e-9) && near(pc.pitchLb, 33, 0.5), `position mode, 250 KEAS: stick 0.5 = elevator 0.5, the pilot holds ${pc.pitchLb.toFixed(0)} lb`);
+  expect(near(s.elev, 0.5, 1e-9) && near(s.ail, -0.2, 1e-9) && near(pc.pitchLb, 0.5 * FORCE.elevFull250, 0.5), `position mode, 250 KEAS: stick 0.5 = elevator 0.5, the pilot holds ${pc.pitchLb.toFixed(0)} lb`);
   const f = pc.feel();
   expect(near(f.pitch.k, FORCE.elevFull250 / FEEL.pitchLb, 1e-6) && f.pitch.centre === 0 && f.pitch.sat === 1 && near(f.roll.k, FORCE.ailFull250 / FEEL.rollLb, 1e-6),
     `feel, 250 KEAS: pitch stiffness ${f.pitch.k.toFixed(2)} (66 of 150 lb), roll ${f.roll.k.toFixed(2)}, centred (stabilizer trim)`);

@@ -109,7 +109,7 @@ export class HardwarePanel {
       const fn = tr.dataset.fn, v = this.hw.value(fn, pads);
       const bar = tr.querySelector('.bar i'), dot = tr.querySelector('.dot');
       if (bar) {
-        const lever = fn === 'throttle', x = v === null ? 0 : v;
+        const lever = !!(AXIS_FNS[fn] && !AXIS_FNS[fn].centred), x = v === null ? 0 : v;
         bar.style.left = lever ? '0%' : `${50 + Math.min(0, x) * 50}%`; bar.style.width = `${(lever ? x : Math.abs(x) / 2) * 100}%`;
         bar.parentElement.classList.toggle('off', v === null);
       }

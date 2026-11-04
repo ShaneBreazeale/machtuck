@@ -1,7 +1,7 @@
 // Flight-test card: measures the model against published Learjet 60 figures and
 // textbook handling qualities. Calm air, no ice, no failures, deterministic.
 //   node test/flight_test.mjs
-import { Learjet60, clMaxAt, casKt, flapCL } from '../js/aircraft.js';
+import { Learjet60, clMaxAt, casKt, flapCL, ELEV_K } from '../js/aircraft.js';
 import { cd0, K_IND, cdTrim, cdWave, clBuffet } from '../js/aero.js';
 import { cycle, maxN1 } from '../js/engine.js';
 import { DEG, RAD, clamp } from '../js/util.js';
@@ -26,8 +26,8 @@ const step = (ac) => ac.step(DT, { wind: [0, 0, 0], dT: ac.dT ?? 0 });
 function fly(ac, o, vsDes) {
   const gamma = Math.asin(clamp(vsDes / o.V, -0.5, 0.5));
   const thetaCmd = o.alpha * Math.cos(o.phi) + gamma;
-  ac.ctl.elev = clamp(2.5 * (thetaCmd - o.theta) - 1.0 * o.q, -1, 1);
-  ac.ctl.trim = clamp(ac.ctl.trim + ac.ctl.elev * 0.5 * DT, -1, 1);
+  ac.ctl.elev = clamp((2.5 * (thetaCmd - o.theta) - 1.0 * o.q) / ELEV_K, -1, 1);
+  ac.ctl.trim = clamp(ac.ctl.trim + ac.ctl.elev * ELEV_K * 0.5 * DT, -1, 1);
   ac.ctl.ail = clamp(-2 * o.phi - 0.3 * o.p, -1, 1);
 }
 const altHold = (h0, o) => clamp((h0 - o.h) * 0.1, -8, 8);
@@ -201,7 +201,7 @@ function osc(series, from = 0) {
 {
   // Short period: elevator doublet, alpha response over 8 s
   const ac = trimmedCruise();
-  const a = freeResponse(ac, (a) => { a.ctl.elev += 0.08; }, (o) => o.alpha, 8);
+  const a = freeResponse(ac, (a) => { a.ctl.elev += 0.08 / ELEV_K; }, (o) => o.alpha, 8);
   const sp = osc(a, 0.5);
   rec('short period: period s / damping', `${sp.T.toFixed(2)} / ${sp.zeta.toFixed(2)}`, 'damping 0.35-1.3 (MIL-F-8785C L1)');
   // Phugoid: speed perturbation, 300 s, controls fixed
@@ -237,8 +237,8 @@ function osc(series, from = 0) {
 {
   // Static stability: stick-fixed elevator per g (manoeuvre margin) at FL350
   const ac = trimmedCruise(); const e0 = ac.ctl.elev; let o = step(ac);
-  for (let i = 0; i < 6 / DT; i++) { ac.ctl.elev = e0 + 0.08; ac.ctl.ail = clamp(-2 * o.phi - 0.3 * o.p, -1, 1); o = step(ac); }
-  rec('elevator +0.08 step: steady nz', o.nz.toFixed(2), '1.2-1.4 (full stick ~3-3.5 g)', `alpha ${(o.alpha * RAD).toFixed(1)}°`);
+  for (let i = 0; i < 6 / DT; i++) { ac.ctl.elev = e0 + 0.08 / ELEV_K; ac.ctl.ail = clamp(-2 * o.phi - 0.3 * o.p, -1, 1); o = step(ac); }
+  rec('elevator step (dCm 0.0144): steady nz', o.nz.toFixed(2), '1.2-1.4 (full stick ~3-3.5 g)', `alpha ${(o.alpha * RAD).toFixed(1)}°`);
 }
 
 const w = [44, 30, 40];

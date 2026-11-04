@@ -319,6 +319,38 @@ vec3 procAlbedo(vec2 en, float t, out float water){
 // imagery texel (rgb, alpha = water mask) and its blend weight (fades out at the image edge)
 vec4 sampleG(sampler2D s, vec4 B, vec2 en, out float w){ vec2 uv=vec2((en.x-B.x)/(B.y-B.x),(B.w-en.y)/(B.w-B.z));
   vec2 ed=min(uv,1.-uv); w=sat(min(ed.x,ed.y)*40.); return texture(s,clamp(uv,0.,1.)); }
+// KPBI runways painted over the imagery (FAA AC 150/5340-1 precision markings): asphalt, edge stripes, 36 m / 24 m
+// centreline, threshold bars, touchdown-zone bars and aiming points. uRwy[i] = threshold (east, north), unit vector;
+// uRwyD[i] = length, width. Blur grows with distance and with grazing angle (uRwyCamH = camera height above ground).
+uniform vec4 uRwy[3]; uniform vec2 uRwyD[3]; uniform float uRwyCamH;
+float band(float x, float a, float b, float aa){ return smoothstep(a-aa,a+aa,x)-smoothstep(b-aa,b+aa,x); }
+vec3 paintRunways(vec2 en, float t, vec3 a){
+  if(uRwyD[0].x<=0. || t>14000.) return a;
+  float aa=max(0.1,t*0.0011), aS=aa*clamp(t/max(uRwyCamH,2.),1.,60.), fade=1.-smoothstep(4000.,12000.,t);
+  for(int i=0;i<3;i++){
+    vec4 r=uRwy[i]; vec2 d=uRwyD[i]; if(d.x<=0.) continue;
+    vec2 u=r.zw, p=en-r.xy; float s=dot(p,u), c=dot(p,vec2(-u.y,u.x)), L=d.x, hw=d.y*0.5;
+    if(s<-40. || s>L+40. || abs(c)>hw+6.) continue;
+    float inside=band(s,0.,L,aS)*(1.-smoothstep(hw-aa,hw+aa,abs(c)));
+    if(inside<=0.) continue;
+    vec3 asph=vec3(0.13,0.135,0.14)*(0.8+0.4*n2(en*0.3))*(0.92+0.16*n2(en*0.02+5.));
+    float m=band(abs(c),hw-1.2,hw-0.3,aa);                                   // edge stripes
+    float ph=mod(s-120.,60.);
+    if(s>120. && s<L-120.) m=max(m,band(c,-0.46,0.46,aa)*band(ph,0.,36.,aS));   // centreline
+    for(int e=0;e<2;e++){
+      float se=e==0?s:L-s, ac=abs(c);
+      if(hw>15.){
+        float k=ac-2.85; if(k>0. && k<21.) m=max(m,band(mod(k,3.5),0.,1.75,aa)*band(se,6.,51.,aS));   // threshold: 6 + 6 bars
+        m=max(m,band(se,311.,356.,aS)*band(ac,11.,20.,aa));                    // aiming point, 1,020 ft
+        float b1=band(ac,11.,12.8,aa), b2=band(ac,14.3,16.1,aa), b3=band(ac,17.6,19.4,aa);
+        m=max(m,band(se,152.,174.5,aS)*max(b1,max(b2,b3)));                  // touchdown zone 500 ft
+        m=max(m,(band(se,457.,479.5,aS)+band(se,610.,632.5,aS))*max(b1,b2));  // 1,500 / 2,000 ft
+        m=max(m,(band(se,762.,784.5,aS)+band(se,914.,936.5,aS))*b1);          // 2,500 / 3,000 ft
+      } else { float k=ac-1.5; if(k>0. && k<8.) m=max(m,band(mod(k,2.),0.,1.,aa)*band(se,6.,36.,aS)); }
+    }
+    a=mix(a,mix(mix(a,asph,0.7),vec3(0.72,0.72,0.70),clamp(m,0.,1.)*fade),inside);
+  }
+  return a; }
 vec3 groundAlbedo(vec2 en, float t, out float water){
   if(uGround==0) return procAlbedo(en,t,water);
   float wf, wn, ws, wd; vec4 f=sampleG(uGFar,uGBFar,en,wf), n=sampleG(uGNear,uGBNear,en,wn), s=sampleG(uGSite,uGBSite,en,ws), dd=sampleG(uGDetail,uGBDetail,en,wd);
@@ -327,16 +359,19 @@ vec3 groundAlbedo(vec2 en, float t, out float water){
   water=mix(mix(water,f.a,wf),n.a,wn);
   // imagery is lit, hazy top-of-canopy colour: pull toward a surface albedo and add sub-texel variation up close
   a=a*0.85; float near=1.-smoothstep(2000.,9000.,t); a*=mix(1.,0.82+0.36*n2(en*0.03)*n2(en*0.11+3.),near);
-  return a; }
+  return paintRunways(en,t,a); }
 // ---------------- 3D ground detail: buildings and trees from the imagery ----------------
 // 16 m cells; each cell's centre colour in the aerial photo decides: dark green canopy -> tree (ellipsoid),
 // light low-saturation or terracotta roof in built-up areas -> building (box, 4-9 m, occasional taller),
 // otherwise nothing. 2D grid traversal from where the ray drops below 45 m to the ground hit.
 const float CELL=16.;
+uniform vec2 uAirport[32]; uniform int uAirportN;               // airport boundary (x east, z north): no imagery houses inside
+bool inAirport(vec2 p){ bool c=false; for(int i=0,j=31;i<32;j=i++){ if(i>=uAirportN) break; if(j>=uAirportN) j=uAirportN-1;
+  vec2 a=uAirport[i], b=uAirport[j]; if(((a.y>p.y)!=(b.y>p.y)) && (p.x<(b.x-a.x)*(p.y-a.y)/(b.y-a.y)+a.x)) c=!c; } return c; }
 float groundY(vec2 xz){ return dot(xz,xz)/12720000.; }          // world y of the ground (spherical Earth)
 vec4 cellInfo(vec2 cc, out vec3 roof, out vec2 pos){   // type (0 none, 1 house, 2 tree), height, half-size, jitter; pos = footprint centre
   float w; vec3 a=groundAlbedo(cc+CELL*0.5,0.,w); roof=a; pos=cc+CELL*0.5;
-  if(w>0.3) return vec4(0);
+  if(w>0.3 || inAirport(cc+CELL*0.5)) return vec4(0);
   float mx=max(a.r,max(a.g,a.b)), mn=min(a.r,min(a.g,a.b)); float sat=(mx-mn)/max(mx,1e-3); float lum=dot(a,vec3(0.3,0.59,0.11));
   float hsh=h21(cc*0.0625+vec2(17.3,4.1)), hs2=h21(cc*0.0625+vec2(3.7,9.9));
   bool roofy=(sat<0.22 && lum>0.16) || (a.r>a.g*1.15 && a.r>a.b*1.3 && lum>0.09);

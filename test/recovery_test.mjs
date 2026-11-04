@@ -1,7 +1,7 @@
 // Pass/fail judgement: an early takeover that just holds level flight must not count as a recovery.
 // Runs the as-flown scenario with three pilots and compares the old rule (AP off 3 s, then 3 s stable) with
 // RecoveryJudge (a real upset first, then 10 s of stable flight). Exits non-zero on a failed expectation.
-import { Learjet60 } from '../js/aircraft.js';
+import { Learjet60, ELEV_K, ELEV_POWER } from '../js/aircraft.js';
 import { Environment, Autopilot, buildGhost, RecoveryJudge, UPSET_T, EVENT_T } from '../js/scenario.js';
 import { DEG } from '../js/util.js';
 import { FT } from '../js/atmo.js';
@@ -47,7 +47,7 @@ function run(hyp, pilot, takeoverT = null) {
 // Attitude hold: wings level, pitch +2 deg (what a pilot does after clicking the AP off in cruise)
 const holdLevel = (ac, out) => {
   ac.ctl.ail = clamp(2.0 * (-out.phi) - 0.3 * out.p, -1, 1);
-  ac.ctl.elev = clamp(ac.ctl.elev + (3 * (2 * DEG - out.theta) - 0.8 * out.q) * (1 / 200) * 4, -1, 1);
+  ac.ctl.elev = clamp(ac.ctl.elev + (3 * (2 * DEG - out.theta) - 0.8 * out.q) * (1 / 200) * 4 / ELEV_K, -1 / ELEV_K, 1 / ELEV_K);
 };
 const noPilot = () => {};
 // Textbook upset recovery per AFM FM-123 Overspeed Recovery: idle, AP off, identify attitude, level wings (no pull
@@ -60,9 +60,9 @@ const textbook = (ac, out, t, t0) => {
   ac.ctl.ail = clamp(2.0 * (-out.phi) - 0.3 * out.p, -1, 1);
   let gCmd = Math.abs(out.phi) < 40 * DEG ? (out.M > 0.86 ? 1.8 : 2.4) : 1.0;
   if (out.buffet || out.stalled) gCmd = Math.min(gCmd, 0.9);
-  ac.ctl.elev = clamp(ac.ctl.elev + (gCmd - out.nz) * 0.9 * (1 / 200) * 60, -1, 1);
+  ac.ctl.elev = clamp(ac.ctl.elev + (gCmd - out.nz) * 0.9 * (1 / 200) * 60 / ELEV_K, -1 / ELEV_K, 1 / ELEV_K);
   if (out.theta > 5 * DEG && out.vs > 0) ac.ctl.elev = 0;
-  ac.ctl.trim = Math.min(1, ac.ctl.trim + 0.25 / 200 * (ac.ctl.elev > 0.3 ? 1 : 0));
+  ac.ctl.trim = Math.min(1, ac.ctl.trim + 0.25 / 200 * (ac.ctl.elev > 0.3 / ELEV_K ? 1 : 0));
 };
 
 let fail = 0;

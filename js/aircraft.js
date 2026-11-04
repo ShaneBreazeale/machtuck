@@ -6,6 +6,7 @@ import { DEG, RAD, clamp, lerp, smoothstep, qfromEuler, qmat, mulMV, mulMTV, eul
 import { isa, G0, KT, RHO0 } from './atmo.js';
 import { cd0, K_IND, cdTrim, clAlpha, clBuffet, clMaxCompressible, cdWave, buffetMach } from './aero.js';
 import { cycle, maxN1, idleN1 } from './engine.js';
+import { Ground, groundAlt, groundEffect } from './ground.js';
 
 const ALPHA0 = -1.5 * DEG;
 // Calibrated airspeed (kt) from Mach and static pressure: the pitot-static formula an air data
@@ -52,6 +53,20 @@ const M_WARN = 0.72;
 export const flapCL = (f) => table([[0, 0], [0.2, 0.08], [0.5, 0.22], [1, 0.40]], f);
 // Flap placard speeds VFE (AFM): 8° 250, 20° 200, 40° 165 KIAS
 export const vfe = (f) => (f >= 1 ? 165 : f >= 0.5 ? 200 : 250);
+// Elevator power: full elevator (ctl.elev = +/-1) is worth dCm 0.45 at low Mach. A T-tail estimate (tail ~5.6 m^2, arm
+// ~7.5 m, lift slope ~4/rad, elevator effectiveness ~0.5 over ~17 deg) gives ~0.5, and rotating at VR needs it: the main
+// wheels sit ~0.6 m behind the CG (TCDS C.G. range vs the gear contact points). Earlier versions used 0.18. Everything
+// calibrated per unit of elevator scales with ELEV_K (column force per deflection, tail incidence per deflection,
+// autopilot authority), so behaviour per unit of pitching moment, and with it the upset calibration, is unchanged.
+export const ELEV_POWER = 0.45, ELEV_K = ELEV_POWER / 0.18;
+// Stabilizer trim: ctl.trim u is worth dCm 0.14 per unit. The PTM (ch. 15) gives the stabilizer travel as 1 deg (full
+// nose-down) to 12 deg (full nose-up) on the PITCH TRIM indicator. The same tail-volume estimate as the elevator gives
+// ~0.054 per stabilizer degree (2.6 deg per unit), and the AFM takeoff trim (Fig 2-2: ~7 deg at mid CG) is what holds
+// V2 hands-off, which puts u = 0 at 4.3 deg. Cruise then trims near 5 deg, below the 6.5 deg high-speed index as the
+// PTM describes. The accident scenario keeps its calibrated +/-1 range.
+export const STAB = { zero: 4.3, perUnit: 2.6, min: (1 - 4.3) / 2.6, max: (12 - 4.3) / 2.6 };
+export const stabDeg = (u) => STAB.zero + STAB.perUnit * u;
+
 export class Learjet60 {
   constructor() {
     this.m = 9400;                       // kg, ~20,700 lb after 2h of fuel burn
@@ -70,6 +85,8 @@ export class Learjet60 {
     this.sys = { wingHeat: true, stabHeat: true, nacelleHeat: true, pitotHeat: true, wshldHeat: true, stallWarn: true, machTrim: true, trimMode: 'PRI', machTrimFail: false };
     this.shaker = false;                 // no stick pusher on the Learjet 60 (AFM: AOA, lights, shaker, low-speed cues)
     this.damage = 0; this.broken = false; this.brokenWhat = ''; this.crashed = false;
+    this.gnd = new Ground(); this.wow = false; this.crashWhy = '';   // landing gear and ground contact (js/ground.js)
+    this.ctl.brakeL = 0; this.ctl.brakeR = 0; this.ctl.park = false;
     this.tailStalled = false;
     this.failures = { tailIce: true, tuck: true };
     // 'hard' = as-flown realism: sticky iced tail, asymmetric ice, stronger tuck, degraded lateral control
@@ -139,6 +156,8 @@ export class Learjet60 {
     const ctl = this.ctl;
     const R = qmat(this.q);
     const h = -this.pos[2];
+    const agl = h - groundAlt(this.pos[0], this.pos[1]);
+    const ge = agl < 2 * this.b ? groundEffect(agl - 0.6, this.b) : null;   // wing ~0.6 m below the CG
     const atm = isa(Math.max(0, h), dT);
     const vrel = [this.vel[0] - wind[0], this.vel[1] - wind[1], this.vel[2] - wind[2]];
     const vb = mulMTV(R, vrel);
@@ -161,9 +180,10 @@ export class Learjet60 {
     else if (alpha < aStallN) { stallEx = aStallN - alpha; CL = Math.min(CLmin + 1.8 * stallEx, 0.45 * CLmin); stalled = true; }
     else CL = CLa * (alpha - alpha0);
     CL += flapCL(ctl.flaps) - 0.15 * ctl.sb;
+    if (ge) CL *= ge.lift;
     // Drag: component build-up CD0 (Reynolds + Mach), induced, and Lock wave drag above the
     // critical Mach from the section pressure model; ice roughness adds friction, lowers Mcrit
-    let CD = cd0(atm.rho, V, atm.T, M) + 0.014 * ice + K_IND * CL * CL + cdTrim(CL) + cdWave(M, CL, 0.03 * ice)
+    let CD = cd0(atm.rho, V, atm.T, M) + 0.014 * ice + K_IND * CL * CL * (ge ? ge.kInd : 1) + cdTrim(CL) + cdWave(M, CL, 0.03 * ice)
       + 0.035 * ctl.sb + 0.025 * ctl.gear + 0.06 * ctl.flaps + 1.0 * stallEx * stallEx;
     // Control effectiveness decays past shock-buffet onset (separation ahead of the hinges).
     // Onset is lift-dependent, so pulling g at high Mach loses elevator authority sooner.
@@ -177,7 +197,7 @@ export class Learjet60 {
     const aoaWing = (alpha - alpha0) / (aStall - alpha0);                     // true fraction of the (iced) wing's stall AOA
     this.shaker = this.sys.stallWarn && !this.broken && alpha > 0 && aoaN > shakerAoaN(h);
     const elevCmd = ctl.elev;
-    const alphaT = 0.7 * alpha * RAD - 3.0 + (this.hard ? 8.0 : 6.0) * elevCmd;   // deg; push drives the tail toward its negative stall, full pull re-attaches it
+    const alphaT = 0.7 * alpha * RAD - 3.0 + (this.hard ? 8.0 : 6.0) * ELEV_K * elevCmd;   // deg; push drives the tail toward its negative stall, full pull re-attaches it
     const iceT = this.iceTail;
     const tailCrit = this.failures.tailIce ? 14 - 11.5 * iceT : 14;
     if (!this.tailStalled && alphaT < -tailCrit) this.tailStalled = true;
@@ -185,13 +205,14 @@ export class Learjet60 {
     if (this.tailStalled && alphaT > -tailCrit + (this.hard ? 3.0 : 1.5)) this.tailStalled = false;
     const effTail = this.tailStalled ? (this.hard ? 0.22 : 0.3) : 1 - (this.hard ? 0.45 : 0.25) * iceT;
     let Cm = 0.02 + this.cmAlpha(M) * (alpha - alpha0) - 45 * qhat
-      + 0.18 * effM * effTail * elevCmd + 0.14 * effM * effTail * ctl.trim;
+      + ELEV_POWER * effM * effTail * elevCmd + 0.14 * effM * effTail * ctl.trim;
     if (this.failures.tuck) {
       let tuck = this.hard ? -0.14 * smoothstep(0.78, 0.92, M) : -0.09 * smoothstep(0.80, 0.93, M);   // Mach tuck
       if (this.sys.machTrim && !this.sys.machTrimFail) tuck -= Math.max(tuck, -0.05) * 0.9;            // Mach trim compensator: offsets up to ~0.045 of it
       Cm += tuck;
     }
     if (this.tailStalled) Cm += this.hard ? -0.17 : -0.22;              // tail unload -> pitch down
+    if (ge) Cm += ge.cm;                                                 // ground effect: less downwash at the tail
     // AFM FM-123 (Overspeed Recovery, Pitch Axis Malfunction): "significant nose-down pitching moment associated with
     // spoiler deployment" above Vmo/Mmo, hence "do not extend spoilers during any nose-down pitch upset at any speed".
     // Landing gear lowered at high speed: "a moderate nose-up pitching moment which is easily controllable".
@@ -206,7 +227,7 @@ export class Learjet60 {
     // ---- Lateral-directional ----
     this.rw += ((Math.random() * 2 - 1) * 6 - this.rw * 2) * dt; this.rw = clamp(this.rw, -1, 1);
     const effA = (1 - 0.4 * smoothstep(0.86, 0.98, M)) * (this.hard ? 1 - 0.3 * ice : 1);
-    let rudTot = clamp(ctl.rud + (ctl.yd ? -1.5 * r : 0), -1, 1);
+    let rudTot = clamp(ctl.rud + (ctl.yd && !this.wow ? -1.5 * r : 0), -1, 1);   // yaw damper off with weight on wheels
     // Sign convention: positive rudder = nose right. Yaw damper opposes yaw rate.
     // Aileron power: ~50°/s peak roll rate at cruise (full deflection)
     let Cl = -0.08 * beta - 0.42 * phat + 0.08 * rhat + 0.014 * ctl.ail * effA - 0.012 * rudTot;
@@ -246,12 +267,22 @@ export class Learjet60 {
     let lx = -dz * wu[0], ly = -dz * wu[1], lz = -1 - dz * wu[2];
     const ln = Math.hypot(lx, ly, lz) || 1; lx /= ln; ly /= ln; lz /= ln;
     const Fb = [-D * wu[0] + L * lx + T, -D * wu[1] + L * ly + Y, -D * wu[2] + L * lz];
+    // ---- Ground: gear, tyres, brakes, airframe contact (js/ground.js) ----
+    let gnd = null;
+    if (agl < 12) {
+      gnd = this.gnd.contact(this, R, ctl);
+      Fb[0] += gnd.F[0]; Fb[1] += gnd.F[1]; Fb[2] += gnd.F[2];
+      this.damage += gnd.dmg;
+      if (gnd.crash && !this.crashed) { this.crashed = true; this.crashWhy = gnd.crash; }
+    } else if (this.wow || this.gnd.hardOn.size) this.gnd.airborne();
+    this.wow = this.gnd.wow;
     const nz = -Fb[2] / (this.m * G0);
     const aN = mulMV(R, [Fb[0] / this.m, Fb[1] / this.m, Fb[2] / this.m]);
     aN[2] += G0;
 
     // ---- Moments & rates ----
-    const Lm = qbar * this.S * this.b * Cl, Mm = qbar * this.S * this.c * Cm, Nm = qbar * this.S * this.b * Cn;
+    let Lm = qbar * this.S * this.b * Cl, Mm = qbar * this.S * this.c * Cm, Nm = qbar * this.S * this.b * Cn;
+    if (gnd) { Lm += gnd.M[0]; Mm += gnd.M[1]; Nm += gnd.M[2]; }
     const pd = (Lm + (this.Iyy - this.Izz) * qq * r) / this.Ixx;
     const qd = (Mm + (this.Izz - this.Ixx) * p * r) / this.Iyy;
     const rd = (Nm + (this.Ixx - this.Iyy) * p * qq) / this.Izz;
@@ -292,7 +323,7 @@ export class Learjet60 {
         this.brokenWhat = (Math.abs(qq) > 0.6 || M > 0.9 || nz > 3) ? 'stab' : 'wing';
       }
     }
-    if (h <= 0 && !this.crashed) this.crashed = true;
+    if (agl < -0.3 && !this.crashed) { this.crashed = true; this.crashWhy = this.crashWhy || 'IMPACT'; }   // below the surface: nothing touched first
 
     const eu = eulerFromMat(qmat(this.q));
     const vs = -this.vel[2];
@@ -309,7 +340,7 @@ export class Learjet60 {
       p, q: qq, r, stalled, buffet, overspeed: KIAS > Vmo || M > Mmo, Vmo, Mmo, aoaN, tailStalled: this.tailStalled,
       OAT: atm.T - 273.15, gs: Math.hypot(this.vel[0], this.vel[1]), track: Math.atan2(this.vel[1], this.vel[0]),
       thrust: T, n1: this.n1, N1: this.N1, N1max: this.N1max, T4: eng.T4, ff: this.ff, fuel: this.fuel, damage: this.damage, aStall, CL, CD, tailCrit, alphaT, mach_a: atm.a, shaker: this.shaker, iceTail: this.iceTail, engIce: this.engIce,
-      Mbuf, bands: this.bands,
+      Mbuf, bands: this.bands, agl, wow: this.wow, steer: this.gnd.steer,
     };
     return this.out;
   }

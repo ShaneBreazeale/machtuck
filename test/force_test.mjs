@@ -1,6 +1,6 @@
 // Control-force model (js/controls.js): calibration against the AFM figure, normal handling, pilot fatigue, the
 // autopilot's clutched servos, and the as-flown upset recovered by an AFM-procedure pilot with and without force limits.
-import { Learjet60 } from '../js/aircraft.js';
+import { Learjet60, ELEV_K, ELEV_POWER } from '../js/aircraft.js';
 import { Environment, Autopilot, buildGhost, UPSET_T } from '../js/scenario.js';
 import { PilotControls, FORCE } from '../js/controls.js';
 import { DEG } from '../js/util.js';
@@ -18,17 +18,17 @@ const seed = (n) => { let a = n >>> 0; Math.random = () => { a = (a + 0x6D2B79F5
   // AFM: nose-down trim runaway / nose-down overspeed "require control forces in excess of 75 pounds". Full nose-down
   // trim needs ~0.78 elevator (Cm 0.14 trim vs 0.18 elevator per unit); at Vmo ~350 KEAS, M 0.80:
   pc.step(1 / 60, { elev: 0, ail: 0, rud: 0 }, { qbar: qOf(350), M: 0.80 }, null);
-  const holdRunaway = 0.78 * pc.need.pitch;
+  const holdRunaway = (0.14 / ELEV_POWER) * pc.need.pitch;
   expect(holdRunaway > 75 && holdRunaway < 140, `holding full nose-down trim at Vmo takes ${holdRunaway.toFixed(0)} lb (AFM: in excess of 75 lb)`);
   // cruise FL350 M0.77 (~255 KEAS): a normal correction is light
   const c = new PilotControls(); const s = c.step(1 / 60, { elev: 0.15, ail: 0, rud: 0 }, { qbar: qOf(255), M: 0.77 }, null);
-  expect(Math.abs(c.pitchLb) < 25 && s.elev > 0.1, `cruise: 15% effort gives ${s.elev.toFixed(2)} elevator for ${c.pitchLb.toFixed(0)} lb`);
+  expect(Math.abs(c.pitchLb) < 25 && s.elev > 0.1 / ELEV_K, `cruise: 15% effort gives ${s.elev.toFixed(2)} elevator for ${c.pitchLb.toFixed(0)} lb`);
   // approach 130 KEAS: full travel well within a held force
   const a = new PilotControls(); const sa = a.step(1 / 60, { elev: 1, ail: 1, rud: 0 }, { qbar: qOf(130), M: 0.2 }, null);
   expect(sa.elev === 1 && Math.abs(a.pitchLb) < FORCE.pitch[0], `approach: full elevator for ${a.pitchLb.toFixed(0)} lb`);
   // 380 KEAS, M 0.88: even a full-strength pull buys only part of the elevator
   const h = new PilotControls(); const sh = h.step(1 / 60, { elev: 1, ail: 1, rud: 0 }, { qbar: qOf(380), M: 0.88 }, null);
-  expect(sh.elev < 0.85 && sh.elev > 0.4, `380 KEAS M0.88: full-strength pull gives ${sh.elev.toFixed(2)} elevator (${h.pitchLb.toFixed(0)} lb), aileron ${sh.ail.toFixed(2)}`);
+  expect(sh.elev < 0.85 / ELEV_K && sh.elev > 0.4 / ELEV_K, `380 KEAS M0.88: full-strength pull gives ${sh.elev.toFixed(2)} elevator (${h.pitchLb.toFixed(0)} lb), aileron ${sh.ail.toFixed(2)}`);
   // fatigue: a full-strength pull at high speed tires within ~10 s
   const f = new PilotControls(); let t = 0; while (t < 30 && f.avail('pitch') > 90) { f.step(0.05, { elev: 1, ail: 0, rud: 0 }, { qbar: qOf(380), M: 0.88 }, null); t += 0.05; }
   expect(t > 5 && t < 15, `full-strength pull at 380 KEAS: available force falls below 90 lb after ${t.toFixed(1)} s (now ${f.pitchLb.toFixed(0)} lb)`);
@@ -77,9 +77,9 @@ function run(hyp, limited, sd, delay = 2.0) {
       if (out.overspeed && (out.M > 0.85 || Math.abs(out.phi) > 60 * DEG)) ac.ctl.gear = 1;
       want.ail = clamp(2.0 * (-out.phi) - 0.3 * out.p, -1, 1);
       const gCmd = Math.abs(out.phi) < 30 * DEG ? (out.M > 0.86 ? 1.8 : 2.3) : 1.0;
-      want.elev = clamp(want.elev + ((out.buffet || out.stalled ? Math.min(gCmd, 0.9) : gCmd) - out.nz) * 0.9 * dt * 60, -1, 1);
-      if (out.theta > 3 * DEG && out.vs > 0) want.elev = Math.min(want.elev, 0.05);
-      if (ac.sys.trimMode !== 'OFF' && want.elev > 0.25) ac.ctl.trim = Math.min(1, ac.ctl.trim + 0.25 * dt);
+      want.elev = clamp(want.elev + ((out.buffet || out.stalled ? Math.min(gCmd, 0.9) : gCmd) - out.nz) * 0.9 * dt * 60 / ELEV_K, -1 / ELEV_K, 1 / ELEV_K);   // the scripted pilot's authority, in pitching moment, as calibrated
+      if (out.theta > 3 * DEG && out.vs > 0) want.elev = Math.min(want.elev, 0.05 / ELEV_K);
+      if (ac.sys.trimMode !== 'OFF' && want.elev > 0.25 / ELEV_K) ac.ctl.trim = Math.min(1, ac.ctl.trim + 0.25 * dt);
     }
     minH = Math.min(minH, out.h);
     if (apOff !== null && t > UPSET_T && Math.abs(out.phi) < 15 * DEG && out.vs > -7.6 && out.nz > 0.6 && out.nz < 1.6) { stable += dt; if (stable > 5 && rec === null) rec = out.h; } else stable = 0;

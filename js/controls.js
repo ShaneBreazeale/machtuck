@@ -21,13 +21,14 @@
 // the spring centre at its command and the spring's saturation is the clutch slip force. The simulated pilot's
 // strength still applies: the elevator never goes further than the pilot could hold against the hinge moment.
 import { clamp, smoothstep } from './util.js';
+import { ELEV_K } from './aircraft.js';
 
 const KTS = 0.514444;
 const Q250 = 0.5 * 1.225 * (250 * KTS) ** 2;      // dynamic pressure at 250 KEAS, Pa
 
 export const FORCE = {
   // force (lb) for full surface deflection at 250 KEAS, subsonic
-  elevFull250: 66,     // -> ~100 lb to hold full nose-down trim at Vmo (needs ~0.78 elevator)
+  elevFull250: 66 * ELEV_K,   // 165 lb -> ~100 lb to hold full nose-down trim at Vmo (needs ~0.31 elevator)
   ailFull250: 34,
   rudFull250: 120,     // rudder boost (servo) takes ~40% of the pedal force when armed (AFM: engages near 50 lb)
   // pilot capability (lb): sustained, burst
@@ -36,7 +37,7 @@ export const FORCE = {
 };
 // force feedback scaling: the column force (lb) that the stick's strongest spring stands for, and the stiffness of
 // an engaged autopilot servo (lb for full stick travel away from its command)
-export const FEEL = { pitchLb: 150, rollLb: 90, apStiff: { pitch: 60, roll: 36 } };
+export const FEEL = { pitchLb: 150 * ELEV_K, rollLb: 90, apStiff: { pitch: 60 * ELEV_K, roll: 36 } };
 
 export class PilotControls {
   constructor() { this.reset(); }
@@ -84,7 +85,7 @@ export class PilotControls {
     // column pulsing with ice on the stabilizer (AFM), stronger with a stalled tail and with power
     const iceP = st.tailStalled ? 1 : smoothstep(0.35, 0.8, st.iceTail || 0) * 0.5;
     this.pulse += dt * 9.0;
-    const jitter = iceP * (0.06 + 0.06 * (st.n1 || 0)) * Math.sin(this.pulse) * Math.sin(this.pulse * 0.37 + 1);
+    const jitter = iceP * (0.06 + 0.06 * (st.n1 || 0)) / ELEV_K * Math.sin(this.pulse) * Math.sin(this.pulse * 0.37 + 1);
     dE = clamp(dE + jitter, -1, 1);
     // stamina: drains while the pull exceeds what can be held, recovers when relaxed
     const over = Math.max(0, Math.abs(this.pitchLb) - FORCE.pitch[0]) / (FORCE.pitch[1] - FORCE.pitch[0])

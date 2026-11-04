@@ -27,6 +27,7 @@ Products (data/ground/):
   far.jpg   2048^2  east -300..+300 km, north -300..+300 km (USGS z9 ~270 m/px)
   site.jpg  4096^2  east -20..-4 km,   north -16..0 km     (USGS z15 ~4.3 m/px)
   detail.jpg 4096^2 east -15.1..-10.1 km, north -10.8..-5.8 km (USGS z16, ~2.4 m source at 1.2 m/px; z17 has no coverage here)
+  airport.jpg 4096^2 east -2.26..2.86 km, north -2.26..2.86 km (USGS z16, ~2.4 m source at 1.25 m/px): KPBI for free flight
   near_water.png 2048^2, far_water.png 1024^2: 8-bit, 255 = water.
   ground.json bounds + attribution.
 
@@ -69,6 +70,8 @@ PRODUCTS = {
     'site': dict(e0=-20000, e1=-4000, n0=-16000, n1=0, size=4096, z=15, ss=1, mask=None, q=85),
     # 2.4 m source (z16; z17 is empty here) around the reconstructed impact point (ghost track end, e -12.6 km / n -8.3 km): the replay ground camera
     'detail': dict(e0=-15074, e1=-10074, n0=-10839, n1=-5839, size=4096, z=16, ss=1, mask=None, q=82),
+    # KPBI for free flight: runways, taxiways and aprons (the aerodrome spans east -1.6..2.2 km, north -0.7..1.2 km)
+    'airport': dict(e0=-2260, e1=2860, n0=-2260, n1=2860, size=4096, z=16, ss=1, mask=None, q=82),   # z17 is empty here too
 }
 
 

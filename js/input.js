@@ -7,6 +7,7 @@ export class Input {
     this.kb = { elev: 0, ail: 0, rud: 0 };   // keyboard part, ramped (keys are on/off); hardware and mouse are added unramped
     this.hw = new Hardware();               // every connected yoke, stick, pedals, throttle quadrant and gamepad (js/hardware.js)
     this.thrSet = null;                     // absolute throttle from a bound lever, set only on frames the lever moved
+    this.brakeL = 0; this.brakeR = 0;       // wheel brakes 0..1: Shift (both), toe brakes, a bound button, D-pad left
     this.events = [];            // discrete actions: 'ap_off','sb','gear','flaps','cam','pause','restart','skip','quality','slow','antiice','yd','help','ghost'
     this.mouse = { down: false, x0: 0, y0: 0, dx: 0, dy: 0 };
     this.thrDelta = 0; this.trimDelta = 0; this.orbit = { yaw: 0, pitch: 0 }; this.rdrag = null; this.onClick = null;
@@ -77,6 +78,8 @@ export class Input {
     const held = Math.abs(this.axes.elev) > 0.05 || Math.abs(this.axes.ail) > 0.05 || Math.abs(hw.posElev || 0) > 0.05 || Math.abs(hw.posAil || 0) > 0.05;
     let thrIn = hw.thrRate, trimIn = hw.trim;   // -1..1 rate demands: keys are on/off, triggers proportional
     if (hw.thrSet !== null) this.thrSet = hw.thrSet;   // held until the sim takes it (IN.thrSet = null)
+    const kbBrake = this.pressed('shift') ? 1 : 0;
+    this.brakeL = Math.max(kbBrake, hw.brakeL); this.brakeR = Math.max(kbBrake, hw.brakeR);
     this.trimDelta = 0;
     if (this.pressed('=', '+')) thrIn += 1; if (this.pressed('-', '_')) thrIn -= 1;
     this.thrDelta = clamp(thrIn, -1, 1) * 0.5 * dt;   // full travel in ~2 s at full key/trigger

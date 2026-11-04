@@ -72,5 +72,17 @@
   "m_per_px": 1.220703125,
   "usgs_zoom": 16,
   "usgs_coverage_fraction": 1.0
+ },
+ "airport": {
+  "file": "airport.jpg",
+  "e0": -2260,
+  "e1": 2860,
+  "n0": -2260,
+  "n1": 2860,
+  "width": 4096,
+  "height": 4096,
+  "m_per_px": 1.25,
+  "usgs_zoom": 16,
+  "usgs_coverage_fraction": 1.0
  }
 }

@@ -27,6 +27,9 @@ Manual (AFM). It is pure WebGL2 and ES modules with no build step.
 - **Four upset hypotheses.** Fly the combined convective-core case, a tailplane stall, Mach tuck with a failed Mach
   trim, or a runaway nose-down trim, each "as flown" or in a forgiving trainer mode.
 - **A reconstruction mode.** Watch the reported ADS-B track replayed with chase, cockpit and ground cameras.
+- **Free flight from Palm Beach.** Separate from the accident: take off, fly and land at KPBI on real runway geometry
+  with landing gear, tyres, brakes, nosewheel steering and ground effect, in calm air, the day's METAR wind or a
+  crosswind.
 - **A debrief.** Compares your flight with the real one and exports a 4 Hz flight data recorder as CSV.
 - **A physically based renderer.** Atmosphere scattering, volumetric clouds, imagery-driven ground with 62,000 real
   buildings and 512,000 measured trees around the impact area.
@@ -51,6 +54,12 @@ Apple Silicon is recommended. Press `K` to trade quality for frame rate.
 Click **Fly it**, or press `N` to skip ahead to core entry. The autopilot flies the cruise and hands you the airplane
 when it can no longer cope.
 
+**Free flight** is a separate mode at the bottom of the briefing screen, with no storm and no accident script. Pick a
+start (runway 10L or 28R lined up, a 6 nm final to 10L, or cruise at FL350), weather and weight, then **Free flight**.
+On the runway the parking brake is set and takeoff trim is dialled in: hold Shift to release the brake, add full
+thrust, and ease back at the rotation speed shown, to about 10° (the tail strikes at 11°). Touch down below 600 ft/min;
+harder than that the gear is damaged, and near 960 ft/min it collapses.
+
 ## Controls
 
 | Action | Keyboard | Controller |
@@ -61,6 +70,7 @@ when it can no longer cope.
 | Pitch trim | `,` nose-down, `.` nose-up | R1 / L1 |
 | Autopilot off or on | X | Cross |
 | Spoilers, gear, flaps | B, G, F | Circle, D-pad |
+| Brakes (free flight) | Hold Shift; toe brakes bind in the controls panel | D-pad left |
 | Camera | C, right-drag to orbit | Triangle |
 | Tablet (map and procedure cards) | Tab, then 1 to 6 for a card | |
 | Real weather on or off | U | |
@@ -111,6 +121,22 @@ balances its hinge moment, which grows with dynamic pressure and in the transoni
 AFM, which warns that a nose-down overspeed can need more than 75 lb to recover. A pilot holds about 60 lb, bursts to
 150 lb, and tires within about 10 seconds. The autopilot's clutched servos can be overpowered, but it keeps trimming
 against you until you disconnect it.
+
+Full elevator is worth ΔCm 0.45 at low speed, a T-tail estimate (tail about 5.6 m², arm about 7.5 m) that rotation
+at VR needs: the main wheels sit about 0.6 m behind the CG (the TCDS CG range against the gear contact points). The
+stabilizer trims over the PTM's 1–12° range at 0.054 Cm per degree. Takeoff trim works out to 7.3°, inside the AFM's
+takeoff segment, and cruise trims near 5°. The upset scenario keeps its earlier calibration: column force, tail-stall
+onset and autopilot authority per unit of pitching moment are unchanged, and so are its ±1 trim limits.
+
+### Ground
+
+[`js/ground.js`](js/ground.js) models three oleo struts (stiffness and damping set so each sits about a third into its
+stroke), tyres with rolling and cornering friction, anti-skid brakes, and nosewheel steering that narrows from 45° at
+taxi speed to 7° at takeoff speed. The geometry comes from the exterior model: the nose wheel carries 7.7 % of the
+weight, and the tail and wingtips touch at 11.3° of pitch and 14.5° of bank. Touchdown follows Part 25: 10 ft/s is the
+limit, more than 12 ft/s damages the gear, and about 16 ft/s collapses it. Ground effect cuts induced drag, adds lift
+and pitches the nose down below one wingspan. Runways come from OpenStreetMap, are painted with FAA markings over a
+1.25 m/px NAIP image of the airport, and the imagery-driven 3D houses are kept off the aerodrome.
 
 ### Structure
 
@@ -167,6 +193,7 @@ costs about 8,000 ft. From 8 seconds on, the wing fails before the pilot acts.
 | `data/glm_flashes.json` | GOES-19 Geostationary Lightning Mapper, 17:44 to 17:52Z | Lightning times and positions |
 | `data/metar.json`, `data/sounding_kmfl.json` | KPBI METARs, KMFL 12Z radiosonde | Cumulus layer, deck base, freezing level |
 | `data/ground/` | USGS orthoimagery (NAIP), NASA Blue Marble, USGS NHD water | Terrain texture and water |
+| KPBI runways and boundary (in `js/ground.js`) | OpenStreetMap (ODbL) | Runway geometry, markings, ground friction |
 | `data/ground/buildings.bin` | Overture Maps (OpenStreetMap + Microsoft) | 62,192 buildings with measured heights |
 | `data/ground/trees.bin` | Meta / WRI 1 m canopy height map | 511,964 trees with measured heights and crowns |
 | `audio/atc_liveatc.mp3` | LiveATC recording as publicly posted | Optional ATC audio, off by default |
@@ -198,11 +225,12 @@ node tools/bench.mjs 2560x1320 8080
 | `js/aircraft.js`, `js/aero.js`, `js/engine.js` | Flight model, aerodynamics, engine cycle |
 | `js/controls.js` | Column and wheel forces, pilot strength, autopilot clutches |
 | `js/input.js`, `js/hardware.js`, `js/hwui.js` | Keyboard and mouse, all connected flight hardware, the binding panel |
+| `js/ground.js`, `js/freeflight.js` | Landing gear and ground contact; free-flight starts, weather and trim solver |
 | `js/ffb.js` | USB PID force-feedback driver over WebHID |
 | `js/scenario.js` | Storm environment, ADS-B reconstruction, ATC timeline, autopilot, hypotheses |
 | `js/render.js`, `js/shaders.js` | WebGL2 renderer |
 | `js/hud.js`, `js/cockpit.js`, `js/vcgauges.js` | Instruments, 3D cockpit, standby gauges |
-| `test/` | Flight-test card, AFM table validation, upset, recovery, force, hardware and force-feedback checks |
+| `test/` | Flight-test card, AFM table validation, upset, recovery, force, ground, hardware and force-feedback checks |
 | `tools/` | Data fetchers, model and livery converters, benchmark |
 
 Debug views load the reconstruction paused at a given time:
