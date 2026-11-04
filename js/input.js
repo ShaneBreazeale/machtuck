@@ -80,6 +80,7 @@ export class Input {
     if (hw.thrSet !== null) this.thrSet = hw.thrSet;   // held until the sim takes it (IN.thrSet = null)
     const kbBrake = this.pressed('shift') ? 1 : 0;
     this.brakeL = Math.max(kbBrake, hw.brakeL); this.brakeR = Math.max(kbBrake, hw.brakeR);
+    this.revHold = hw.rev;                  // a bound 'thrust reversers' button is held
     this.trimDelta = 0;
     if (this.pressed('=', '+')) thrIn += 1; if (this.pressed('-', '_')) thrIn -= 1;
     this.thrDelta = clamp(thrIn, -1, 1) * 0.5 * dt;   // full travel in ~2 s at full key/trigger

@@ -7,9 +7,14 @@ import { isa, FT, KT } from './atmo.js';
 import { STAB, stabDeg } from './aircraft.js';
 
 export const WEATHER = {
-  calm:  { name: 'Calm, few cumulus', wind: 0, from: 0, gust: 0, cu: 0.08 },
-  metar: { name: 'KPBI METAR 1 Nov 17:53Z: 080° 16 G28 kt, scattered cumulus', wind: 16, from: 80, gust: 28, cu: 0.3 },
-  cross: { name: 'Crosswind 010° 15 kt (90° to runway 10L)', wind: 15, from: 10, gust: 0, cu: 0.12 },
+  calm:  { name: 'Calm, few cumulus, ISA', wind: 0, from: 0, gust: 0, cu: 0.08, dT: 0 },
+  metar: { name: 'KPBI METAR 1 Nov 17:53Z: 080° 16 G28 kt, 26 °C, scattered cumulus', wind: 16, from: 80, gust: 28, cu: 0.3, dT: 11 },
+  cross: { name: 'Crosswind 010° 15 kt (90° to runway 10L), ISA', wind: 15, from: 10, gust: 0, cu: 0.12, dT: 0 },
+};
+export const FAILURES = {
+  none:  { name: 'No failures' },
+  v1:    { name: 'Engine failure at V1 (continue: rudder, V2, gear up)' },
+  climb: { name: 'Engine failure after takeoff (400-1,500 ft)' },
 };
 export const WEIGHTS = {
   light:   { name: '17,000 lb (light)', kg: 7711 },
@@ -28,7 +33,7 @@ export const rwyByStart = (st) => { const s = STARTS[st]; return s && s.rw ? run
 // ---- environment: mean wind with a surface boundary layer, gusts as a band-limited random walk ----
 export class FreeEnv {
   constructor(wx = 'calm') {
-    this.wxKey = wx; this.wx = WEATHER[wx] || WEATHER.calm;
+    this.wxKey = wx; this.wx = WEATHER[wx] || WEATHER.calm; this.dT = this.wx.dT;   // ISA deviation, K
     this.hyp = { name: 'Free flight', tailIce: false, tuck: true, trimRunaway: false, iceGain: 0, shear: 0, apFail: false, machTrimFail: false };
     this.flash = 0; this.flashPos = null; this.flashDist = null; this.nex = null; this.useNex = false; this.glm = null;
     this.gust = [0, 0, 0]; this.ph = Array.from({ length: 6 }, () => Math.random() * 6.28);
@@ -58,7 +63,7 @@ export function setWeight(ac, key) {
 // on the runway centreline `along` metres past the threshold, at rest, struts settled, parking brake set
 export function placeOnRunway(ac, f, along = 60, env = { wind: [0, 0, 0] }) {
   const n = f.thr[0] + f.u[0] * along, e = f.thr[1] + f.u[1] * along;
-  ac.setState({ n, e, d: -(groundAlt(n, e) + 1.52), psi: f.hdg, theta: 0.4 * DEG, phi: 0, V: 0 });
+  ac.setState({ n, e, d: -(groundAlt(n, e) + ac.gnd.elev + 1.52), psi: f.hdg, theta: 0.4 * DEG, phi: 0, V: 0 });
   ac.vel = [0, 0, 0];
   Object.assign(ac.ctl, { gear: 1, flaps: 0.2, sb: 0, thr: 0, elev: 0, ail: 0, rud: 0, park: true, brakeL: 0, brakeR: 0 });
   ac.n1 = 0; ac.ctl.trim = takeoffTrim(ac);
@@ -77,7 +82,7 @@ export function takeoffTrim(ac) {
 
 // Steady flight at true airspeed V (m/s), flight-path angle gamma, heading psi: solves AOA, stabilizer trim and thrust
 // by stepping the real model at a frozen state and nulling the accelerations.
-export function trimFlight(ac, { n, e, h, V, gamma = 0, psi = 0, dT = 7 }) {
+export function trimFlight(ac, { n, e, h, V, gamma = 0, psi = 0, dT = 0 }) {
   let alpha = 3 * DEG, thr = 0.5, trim = 0.2, res = null;
   const env = { wind: [0, 0, 0], dT };
   const cg = Math.cos(gamma), sg = Math.sin(gamma);
@@ -107,21 +112,22 @@ export function trimFlight(ac, { n, e, h, V, gamma = 0, psi = 0, dT = 7 }) {
   ac.ctl.thr = thr; ac.n1 = thr; ac.ctl.trim = trim; ac.w = [0, 0, 0];
   return { alpha, thr, trim, res };
 }
-export const tasFor = (kias, h, dT = 7) => { const atm = isa(h, dT); return kias * KT * Math.sqrt(1.225 / atm.rho); };
+export const tasFor = (kias, h, dT = 0) => { const atm = isa(h, dT); return kias * KT * Math.sqrt(1.225 / atm.rho); };
 
 // Set up a start. Returns { onGround, apOn, msg }.
 export function setupStart(ac, key, env) {
   const st = STARTS[key] || STARTS.rwy10L;
   ac.failures.tailIce = false; ac.failures.tuck = true; ac.ice = 0; ac.iceTail = 0; ac.engIce = 0; ac.hard = true;
-  if (st.ground) { placeOnRunway(ac, rwyByStart(key), 60, { wind: [0, 0, 0] }); return { onGround: true, apOn: false, msg: `${st.name}. Parking brake set: press Shift (brakes) to release it. Flaps 8, takeoff trim ${stabDeg(ac.ctl.trim).toFixed(1)}°. Rotate near ${Math.round(1.1 * (99 + 27 * (ac.m / 0.45359 - 14000) / 9500))} KIAS: ease back to about 10° (tail strike at 11°).` }; }
+  const dT = env ? env.dT : 0;
+  if (st.ground) { placeOnRunway(ac, rwyByStart(key), 60, { wind: [0, 0, 0], dT }); return { onGround: true, apOn: false, msg: `${st.name}. Parking brake set: press Shift (brakes) to release it. Flaps 8, takeoff trim ${stabDeg(ac.ctl.trim).toFixed(1)}°. Full thrust (T/O), rotate at VR to about +9° (tail strike at 11°).` }; }
   if (key === 'final10L') {
     const f = rwyByStart('rwy10L'), dist = st.nm * 1852, h = Math.tan(3 * DEG) * dist + 15 + groundAlt(f.thr[0], f.thr[1]);
     Object.assign(ac.ctl, { gear: 1, flaps: st.flaps, sb: 0, park: false });
-    trimFlight(ac, { n: f.thr[0] - f.u[0] * dist, e: f.thr[1] - f.u[1] * dist, h, V: tasFor(st.kias, h), gamma: -3 * DEG, psi: f.hdg });
+    trimFlight(ac, { n: f.thr[0] - f.u[0] * dist, e: f.thr[1] - f.u[1] * dist, h, V: tasFor(st.kias, h, dT), gamma: -3 * DEG, psi: f.hdg, dT });
     return { onGround: false, apOn: false, msg: `${st.name}. On the 3° glidepath, gear down, flaps 20. Flaps 40 below 165 KIAS; touch down below 600 ft/min.` };
   }
-  const h = st.alt * FT, atm = isa(h, 7), V = st.mach * atm.a, f = rwyByStart('rwy10L');
+  const h = st.alt * FT, atm = isa(h, dT), V = st.mach * atm.a, f = rwyByStart('rwy10L');
   Object.assign(ac.ctl, { gear: 0, flaps: 0, sb: 0, park: false });
-  trimFlight(ac, { n: 9000, e: -30000, h, V, gamma: 0, psi: f.hdg });
+  trimFlight(ac, { n: 9000, e: -30000, h, V, gamma: 0, psi: f.hdg, dT });
   return { onGround: false, apOn: true, msg: `${st.name}. Autopilot holding altitude and heading.` };
 }

@@ -5,7 +5,7 @@
 import { DEG, RAD, clamp, lerp, smoothstep, qfromEuler, qmat, mulMV, mulMTV, eulerFromMat, qIntegrate } from './util.js';
 import { isa, G0, KT, RHO0 } from './atmo.js';
 import { cd0, K_IND, cdTrim, clAlpha, clBuffet, clMaxCompressible, cdWave, buffetMach } from './aero.js';
-import { cycle, maxN1, idleN1 } from './engine.js';
+import { cycle, maxN1, idleN1, takeoffN1 } from './engine.js';
 import { Ground, groundAlt, groundEffect } from './ground.js';
 
 const ALPHA0 = -1.5 * DEG;
@@ -50,7 +50,12 @@ export const shakerAoaN = (h) => (h > 18100 * 0.3048 ? 0.70 : 0.82);
 const M_WARN = 0.72;
 // Flap lift increment for the lever fraction (0.2 = 8°, 0.5 = 20°, 1 = 40°), from the AFM
 // stall chart: at 23,500 lb flaps 8/20/40 stall at 126/121/115 KCAS vs 129 clean.
-export const flapCL = (f) => table([[0, 0], [0.2, 0.08], [0.5, 0.22], [1, 0.40]], f);
+export const flapCL = (f) => table([[0, 0], [0.2, 0.08], [0.5, 0.22], [1, 0.40]], f);   // gain in MAXIMUM lift (AFM Fig 5-22 stall speeds)
+// Lift gained at a given angle of attack: a slotted flap shifts the whole lift curve up by more than it raises maximum
+// lift (the flapped wing stalls at a lower AOA). The AFM fixes it: V2 is reached at the +9 deg rotation attitude with a
+// positive one-engine gradient (Fig 5-42 / p. 5-1), which needs CL ~1.05 at ~7.5 deg body AOA with flaps 8; flaps 40
+// leaves a slightly nose-up attitude on a 3 deg approach at VREF.
+export const flapCL0 = (f) => table([[0, 0], [0.2, 0.27], [0.5, 0.45], [1, 0.62]], f);
 // Flap placard speeds VFE (AFM): 8° 250, 20° 200, 40° 165 KIAS
 export const vfe = (f) => (f >= 1 ? 165 : f >= 0.5 ? 200 : 250);
 // Elevator power: full elevator (ctl.elev = +/-1) is worth dCm 0.45 at low Mach. A T-tail estimate (tail ~5.6 m^2, arm
@@ -86,7 +91,11 @@ export class Learjet60 {
     this.shaker = false;                 // no stick pusher on the Learjet 60 (AFM: AOA, lights, shaker, low-speed cues)
     this.damage = 0; this.broken = false; this.brokenWhat = ''; this.crashed = false;
     this.gnd = new Ground(); this.wow = false; this.crashWhy = '';   // landing gear and ground contact (js/ground.js)
-    this.ctl.brakeL = 0; this.ctl.brakeR = 0; this.ctl.park = false;
+    this.ctl.brakeL = 0; this.ctl.brakeR = 0; this.ctl.park = false; this.ctl.rev = 0;   // rev: thrust-reverser lever 0..1 (ground only)
+    this.engFail = null;                 // 'L' / 'R': that engine has failed (spools down, windmills)
+    this.failSpool = 0;                  // the failed engine's remaining thrust fraction (spool-down)
+    this.apr = true;                     // APR armed (normal for takeoff): a failure raises the live engine's takeoff rating
+    this.N1to = 93;                      // takeoff-rated N1 (thrust levers at T/O below 1,500 ft)
     this.tailStalled = false;
     this.failures = { tailIce: true, tuck: true };
     // 'hard' = as-flown realism: sticky iced tail, asymmetric ice, stronger tuck, degraded lateral control
@@ -156,7 +165,7 @@ export class Learjet60 {
     const ctl = this.ctl;
     const R = qmat(this.q);
     const h = -this.pos[2];
-    const agl = h - groundAlt(this.pos[0], this.pos[1]);
+    const agl = h - groundAlt(this.pos[0], this.pos[1]) - this.gnd.elev;
     const ge = agl < 2 * this.b ? groundEffect(agl - 0.6, this.b) : null;   // wing ~0.6 m below the CG
     const atm = isa(Math.max(0, h), dT);
     const vrel = [this.vel[0] - wind[0], this.vel[1] - wind[1], this.vel[2] - wind[2]];
@@ -171,15 +180,15 @@ export class Learjet60 {
 
     // ---- Longitudinal aerodynamics ----
     const CLa = clAlphaAt(M);
-    const alpha0 = ALPHA0;
-    let CLmax = clMaxAt(M, ice);
-    const CLmin = -0.7 * CLmax;
+    const alpha0 = ALPHA0 - flapCL0(ctl.flaps) / CLa;                  // flaps shift the lift curve
+    const CLmax0 = clMaxAt(M, ice); let CLmax = CLmax0 + flapCL(ctl.flaps);   // flapped maximum lift
+    const CLmin = -0.7 * CLmax0;
     const aStall = alpha0 + CLmax / CLa, aStallN = alpha0 + CLmin / CLa;
     let CL, stalled = false, stallEx = 0;
     if (alpha > aStall) { stallEx = alpha - aStall; CL = Math.max(CLmax - 1.8 * stallEx, 0.45 * CLmax * Math.cos(Math.min(stallEx, 1.2))); stalled = true; }
     else if (alpha < aStallN) { stallEx = aStallN - alpha; CL = Math.min(CLmin + 1.8 * stallEx, 0.45 * CLmin); stalled = true; }
     else CL = CLa * (alpha - alpha0);
-    CL += flapCL(ctl.flaps) - 0.15 * ctl.sb;
+    CL += -ctl.sb * (0.15 + 0.45 * ctl.flaps);   // spoilers ahead of the flaps spoil most of the flap lift (lift dump on landing)   // spoilers dump more lift with the flaps out (lift dump on landing)
     if (ge) CL *= ge.lift;
     // Drag: component build-up CD0 (Reynolds + Mach), induced, and Lock wave drag above the
     // critical Mach from the section pressure model; ice roughness adds friction, lowers Mcrit
@@ -193,7 +202,7 @@ export class Learjet60 {
     // Stall warning: AOA vanes and a computer calibrated for the CLEAN wing. With ice the wing
     // stalls at a lower AOA than the system assumes, so it can stall before the shaker (AFM: even
     // small leading-edge ice raises the stall speed). STALL WARN OFF (6) silences the shaker.
-    const aoaN = (alpha - alpha0) * CLa / clMaxAt(Math.min(M, M_WARN), 0);     // stall-warning AOA, 1 = clean max lift
+    const aoaN = (alpha - alpha0) * CLa / (clMaxAt(Math.min(M, M_WARN), 0) + flapCL(ctl.flaps));   // stall-warning AOA, 1 = un-iced max lift (flap-scheduled, AFM)
     const aoaWing = (alpha - alpha0) / (aStall - alpha0);                     // true fraction of the (iced) wing's stall AOA
     this.shaker = this.sys.stallWarn && !this.broken && alpha > 0 && aoaN > shakerAoaN(h);
     const elevCmd = ctl.elev;
@@ -204,7 +213,7 @@ export class Learjet60 {
     // Contaminated tail re-attaches only with margin: hard mode needs a real pull or less speed
     if (this.tailStalled && alphaT > -tailCrit + (this.hard ? 3.0 : 1.5)) this.tailStalled = false;
     const effTail = this.tailStalled ? (this.hard ? 0.22 : 0.3) : 1 - (this.hard ? 0.45 : 0.25) * iceT;
-    let Cm = 0.02 + this.cmAlpha(M) * (alpha - alpha0) - 45 * qhat
+    let Cm = 0.02 + this.cmAlpha(M) * (alpha - ALPHA0) - 45 * qhat
       + ELEV_POWER * effM * effTail * elevCmd + 0.14 * effM * effTail * ctl.trim;
     if (this.failures.tuck) {
       let tuck = this.hard ? -0.14 * smoothstep(0.78, 0.92, M) : -0.09 * smoothstep(0.80, 0.93, M);   // Mach tuck
@@ -251,12 +260,22 @@ export class Learjet60 {
     const tau = ctl.thr > this.n1 ? 2.5 : 1.5;
     this.n1 += (clamp(ctl.thr, 0, 1) - this.n1) * dt / tau;
     this.engAge += dt;
-    if (this.engAge >= 0.1) { this.N1max = maxN1(M, atm.p, atm.T); this.N1idle = idleN1(); this.engAge = 0; }
+    if (this.engAge >= 0.1) { this.N1max = maxN1(M, atm.p, atm.T); this.N1to = takeoffN1(M, atm.p, atm.T, !!this.engFail && this.apr); this.N1idle = idleN1(); this.engAge = 0; }
     const flameout = this.fuel <= 0;
-    this.N1 = flameout || this.broken ? Math.max(0, this.N1 - 8 * dt) : lerp(this.N1idle, this.N1max, this.n1);
+    // Takeoff rating with the levers at T/O below 1,500 ft (the takeoff segment); otherwise maximum continuous. Reversers
+    // (ground only) spool the engines on the reverse lever and turn ~45 % of the thrust forward.
+    if (!this.wow) ctl.rev = 0;
+    const top = ctl.thr > 0.99 && agl < 457 ? this.N1to : this.N1max;
+    const nTgt = ctl.rev > 0 ? lerp(this.N1idle, this.N1max * 0.92, clamp(ctl.rev, 0, 1)) : lerp(this.N1idle, top, this.n1);
+    this.N1 = flameout || this.broken ? Math.max(0, this.N1 - 8 * dt) : ctl.rev > 0 ? this.N1 + (nTgt - this.N1) * Math.min(1, dt / 1.5) : nTgt;
     const eng = cycle(this.N1, M, atm.p, atm.T);
-    const T = this.broken || flameout ? 0 : 2 * eng.F * (1 - 0.35 * this.engIce);
-    this.ff = flameout || this.broken ? 0 : 2 * eng.ff;
+    this.failSpool = this.engFail ? Math.max(0, this.failSpool - dt / 1.5) : 1;   // a failed engine runs down over ~1.5 s
+    const nEng = this.engFail ? 1 + this.failSpool : 2, revK = ctl.rev > 0 ? -0.45 : 1;
+    const T = this.broken || flameout ? 0 : nEng * eng.F * revK * (1 - 0.35 * this.engIce);
+    this.ff = flameout || this.broken ? 0 : nEng * eng.ff;
+    // one engine out: the live engine (1.31 m off the centreline) yaws the airplane, the dead one windmills
+    const yawEng = this.engFail && !this.broken && !flameout ? (this.engFail === 'L' ? -1 : 1) * eng.F * revK * 1.31 * (1 - this.failSpool) : 0;
+    if (this.engFail) CD += 0.003;
     const burn = Math.min(this.fuel, this.ff * dt);
     this.fuel -= burn; this.m -= burn;
 
@@ -283,6 +302,7 @@ export class Learjet60 {
     // ---- Moments & rates ----
     let Lm = qbar * this.S * this.b * Cl, Mm = qbar * this.S * this.c * Cm, Nm = qbar * this.S * this.b * Cn;
     if (gnd) { Lm += gnd.M[0]; Mm += gnd.M[1]; Nm += gnd.M[2]; }
+    Nm += yawEng;
     const pd = (Lm + (this.Iyy - this.Izz) * qq * r) / this.Ixx;
     const qd = (Mm + (this.Izz - this.Ixx) * p * r) / this.Iyy;
     const rd = (Nm + (this.Ixx - this.Iyy) * p * qq) / this.Izz;
@@ -340,7 +360,7 @@ export class Learjet60 {
       p, q: qq, r, stalled, buffet, overspeed: KIAS > Vmo || M > Mmo, Vmo, Mmo, aoaN, tailStalled: this.tailStalled,
       OAT: atm.T - 273.15, gs: Math.hypot(this.vel[0], this.vel[1]), track: Math.atan2(this.vel[1], this.vel[0]),
       thrust: T, n1: this.n1, N1: this.N1, N1max: this.N1max, T4: eng.T4, ff: this.ff, fuel: this.fuel, damage: this.damage, aStall, CL, CD, tailCrit, alphaT, mach_a: atm.a, shaker: this.shaker, iceTail: this.iceTail, engIce: this.engIce,
-      Mbuf, bands: this.bands, agl, wow: this.wow, steer: this.gnd.steer,
+      Mbuf, bands: this.bands, agl, wow: this.wow, steer: this.gnd.steer, rev: ctl.rev, engFail: this.engFail, toRated: top === this.N1to,
     };
     return this.out;
   }

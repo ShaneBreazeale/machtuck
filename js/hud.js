@@ -190,7 +190,7 @@ export class HUD {
       else bands.push({ from: 0, to: 9999, style: 'barber' });
       bands.push({ from: top, to: 9999, color: COL.amber });
     }
-    this.tape(tx, ty, tw, s, o.KIAS, 10, 20, s * 0.062, (v) => v < 0 ? null : v, (v) => { const vmoEff = Math.min(o.Vmo, o.M > 0.01 ? o.KIAS * (o.Mmo || 0.81) / o.M : 999); return v >= vmoEff ? 'barber' : null; }, '#fff', false, bands);
+    this.tape(tx, ty, tw, s, o.KIAS, 10, 20, s * 0.062, (v) => v < 0 ? null : v, (v) => { const vmoEff = Math.min(o.Vmo, o.M > 0.01 ? o.KIAS * (o.Mmo || 0.81) / o.M : 999); return v >= vmoEff ? 'barber' : null; }, '#fff', false, bands, S.free ? S.free.bugs : []);
     this.text(`M ${o.M.toFixed(3)}`, tx + tw / 2, ty + s + 14, s * 0.055, o.M > (o.Mmo || 0.81) ? COL.red : '#fff', 'center', 'bold');
     this.text(`GS ${(o.gs / KT).toFixed(0)}`, tx + tw / 2, ty + s + 32, s * 0.042, '#9ad', 'center');
     if (B) {
@@ -216,7 +216,7 @@ export class HUD {
     ctx.restore(); ctx.fillStyle = '#ffe34d'; ctx.beginPath(); ctx.moveTo(cx, hy); ctx.lineTo(cx - 6, hy - 8); ctx.lineTo(cx + 6, hy - 8); ctx.fill();
     this.text(`${Math.round(hdg).toString().padStart(3, '0')}°`, cx, hy + hh + 10, s * 0.05, '#fff', 'center', 'bold');
   }
-  tape(x, y, w, h, val, minor, major, pxPerMinor, fmt, mark, color, isAlt = false, bands = []) {
+  tape(x, y, w, h, val, minor, major, pxPerMinor, fmt, mark, color, isAlt = false, bands = [], bugs = []) {
     const ctx = this.ctx; ctx.save(); ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip(); ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(x, y, w, h);
     const cy = y + h / 2, pxPerUnit = pxPerMinor / minor; const range = h / pxPerUnit / 2;
     const v0 = Math.floor((val - range) / minor) * minor, v1 = Math.ceil((val + range) / minor) * minor;
@@ -231,6 +231,8 @@ export class HUD {
         for (let yy = yBot; yy > yTop; yy -= seg) { ctx.fillStyle = (Math.floor((cy - yy) / seg + 1e4) % 2) ? COL.red : '#fff'; ctx.fillRect(x + w - 4, Math.max(yTop, yy - seg), 4, Math.min(seg, yy - yTop)); }
       } else { ctx.fillStyle = b.color; ctx.fillRect(x + w - 4, yTop, 4, yBot - yTop); }
     }
+    // speed bugs (V1 / VR / V2, VREF): cyan marks on the tick edge
+    for (const b of bugs) { const yy = cy - (b.v - val) * pxPerUnit; if (yy < y || yy > y + h) continue; ctx.fillStyle = '#3ff'; ctx.fillRect(x + w - 12, yy - 1, 12, 2); this.text(b.t, x + w - 14, yy, Math.max(8, h * 0.04), '#3ff', 'right', 'bold'); }
     ctx.fillStyle = '#000'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.roundRect(x + 2, cy - h * 0.045, w - 4, h * 0.09, 3); ctx.fill(); ctx.stroke();
     this.text(isAlt ? Math.round(val / 20) * 20 : Math.round(val), x + w / 2, cy, h * 0.062, '#fff', 'center', 'bold');
     ctx.restore();
@@ -444,6 +446,9 @@ export class HUD {
     rows.push([F.wow ? 'ON GROUND' : 'RADIO ALT', F.wow ? `${Math.round(F.gs / KT)} kt GS` : ft < 2500 ? `${Math.round(ft)} ft` : '—', F.wow ? COL.green : '#ddd']);
     rows.push(['GEAR', S.ac.ctl.gear ? (F.gearDamage > 0 ? 'DOWN · DAMAGED' : 'DOWN') : 'UP', S.ac.ctl.gear ? (F.gearDamage > 0 ? COL.amber : COL.green) : (!F.wow && ft < 1000 && S.out.KIAS < 200 ? COL.red : '#ddd')]);
     rows.push(['FLAPS', `${Math.round(F.flaps * 40)}°`, '#ddd']);
+    if (F.sb) rows.push(['SPOILERS', 'EXTENDED', COL.amber]);
+    if (F.rev > 0) rows.push(['REVERSERS', `${Math.round(F.rev * 100)} %`, COL.green]);
+    if (F.engFail) rows.push(['ENGINE', `${F.engFail === 'L' ? 'LEFT' : 'RIGHT'} FAILED`, COL.red]);
     rows.push(['BRAKES', F.park ? 'PARKING BRAKE' : F.brake > 0.05 ? `${Math.round(F.brake * 100)} %` : 'off', F.park ? COL.amber : F.brake > 0.05 ? COL.green : '#888']);
     if (F.wow) rows.push(['NOSEWHEEL', `${Math.round(F.steer * 57.3)}°`, '#ddd']);
     rows.push(['LAST TOUCHDOWN', F.touchFpm !== null ? `${Math.round(F.touchFpm)} ft/min` : '—', F.touchFpm === null ? '#888' : F.touchFpm > 600 ? COL.red : F.touchFpm > 360 ? COL.amber : COL.green]);
@@ -473,7 +478,7 @@ export class HUD {
   }
   help() {
     const ctx = this.ctx, W = this.W, H = this.H;
-    const L = ['CONTROLS', '', 'Pitch: ↑/↓ or W/S (↓ or S = pull)  ·  Roll: ←/→ or A/D  ·  Rudder: Q/E  ·  inputs are FORCE on unboosted controls (gauge: COLUMN FORCE)', 'Throttle: − / =   ·   0 = idle   ·   B spoilers   ·   G gear (VLO 200 / VLE 260 KIAS)   ·   F flaps 8/20/40 (VFE 250/200/165 KIAS)', 'Brakes: hold Shift (or toe brakes, a bound button, D-pad left)  ·  a runway start has the parking brake set: brakes release it  ·  pedals / Q·E steer the nosewheel', 'Pitch trim: , nose-down  . nose-up (PRI/SEC only)   ·   7 = trim PRI/SEC/OFF   ·   8 = Mach trim', 'I = wing+stab heat   ·   9 = nacelle heat   ·   6 = stall warning (shaker) cutout   ·   Y = yaw damper', 'X = autopilot off / engage   ·   TAB = EFB map / procedures / off   ·   1–6 = procedure card   ·   ` = back', 'C camera (right-drag orbits)   ·   V ghost   ·   T ATC audio   ·   ; / \' nudge tape   ·   U NEXRAD   ·   O/J radar', 'N skip   ·   [ ] sim rate   ·   K quality   ·   P pause   ·   R restart   ·   M mute   ·   Z hide HUD   ·   / controls & hardware   ·   H help', 'Controller (DualShock/DualSense/Xbox): L stick pitch/roll · R stick rudder · R2/L2 thrust · R1/L1 trim up/down · ✕ AP · ○ spoilers · □ idle · △ camera · D-pad ↑ gear ↓ flaps · L3 yaw damper · Options pause · Create help · rumble on shaker/buffet (Chrome)', 'Force-feedback joystick (USB PID, Chrome/Edge): connect in Controls (/)  ·  stick position = column position, its motor = the hinge moment', '3D cockpit: right-drag to look around, mouse wheel to zoom; the switch panel and EFB are clickable.', '', 'UPSET / OVERSPEED RECOVERY (after AFM FM-123; our wording):', '1. Thrust IDLE, AP off (X).  2. Identify pitch AND roll on the PFD.  3. LEVEL THE WINGS before pulling.', '4. Elevator + nose-up TRIM (.) to raise the nose; forces can exceed 75 lb, trim takes them off you.', '5. Extreme speed or attitude: GEAR DOWN (G).  NO SPOILERS: nose-down pitch above Vmo/Mmo.'];
+    const L = ['CONTROLS', '', 'Pitch: ↑/↓ or W/S (↓ or S = pull)  ·  Roll: ←/→ or A/D  ·  Rudder: Q/E  ·  inputs are FORCE on unboosted controls (gauge: COLUMN FORCE)', 'Throttle: − / =   ·   0 = idle   ·   B spoilers   ·   G gear (VLO 200 / VLE 260 KIAS)   ·   F flaps 8/20/40 (VFE 250/200/165 KIAS)', 'Brakes: hold Shift (or toe brakes, a bound button, D-pad left)  ·  a runway start has the parking brake set: brakes release it  ·  pedals / Q·E steer the nosewheel', 'On the ground: − past idle (or L2) = thrust reversers, = stows  ·  spoilers deploy themselves at idle above 60 kt  ·  V1 / VR / V2 and VREF bugs on the speed tape', 'Pitch trim: , nose-down  . nose-up (PRI/SEC only)   ·   7 = trim PRI/SEC/OFF   ·   8 = Mach trim', 'I = wing+stab heat   ·   9 = nacelle heat   ·   6 = stall warning (shaker) cutout   ·   Y = yaw damper', 'X = autopilot off / engage   ·   TAB = EFB map / procedures / off   ·   1–6 = procedure card   ·   ` = back', 'C camera (right-drag orbits)   ·   V ghost   ·   T ATC audio   ·   ; / \' nudge tape   ·   U NEXRAD   ·   O/J radar', 'N skip   ·   [ ] sim rate   ·   K quality   ·   P pause   ·   R restart   ·   M mute   ·   Z hide HUD   ·   / controls & hardware   ·   H help', 'Controller (DualShock/DualSense/Xbox): L stick pitch/roll · R stick rudder · R2/L2 thrust · R1/L1 trim up/down · ✕ AP · ○ spoilers · □ idle · △ camera · D-pad ↑ gear ↓ flaps · L3 yaw damper · Options pause · Create help · rumble on shaker/buffet (Chrome)', 'Force-feedback joystick (USB PID, Chrome/Edge): connect in Controls (/)  ·  stick position = column position, its motor = the hinge moment', '3D cockpit: right-drag to look around, mouse wheel to zoom; the switch panel and EFB are clickable.', '', 'UPSET / OVERSPEED RECOVERY (after AFM FM-123; our wording):', '1. Thrust IDLE, AP off (X).  2. Identify pitch AND roll on the PFD.  3. LEVEL THE WINGS before pulling.', '4. Elevator + nose-up TRIM (.) to raise the nose; forces can exceed 75 lb, trim takes them off you.', '5. Extreme speed or attitude: GEAR DOWN (G).  NO SPOILERS: nose-down pitch above Vmo/Mmo.'];
     // wrap to the screen, then size the box to the text
     ctx.font = `12px ${FONT}`;
     const maxW = Math.min(W - 80, 1000), rows = [];

@@ -28,6 +28,7 @@ export const BUTTON_FNS = {
   cam:       { label: 'Camera', hold: false },
   brakes:    { label: 'Brakes (both, hold)', hold: true },
   park:      { label: 'Parking brake', hold: false },
+  reverse:   { label: 'Thrust reversers (hold)', hold: true },
 };
 const KEY = 'n722bd_hw_v1';
 const DEAD = 0.03;                       // hardware dead zone around centre (fraction of half-travel)
@@ -221,7 +222,7 @@ export class Hardware {
   //         trim (-1..1, nose-up positive), events [] (edge-triggered actions, same names as the keyboard's),
   //         posElev / posAil: pitch and roll from a force-feedback stick (column position), null without one
   poll() {
-    const pads = this.pads(), o = { elev: 0, ail: 0, rud: 0, thrRate: 0, thrSet: null, trim: 0, events: [], active: pads.length > 0, posElev: null, posAil: null, brakeL: 0, brakeR: 0 };
+    const pads = this.pads(), o = { elev: 0, ail: 0, rud: 0, thrRate: 0, thrSet: null, trim: 0, events: [], active: pads.length > 0, posElev: null, posAil: null, brakeL: 0, brakeR: 0, rev: false };
     const B = (fn) => this.bound(fn, pads);
     const ffb = (gp) => !!(this.isFfb && gp && this.isFfb(gp));
     const addE = (gp, v) => { if (ffb(gp)) o.posElev = (o.posElev || 0) + v; else o.elev += v; };
@@ -244,6 +245,7 @@ export class Hardware {
       const p = this.value(fn, pads) > 0;
       if (fn === 'trim_up' && p) o.trim += 1; else if (fn === 'trim_dn' && p) o.trim -= 1;
       else if (fn === 'brakes') { if (p) { o.brakeL = 1; o.brakeR = 1; } }
+      else if (fn === 'reverse') { if (p) o.rev = true; }
       else if (p && !this.prev[fn]) o.events.push(fn);
       this.prev[fn] = p;
     }

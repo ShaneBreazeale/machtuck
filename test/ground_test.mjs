@@ -9,7 +9,7 @@ import { FT, KT } from '../js/atmo.js';
 
 let fail = 0;
 const expect = (ok, msg) => { console.log(`${ok ? 'PASS' : 'FAIL'}  ${msg}`); if (!ok) fail++; };
-const DT = 1 / 240, still = { wind: [0, 0, 0] };
+const DT = 1 / 240, still = { wind: [0, 0, 0], dT: 0 };   // free flight 'calm' is ISA
 const onRunway = (w = 'typical') => { const ac = new Learjet60(); setWeight(ac, w); setupStart(ac, 'rwy10L', new FreeEnv('calm')); return ac; };
 const run = (ac, secs, each) => { const evs = []; for (let t = 0; t < secs; t += DT) { if (each && each(ac.out, t) === false) break; ac.step(DT, still); evs.push(...ac.gnd.drain()); if (ac.crashed) break; } return evs; };
 const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);

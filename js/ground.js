@@ -31,6 +31,18 @@ export function runwayFrame(rw, fromB = false) {
   const L = Math.hypot(b[0] - a[0], b[1] - a[1]), u = [(b[0] - a[0]) / L, (b[1] - a[1]) / L];
   return { thr: a, end: b, u, L, w: rw.w, hdg: Math.atan2(u[1], u[0]) };   // hdg: true heading, rad
 }
+// which runway (and which end, by direction of travel) a point is on: distance past the threshold, offset (+ = right
+// of the centreline), runway left. null off the runways.
+export function runwayAt(n, e, track) {
+  for (const rw of RUNWAYS) for (const fromB of [false, true]) {
+    const f = runwayFrame(rw, fromB); if (Math.cos(track - f.hdg) < 0.5) continue;
+    const dn = n - f.thr[0], de = e - f.thr[1], s = dn * f.u[0] + de * f.u[1], c = -dn * f.u[1] + de * f.u[0];
+    if (s >= -300 && s <= f.L + 60 && Math.abs(c) <= f.w / 2 + 25) {
+      const ids = rw.id.split('/'); return { id: fromB ? ids[1] : ids[0], s, c, left: f.L - s, L: f.L };
+    }
+  }
+  return null;
+}
 // 'paved' on a runway, 'grass' elsewhere (taxiways and aprons are not modelled yet)
 export function surfaceAt(n, e) {
   for (const rw of RUNWAYS) {
@@ -42,8 +54,8 @@ export function surfaceAt(n, e) {
 }
 // friction: rolling, peak tyre, anti-skid braking (fraction of load)
 export const SURFACE = {
-  paved: { roll: 0.015, peak: 0.8, brake: 0.45 },
-  wet:   { roll: 0.015, peak: 0.45, brake: 0.22 },
+  paved: { roll: 0.015, peak: 0.8, brake: 0.40 },   // anti-skid dry; with the torque cap below this reproduces the AFM landing rolls (Fig 5-74)
+  wet:   { roll: 0.015, peak: 0.45, brake: 0.20 },
   grass: { roll: 0.06, peak: 0.45, brake: 0.25 },
 };
 
@@ -73,6 +85,7 @@ const HARD = [
   { name: 'aft belly', r: [-2.6, 0, 0.76], kind: 'belly' },
 ];
 export const LIMITS = { hardFps: 10, damageFps: 12, collapseFps: 16 };
+export const BRAKE = { cap: 13000 };   // N of braking per main gear: brake torque limit (heavier landings brake less than the friction allows)
 const FPS = 0.3048;
 
 export class Ground {
@@ -84,6 +97,7 @@ export class Ground {
     ];
     this.hardOn = new Set(); this.events = []; this.wow = false; this.touchFpm = null; this.gearDamage = 0; this.collapsed = false;
     this.wet = false; this.steer = 0;
+    this.elev = 0;                       // field elevation above the scenario's sea-level surface (m), for performance tests
   }
   // nosewheel steering through the rudder pedals: wide at taxi speed, a few degrees at takeoff speed
   steerLimit(v) { return lerp(45, 7, smoothstep(3, 25, Math.abs(v))) * Math.PI / 180; }
@@ -108,7 +122,7 @@ export class Ground {
     for (const L of this.legs) {
       if (!gearDown) { L.contact = false; L.load = 0; L.comp = 0; continue; }
       const rw = mulMV(R, L.r), p = [pos[0] + rw[0], pos[1] + rw[1], pos[2] + rw[2]];
-      const pen = groundAlt(p[0], p[1]) + p[2];                // wheel bottom below the ground (m, NED down positive)
+      const pen = groundAlt(p[0], p[1]) + this.elev + p[2];    // wheel bottom below the ground (m, NED down positive)
       if (pen <= 0) { L.contact = false; L.load = 0; L.comp = 0; continue; }
       const v = vNorm(L.r);
       if (!L.contact) {                                         // first touch: the descent rate is what the gear has to absorb
@@ -133,7 +147,8 @@ export class Ground {
       const sf = SURFACE[this.wet && surfaceAt(p[0], p[1]) === 'paved' ? 'wet' : surfaceAt(p[0], p[1])];
       const brk = L.brake ? Math.max(ctl.park ? 1 : 0, L.brake === 'L' ? ctl.brakeL || 0 : ctl.brakeR || 0) : 0;
       const muB = brk * lerp(sf.peak, sf.brake, smoothstep(0.3, 3, Math.abs(vl)));   // a held brake is static friction
-      let fl = -(sf.roll + muB) * N * Math.tanh(vl / 0.05);
+      const bF = Math.abs(vl) < 3 ? muB * N : Math.min(muB * N, brk * BRAKE.cap);   // held brakes at a standstill: static friction only
+      let fl = -(sf.roll * N + bF) * Math.tanh(vl / 0.05);
       let ft = -sf.peak * N * Math.tanh(vt / Math.max(0.08, 0.12 * Math.abs(vl)));
       const tot = Math.hypot(fl, ft), cap = sf.peak * N + sf.roll * N;
       if (tot > cap) { fl *= cap / tot; ft *= cap / tot; }
@@ -143,7 +158,7 @@ export class Ground {
     // the airframe itself
     for (const H of HARD) {
       const rw = mulMV(R, H.r), p = [pos[0] + rw[0], pos[1] + rw[1], pos[2] + rw[2]];
-      const pen = groundAlt(p[0], p[1]) + p[2];
+      const pen = groundAlt(p[0], p[1]) + this.elev + p[2];
       if (pen <= 0) { this.hardOn.delete(H.name); continue; }
       const v = vNorm(H.r);
       if (!this.hardOn.has(H.name)) {

@@ -8,7 +8,9 @@ import { Cockpit } from './cockpit.js';
 import { Input } from './input.js';
 import { HardwarePanel } from './hwui.js';
 import { ForceFeedback } from './ffb.js';
-import { FreeEnv, setupStart, setWeight, STARTS, WEATHER, WEIGHTS } from './freeflight.js';
+import { FreeEnv, setupStart, setWeight, STARTS, WEATHER, WEIGHTS, FAILURES } from './freeflight.js';
+import { takeoffSpeeds, vref, MAX_LANDING_LB } from './afm.js';
+import { runwayAt } from './ground.js';
 import { Audio } from './audio.js';
 import { DEG, RAD, clamp, qmat, mulMV, nedToWorld, lerp, smoothstep, qfromEuler, wrap180, wrap360 } from './util.js';
 import { isa, RHO0, G0 } from './atmo.js';
@@ -88,11 +90,45 @@ function newFreeFlight(o) {
   env.wind(ac.pos, 0, 0); ac.step(0, { wind: [0, 0, 0] });
   ATC.el.pause(); ATC.on = false;
   newGame('combined', true);   // builds the shared state; then swap in the free-flight pieces
-  Object.assign(G, { mode: 'free', free: o, ac, env, ap, hypKey: 'free', hypName: `FREE FLIGHT · ${STARTS[o.start].name} · ${WEATHER[o.wx].name} · ${WEIGHTS[o.weight].name}`, showGhost: false, logIdx: TIMELINE.length, log: [], onGround: r.onGround, airT: 0 });
+  const lb = ac.m / 0.45359237, V = takeoffSpeeds(lb, 19);
+  Object.assign(G, { mode: 'free', free: o, ac, env, ap, hypKey: 'free', vsp: { ...V, ref: vref(Math.min(lb, 23100)) }, co: {}, failAt: o.fail === 'climb' ? 400 + Math.random() * 1100 : null, autoSb: true, hypName: `FREE FLIGHT · ${STARTS[o.start].name} · ${WEATHER[o.wx].name} · ${WEIGHTS[o.weight].name}`, showGhost: false, logIdx: TIMELINE.length, log: [], onGround: r.onGround, airT: 0 });
   log('SYS', r.msg);
+  if (r.onGround) log('SYS', `AFM takeoff speeds, flaps 8, ${Math.round(lb).toLocaleString()} lb: V1 ${Math.round(V.v1)}, VR ${Math.round(V.vr)}, V2 ${Math.round(V.v2)} KIAS (bugs on the speed tape).`);
+  else if (o.start === 'final10L') log('SYS', `VREF flaps 40: ${Math.round(G.vsp.ref)} KIAS${lb > MAX_LANDING_LB ? ` (above the ${MAX_LANDING_LB.toLocaleString()} lb maximum landing weight)` : ''}.`);
+  if (o.fail && o.fail !== 'none') log('SYS', `Failure armed: ${FAILURES[o.fail].name}.`);
 }
 function log(who, txt) { G.log.push({ t: G.t, who, txt }); }
 
+// Free flight per physics step: failures, autospoilers, callouts, liftoff and stopping reports
+function freeTick(h, out) {
+  const { ac } = G, V = G.vsp, co = G.co, kias = out.KIAS, ft = (out.agl - 1.6) / FT;
+  G.airT = ac.wow ? 0 : G.airT + h;
+  if (G.onGround && G.airT > 1 && out.agl > 3) { G.onGround = false; G.td = null; G.stopLogged = false; log('SYS', `LIFTOFF ${Math.round(kias)} KIAS`); }
+  // engine failure (free-flight option): at V1 on the takeoff roll, or at a random height after takeoff
+  if (!ac.engFail && G.free.fail === 'v1' && ac.wow && ac.ctl.thr > 0.8 && kias >= V.v1) failEngine();
+  if (!ac.engFail && G.failAt !== null && !ac.wow && ft > G.failAt && out.vs > 0) failEngine();
+  // autospoilers (armed): deploy on the ground with the levers at idle above 60 kt (landing or rejected takeoff); stow when thrust comes up
+  if (G.autoSb && ac.wow && ac.ctl.thr < 0.05 && out.gs > 60 * KT && !ac.ctl.sb) { ac.ctl.sb = 1; log('SYS', 'SPOILERS — auto deployed'); }
+  if (G.autoSb && ac.wow && ac.ctl.thr > 0.5 && ac.ctl.sb) ac.ctl.sb = 0;
+  // takeoff callouts, then radio altitude on the way down with the gear down
+  if (ac.wow && ac.ctl.thr > 0.8) {
+    if (kias >= V.v1 && !co.v1) { co.v1 = 1; AU.say('V one', 0); }
+    if (kias >= V.vr && !co.vr) { co.vr = 1; AU.say('Rotate', 0); }
+  }
+  if (!ac.wow && co.vr && kias >= V.v2 && !co.v2) { co.v2 = 1; AU.say('V two', 0); }
+  if (ft > 700) co.ra = {};
+  if (!ac.wow && ac.ctl.gear && out.vs < -0.5) { co.ra = co.ra || {}; for (const a of [500, 100, 50, 40, 30, 20, 10]) if (ft <= a && ft > a - 25 && !co.ra[a]) { co.ra[a] = 1; AU.say(a === 500 ? 'Five hundred' : a === 100 ? 'One hundred' : String(a), 0); } }
+  if (ac.wow && out.gs < 0.5 && ac.ctl.thr < 0.1) co.v1 = co.vr = co.v2 = 0;
+  // stopped after a landing: distance from touchdown and runway left
+  if (G.td && !G.stopLogged && ac.wow && out.gs < 1) {
+    G.stopLogged = true; const rw = runwayAt(ac.pos[0], ac.pos[1], out.track) || {};
+    log('SYS', `STOPPED ${Math.round((((rw.s ?? G.td.s) - G.td.s)) / FT).toLocaleString()} ft after touchdown${rw.left !== undefined ? `, ${Math.round(rw.left / FT).toLocaleString()} ft of runway ${G.td.id} left` : ''}.`);
+  }
+}
+function failEngine() {
+  const side = Math.random() < 0.5 ? 'L' : 'R'; G.ac.engFail = side;
+  log('SYS', `ENGINE FAILURE — ${side === 'L' ? 'LEFT' : 'RIGHT'} engine. APR armed: the live engine goes to APR thrust. Rudder against the yaw.`); AU.say('Engine failure', 0);
+}
 function stepSim(h, held) {
   const { ac, env, ap } = G; const t = G.t;
   const wind = env.wind(ac.pos, t, h);
@@ -106,7 +142,7 @@ function stepSim(h, held) {
   ac.ctl.elev = surf.elev; ac.ctl.ail = surf.ail; if (!ap.on) ac.ctl.rud = surf.rud;
   G.trimRunaway = env.hyp.trimRunaway && t > UPSET_T && t < UPSET_T + 12 && ac.sys.trimMode === 'PRI';
   if (G.trimRunaway) ac.ctl.trim = Math.max(-1, ac.ctl.trim - 0.3 * h);
-  const out = ac.step(h, { wind });
+  const out = ac.step(h, { wind, dT: env.dT ?? 7 });   // the accident day is ISA+7 (KMFL sounding); free flight per weather
   const ir = env.iceRates(env.L, ac);
   ac.ice = clamp(ac.ice + ir.wing * h, 0, 1); ac.iceTail = clamp(ac.iceTail + ir.tail * h, 0, 1); ac.engIce = clamp(ac.engIce + ir.eng * h, 0, 1);
   if (G.mode === 'accident') ap.hdgTgt = t < 25 ? 58 : Math.min(100, 58 + (t - 25) * (42 / 45));
@@ -132,12 +168,15 @@ function stepSim(h, held) {
   // ground contact (js/ground.js): touchdowns, hard landings, strikes
   for (const e of ac.gnd.drain()) {
     if (e.type === 'msg') log('SYS', e.txt);
-    else if (e.type === 'touch' && e.leg !== 'nose' && !G.onGround) { G.onGround = true; if (G.mode === 'free') log('SYS', `TOUCHDOWN ${Math.round(Math.max(0, e.fps) * 60)} ft/min, ${Math.round(out.KIAS)} KIAS`); }
+    else if (e.type === 'touch' && e.leg !== 'nose' && !G.onGround) {
+      G.onGround = true;
+      if (G.mode === 'free') {
+        const rw = runwayAt(ac.pos[0], ac.pos[1], out.track); G.td = rw ? { s: rw.s, id: rw.id } : null;
+        log('SYS', `TOUCHDOWN ${Math.round(Math.max(0, e.fps) * 60)} ft/min, ${Math.round(out.KIAS)} KIAS${rw ? `, ${Math.round(rw.s / FT).toLocaleString()} ft past the ${rw.id} threshold, ${Math.abs(rw.c / FT).toFixed(0)} ft ${rw.c >= 0 ? 'right' : 'left'} of the centreline` : ', off the runway'}`);
+      }
+    }
   }
-  if (G.mode === 'free') {
-    G.airT = ac.wow ? 0 : G.airT + h;
-    if (G.onGround && G.airT > 1 && out.agl > 3) { G.onGround = false; log('SYS', `LIFTOFF ${Math.round(out.KIAS)} KIAS`); }
-  }
+  if (G.mode === 'free') freeTick(h, out);
   if (ac.crashed && G.phase === 'run') { G.phase = 'end'; G.endMsg = G.mode === 'free' ? ac.crashWhy || 'IMPACT' : `IMPACT ${clockStr(G.t)} EST`; AU.bang(); debrief(); }
   // pass / fail (RecoveryJudge, scenario.js): a real upset during the event first, then 10 s of stable flight
   const ev = G.phase === 'run' && G.mode === 'accident' ? G.judge.update(G.t, h, out, ac) : null;
@@ -377,7 +416,7 @@ function handleEvents() {
     else if (e === 'yd') toggleSwitch('yd');
     else if (e === 'help') G.help = !G.help;
     else if (e === 'ghost') G.showGhost = !G.showGhost;
-    else if (e === 'idle') ac.ctl.thr = 0;
+    else if (e === 'idle') { ac.ctl.thr = 0; ac.ctl.rev = 0; }
     else if (e === 'mute') AU.muted = !AU.muted;
     else if (e === 'controls') HP.toggle();
   }
@@ -395,7 +434,13 @@ function frame(now) {
     if (IN.thrSet !== null) { ac.ctl.thr = IN.thrSet; IN.thrSet = null; }   // a moved hardware lever sets the thrust levers
     ac.ctl.brakeL = IN.brakeL; ac.ctl.brakeR = IN.brakeR;                   // wheel brakes (js/ground.js); a press releases the parking brake
     if (ac.ctl.park && Math.max(IN.brakeL, IN.brakeR) > 0.5) { ac.ctl.park = false; log('SYS', 'PARKING BRAKE released'); }
-    ac.ctl.thr = clamp(ac.ctl.thr + IN.thrDelta, 0, 1);    // no autothrottle: the levers are always the pilot's
+    // thrust reversers on the ground: pulling the levers back past idle lifts them into reverse; forward stows first
+    if (IN.revHold && ac.wow) { if (!ac.ctl.rev) log('SYS', 'THRUST REVERSERS deployed'); ac.ctl.thr = 0; ac.ctl.rev = 1; G.revBtn = true; }
+    else if (G.revBtn) { G.revBtn = false; ac.ctl.rev = 0; log('SYS', 'THRUST REVERSERS stowed'); }
+    else if (ac.wow && (ac.ctl.rev > 0 || (ac.ctl.thr <= 0 && IN.thrDelta < 0))) {
+      const was = ac.ctl.rev; ac.ctl.rev = clamp(ac.ctl.rev - IN.thrDelta * 2, 0, 1); ac.ctl.thr = 0;
+      if (!was && ac.ctl.rev > 0) log('SYS', 'THRUST REVERSERS deployed'); else if (was && !ac.ctl.rev) log('SYS', 'THRUST REVERSERS stowed');
+    } else ac.ctl.thr = clamp(ac.ctl.thr + IN.thrDelta, 0, 1);    // no autothrottle: the levers are always the pilot's
     if (!ap.on) { const tr = ac.sys.trimMode === 'PRI' ? 1 : ac.sys.trimMode === 'SEC' ? 0.45 : 0; ac.ctl.trim = clamp(ac.ctl.trim + IN.trimDelta * tr, G.mode === 'free' ? STAB.min : -1, G.mode === 'free' ? STAB.max : 1); }
     const simDt = dt * G.timeScale; const sub = Math.max(1, Math.ceil(simDt / (1 / 240))); const h = simDt / sub;
     for (let i = 0; i < sub; i++) out = stepSim(h, held);
@@ -484,7 +529,8 @@ function frame(now) {
     force: G.phase === 'run' ? { pitchLb: G.pc.pitchLb, rollLb: G.pc.rollLb, availP: G.pc.avail('pitch'), availR: G.pc.avail('roll'), stamina: G.pc.stamina, slipping: ap.on && G.pc.slipping } : null };
   if (G.mode === 'free') {
     const c = ac.ctl;
-    HS.free = { agl: out.agl, wow: ac.wow, gs: out.gs, park: c.park, brake: Math.max(c.brakeL, c.brakeR), flaps: c.flaps, gear: c.gear, touchFpm: ac.gnd.touchFpm, steer: ac.gnd.steer, wind: env.wx, gearDamage: ac.gnd.gearDamage };
+    const V = G.vsp, bugs = ac.wow || (out.agl < 300 && c.flaps <= 0.25 && !G.td) ? [{ v: V.v1, t: '1' }, { v: V.vr, t: 'R' }, { v: V.v2, t: '2' }] : c.flaps >= 0.5 || c.gear ? [{ v: V.ref, t: 'REF' }] : [];
+    HS.free = { agl: out.agl, wow: ac.wow, gs: out.gs, park: c.park, brake: Math.max(c.brakeL, c.brakeR), flaps: c.flaps, gear: c.gear, touchFpm: ac.gnd.touchFpm, steer: ac.gnd.steer, wind: env.wx, gearDamage: ac.gnd.gearDamage, rev: c.rev, sb: c.sb, engFail: ac.engFail, bugs };
     HS.ghostProfile = null; HS.wxr = null; HS.nexOn = false; HS.map.nexImg = null; HS.map.ghost = []; HS.dbz = -30;   // clear air: nothing on the radar
   }
   if (HS.cockpit3d) {
@@ -517,11 +563,11 @@ document.getElementById('begin').addEventListener('click', () => {
 { // free-flight selectors (remembered in this browser)
   const keep = (() => { try { return JSON.parse(localStorage.getItem(FREE_KEY) || '{}'); } catch { return {}; } })();
   const fill = (id, obj, def) => { const el = document.getElementById(id); for (const [k, v] of Object.entries(obj)) { const o = document.createElement('option'); o.value = k; o.textContent = v.name; el.appendChild(o); } el.value = keep[id] && obj[keep[id]] ? keep[id] : def; return el; };
-  const st = fill('ffstart', STARTS, 'rwy10L'), wx = fill('ffwx', WEATHER, 'calm'), wt = fill('ffwt', WEIGHTS, 'typical');
+  const st = fill('ffstart', STARTS, 'rwy10L'), wx = fill('ffwx', WEATHER, 'calm'), wt = fill('ffwt', WEIGHTS, 'typical'), fl = fill('ffail', FAILURES, 'none');
   document.getElementById('ffgo').addEventListener('click', () => {
-    localStorage.setItem(FREE_KEY, JSON.stringify({ ffstart: st.value, ffwx: wx.value, ffwt: wt.value }));
+    localStorage.setItem(FREE_KEY, JSON.stringify({ ffstart: st.value, ffwx: wx.value, ffwt: wt.value, ffail: fl.value }));
     document.getElementById('brief').classList.add('hidden'); AU.start();
-    newFreeFlight({ start: st.value, wx: wx.value, weight: wt.value }); hc.focus();
+    newFreeFlight({ start: st.value, wx: wx.value, weight: wt.value, fail: fl.value }); hc.focus();
   });
 }
 document.getElementById('replay').addEventListener('click', () => { if (G.recon) startReconstruction(); else startReplay(); hc.focus(); });

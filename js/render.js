@@ -190,7 +190,7 @@ export class Renderer {
     const c = ctl || {}; const cl = (v, a, b) => Math.min(b, Math.max(a, v || 0));
     const t = new Map([[110, 50 + 50 * cl(c.ail, -1, 1)], [112, 50 + 50 * cl(c.ail, -1, 1)], [118, 50 + 50 * cl(c.elev, -1, 1)], [120, 50 + 50 * cl(c.rud, -1, 1)],
       [440, 100 * cl(c.flaps, 0, 1)], [444, 100 * cl(c.flaps, 0, 1)], [164, 100 * cl(c.sb, 0, 1)], [168, 100 * cl(c.sb, 0, 1)],
-      [152, c.gear ? 100 : 0], [156, c.gear ? 100 : 0], [160, c.gear ? 100 : 0]]);
+      [152, c.gear ? 100 : 0], [156, c.gear ? 100 : 0], [160, c.gear ? 100 : 0], [176, c.rev > 0 ? 200 : 0], [172, c.rev > 0 ? 200 : 0]]);
     const W = this.ext.W;
     this.ext.nodes.forEach((n, i) => { let m = track(n.keys, n.type, t.has(n.var) ? t.get(n.var) : (n.vicall ? 50 : 0)); if (n.m) m = mul4(m, n.m); W[i] = n.p < 0 ? m : mul4(m, W[n.p]); });
     return W;
