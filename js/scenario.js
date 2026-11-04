@@ -2,7 +2,7 @@
 // Reconstruction from publicly reported ADS-B / NEXRAD / ATC figures. Provisional; cause under NTSB investigation.
 import { DEG, RAD, clamp, lerp, smoothstep, wrap180, wrap360 } from './util.js';
 import { FT, KT } from './atmo.js';
-import { shakerAoaN, ELEV_K } from './aircraft.js';
+import { shakerAoaN, ELEV_K, STAB } from './aircraft.js';
 
 export const T0_CLOCK = 12 * 3600 + 47 * 60;   // 12:47:00 EST = t 0
 export const clockStr = (t) => { const s = Math.max(0, Math.floor(T0_CLOCK + t)); const hh = Math.floor(s / 3600), mm = Math.floor(s / 60) % 60, ss = s % 60; return `${hh}:${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`; };
@@ -207,22 +207,65 @@ export class Environment {
   iceRate(L, h, antiIce) { return this.iceRates(L, { sys: { wingHeat: antiIce, stabHeat: antiIce, nacelleHeat: true }, n1: 0.6 }).wing; }
 }
 
-// ---------------- Autopilot (ALT hold, HDG select, auto-trim) ----------------
+// ---------------- Autopilot: HDG / LOC lateral, ALT / VS / GS vertical, auto-trim (no autothrottle) ----------------
+// The accident uses HDG + ALT with the cruise pitch limits it was calibrated with. Free flight adds a preselected
+// altitude (VS mode toward it), and APR: arms the localizer, then the glideslope, on the ILS supplied by `nav()`.
 export class Autopilot {
-  constructor(hard = true) { this.on = true; this.altTgt = 35000 * FT; this.hdgTgt = 58; this.trimRate = hard ? 0.35 : 0.08; this.why = ''; this.trimLim = [-1, 1]; }
-  disconnect(why) { if (this.on) { this.on = false; this.why = why; } }
-  engage(out) { if (Math.abs(out.phi) > 30 * DEG || Math.abs(out.theta) > 15 * DEG || out.stalled) return false; this.on = true; this.why = ''; this.altTgt = out.h; this.hdgTgt = wrap360(out.psi * RAD); return true; }
+  constructor(hard = true) {
+    this.on = true; this.altTgt = 35000 * FT; this.hdgTgt = 58; this.trimRate = hard ? 0.35 : 0.08; this.why = ''; this.trimLim = [STAB.min, STAB.max];   // the stabilizer's travel, 1-12 deg (PTM)
+    this.lat = 'HDG'; this.vert = 'ALT'; this.vsTgt = 0; this.appr = false; this.nav = null; this.ils = null;
+    this.thetaLim = [-2.5 * DEG, 4 * DEG];   // cruise; free flight widens it for slow flight and approaches
+    this.fine = false;                       // free flight: PI vertical-speed loop (the accident keeps the calibrated cruise law)
+    this.thRef = null;
+  }
+  disconnect(why) { if (this.on) { this.on = false; this.why = why; this.appr = false; } }
+  engage(out) {
+    if (Math.abs(out.phi) > 30 * DEG || Math.abs(out.theta) > 15 * DEG || out.stalled) return false;
+    this.on = true; this.why = ''; this.altTgt = out.h; this.hdgTgt = wrap360(out.psi * RAD); this.lat = 'HDG'; this.vert = 'ALT'; this.appr = false; this.thRef = null; return true;
+  }
+  // a new target altitude: climb or descend toward it in VS mode, then hold it
+  setAlt(h, out) {
+    this.altTgt = h; if (!this.on || this.vert === 'GS') return;
+    const dh = h - out.h; if (Math.abs(dh) > 30) { this.vert = 'VS'; this.vsTgt = dh > 0 ? (out.h < 3000 ? 7.6 : 5.1) : -7.6; } else this.vert = 'ALT';
+  }
+  setHdg(deg) { this.hdgTgt = wrap360(deg); if (this.lat === 'LOC') { this.lat = 'HDG'; this.appr = false; if (this.vert === 'GS') this.vert = 'ALT'; } }
   step(ac, dt, out) {
     if (!this.on) return;
     const { h, vs, theta, phi, psi, p, q, M, KIAS } = out;
-    // Limited-authority servo: real APs saturate in a 4,000 ft/min updraft, which is how the +450 ft excursion happened.
-    const vsCmd = clamp((this.altTgt - h) * 0.10, -8, 8);
-    const thetaCmd = clamp(theta + (vsCmd - vs) * 0.0025, -2.5 * DEG, 4 * DEG);
-    let elev = clamp((2.5 * (thetaCmd - theta) - 1.0 * q) / ELEV_K, -0.12 / ELEV_K, 0.12 / ELEV_K);
+    // approach: capture the localizer inside 1.5 dots, then the glideslope inside 0.4 dot
+    const d = this.nav ? this.nav(out) : null; this.ils = d;
+    if (this.appr && d) {
+      if (this.lat !== 'LOC' && d.locValid && Math.abs(d.locRaw) < 1.5) this.lat = 'LOC';
+      if (this.lat === 'LOC' && this.vert !== 'GS' && d.gsValid && Math.abs(d.gsRaw) < 0.4) this.vert = 'GS';
+    }
+    if ((this.lat === 'LOC' || this.vert === 'GS') && !(d && d.locValid)) { this.lat = 'HDG'; this.hdgTgt = wrap360(psi * RAD); if (this.vert === 'GS') { this.vert = 'ALT'; this.altTgt = h; } }
+    // vertical: commanded climb rate -> pitch attitude -> elevator (limited-authority servo)
+    let vsCmd;
+    if (this.vert === 'GS' && d) vsCmd = clamp(-out.gs * Math.tan(d.gsAngle * DEG) - 0.15 * d.gsErrM, -10, 3);
+    else if (this.vert === 'VS') { vsCmd = this.vsTgt; if (Math.abs(this.altTgt - h) < Math.max(30, Math.abs(vs) * 6)) this.vert = 'ALT'; }
+    else vsCmd = clamp((this.altTgt - h) * 0.10, -8, 8);
+    let elev;
+    if (this.fine) {
+      // pitch-attitude reference integrates the climb-rate error; gains scale with airspeed (flight-path response ~ V)
+      const V = Math.max(40, out.V || 100), e = vsCmd - vs;
+      if (this.thRef === null) this.thRef = theta;
+      this.thRef = clamp(this.thRef + e * (0.25 / V) * dt, this.thetaLim[0], this.thetaLim[1]);
+      const thetaCmd = clamp(this.thRef + e * (0.75 / V), this.thetaLim[0], this.thetaLim[1]);
+      elev = clamp((3.0 * (thetaCmd - theta) - 1.5 * q) / ELEV_K, -0.25 / ELEV_K, 0.25 / ELEV_K);
+    } else {
+      // Limited-authority servo: real APs saturate in a 4,000 ft/min updraft, which is how the +450 ft excursion happened.
+      const thetaCmd = clamp(theta + (vsCmd - vs) * 0.0025, this.thetaLim[0], this.thetaLim[1]);
+      elev = clamp((2.5 * (thetaCmd - theta) - 1.0 * q) / ELEV_K, -0.12 / ELEV_K, 0.12 / ELEV_K);
+    }
     ac.ctl.elev = elev; this.cmdElev = elev;
     ac.ctl.trim = clamp(ac.ctl.trim + elev * ELEV_K * this.trimRate * dt, this.trimLim[0], this.trimLim[1]);   // auto-trim offloads the servo (and trims against a pilot fighting it)
-    const hErr = wrap180(this.hdgTgt - psi * RAD);
-    const phiCmd = clamp(hErr * 1.5, -25, 25) * DEG;
+    // lateral: heading, or the localizer course with a cross-track intercept (up to 30 deg) flown on the track
+    let hErr, bankLim = 25;
+    if (this.lat === 'LOC' && d) {
+      const want = d.course * RAD - clamp(d.cross * 0.012, -30, 30);
+      hErr = wrap180(want - (out.track ?? psi) * RAD); bankLim = 20;
+    } else hErr = wrap180(this.hdgTgt - psi * RAD);
+    const phiCmd = clamp(hErr * 1.5, -bankLim, bankLim) * DEG;
     ac.ctl.ail = clamp(1.2 * (phiCmd - phi) - 0.5 * p, -0.6, 0.6); this.cmdAil = ac.ctl.ail;
     // No autothrottle on the Learjet 60: thrust stays where the crew left it.
     if (M > 0.845 || Math.abs(phi) > 50 * DEG || vs < -45) this.disconnect(M > 0.845 ? 'OVERSPEED' : 'ATTITUDE');

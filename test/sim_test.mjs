@@ -1,4 +1,4 @@
-import { Learjet60 } from '../js/aircraft.js';
+import { Learjet60, STAB } from '../js/aircraft.js';
 import { Environment, Autopilot, buildGhost, ghostAt, STORM } from '../js/scenario.js';
 import { DEG, RAD } from '../js/util.js';
 import { FT, KT } from '../js/atmo.js';
@@ -20,7 +20,7 @@ function run(hyp, pilot, label, hard = true) {
     const wind = env.wind(ac.pos, t, dt);
     const out = ac.step(dt, { wind });
     const ir = env.iceRates(env.L, ac); ac.ice = Math.max(0, Math.min(1, ac.ice + ir.wing * dt)); ac.iceTail = Math.max(0, Math.min(1, ac.iceTail + ir.tail * dt)); ac.engIce = Math.max(0, Math.min(1, ac.engIce + ir.eng * dt));
-    if (env.hyp.trimRunaway && t > 76) ac.ctl.trim = Math.max(-1, ac.ctl.trim - 0.35 * dt);
+    if (env.hyp.trimRunaway && t > 76) ac.ctl.trim = Math.max(STAB.min, ac.ctl.trim - 0.35 * dt);
     ap.step(ac, dt, out);
     env.scriptedUpset(ac, ap, t); if (ac.tailStalled && ap.on) ap.disconnect('PITCH');
     ap.hdgTgt = t < 25 ? 58 : Math.min(100, 58 + (t - 25) * (42 / 45));
@@ -45,7 +45,7 @@ const goodPilot = (ac, out, t, t0) => {
   if (out.buffet || out.stalled) gCmd = Math.min(gCmd, 0.9);   // unload when the iced wing lets go
   ac.ctl.elev = Math.max(-1, Math.min(1, ac.ctl.elev + (gCmd - out.nz) * 0.9 * (1/200) * 60));
   if (out.theta > 5 * DEG && out.vs > 0) ac.ctl.elev = 0;
-  ac.ctl.trim = Math.min(1, ac.ctl.trim + 0.25 / 200 * (ac.ctl.elev > 0.3 ? 1 : 0));
+  ac.ctl.trim = Math.min(STAB.max, ac.ctl.trim + 0.25 / 200 * (ac.ctl.elev > 0.3 ? 1 : 0));
 };
 const wingsLevel = (ac, out) => { ac.ctl.ail = Math.max(-1, Math.min(1, 2.0 * (-out.phi) - 0.3 * out.p)); ac.ctl.elev = 0; };
 const wingsLevelIdle = (ac, out) => { wingsLevel(ac, out); ac.ctl.thr = 0; ac.ctl.sb = 1; };

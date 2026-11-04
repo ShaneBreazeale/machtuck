@@ -26,6 +26,7 @@ export const STARTS = {
   rwy10L:   { name: 'Runway 10L, lined up (KPBI)', ground: true, rw: '10L/28R', fromB: false },
   rwy28R:   { name: 'Runway 28R, lined up (KPBI)', ground: true, rw: '10L/28R', fromB: true },
   final10L: { name: '6 nm final, runway 10L, 1,950 ft, 150 KIAS', nm: 6, kias: 150, flaps: 0.5, gear: 1 },
+  ils10L:   { name: 'ILS 10L intercept: 14 nm, 3,000 ft, 180 KIAS, autopilot on', nm: 14, off: 2, alt: 3000, kias: 180 },
   cruise:   { name: 'Cruise FL350, M 0.77, autopilot on', alt: 35000, mach: 0.77 },
 };
 export const rwyByStart = (st) => { const s = STARTS[st]; return s && s.rw ? runwayFrame(RUNWAYS.find((r) => r.id === s.rw), s.fromB) : runwayFrame(RUNWAYS[0], false); };
@@ -125,6 +126,13 @@ export function setupStart(ac, key, env) {
     Object.assign(ac.ctl, { gear: 1, flaps: st.flaps, sb: 0, park: false });
     trimFlight(ac, { n: f.thr[0] - f.u[0] * dist, e: f.thr[1] - f.u[1] * dist, h, V: tasFor(st.kias, h, dT), gamma: -3 * DEG, psi: f.hdg, dT });
     return { onGround: false, apOn: false, msg: `${st.name}. On the 3° glidepath, gear down, flaps 20. Flaps 40 below 165 KIAS; touch down below 600 ft/min.` };
+  }
+  if (key === 'ils10L') {
+    const f = rwyByStart('rwy10L'), dist = st.nm * 1852, off = st.off * 1852, h = st.alt * FT;
+    const n = f.thr[0] - f.u[0] * dist - f.u[1] * off, e = f.thr[1] - f.u[1] * dist + f.u[0] * off;   // on the right of the extended centreline
+    Object.assign(ac.ctl, { gear: 0, flaps: 0.2, sb: 0, park: false });
+    trimFlight(ac, { n, e, h, V: tasFor(st.kias, h, dT), gamma: 0, psi: f.hdg - 30 * DEG, dT });
+    return { onGround: false, apOn: true, msg: `${st.name}. Heading ${Math.round(((f.hdg / DEG - 30) % 360 + 360) % 360)}° to intercept. Press \\ to arm the approach (APR): the autopilot captures the localizer, then the glideslope. No autothrottle: thrust is yours. Gear down and flaps 20 as the glideslope comes alive, flaps 40 and VREF + 5 by 1,000 ft; X disconnects for the landing.` };
   }
   const h = st.alt * FT, atm = isa(h, dT), V = st.mach * atm.a, f = rwyByStart('rwy10L');
   Object.assign(ac.ctl, { gear: 0, flaps: 0, sb: 0, park: false });

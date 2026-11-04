@@ -26,7 +26,7 @@ export class Input {
     window.addEventListener('gamepaddisconnected', (e) => { if (this.onPad) this.onPad(`${e.gamepad.id.replace(/\s*\(.*$/, '').slice(0, 40)} disconnected`); });
     window.addEventListener('keydown', (e) => {
       if (e.repeat) return; const k = e.key.toLowerCase(); this.keys.add(k);
-      const map = { '/': 'controls', x: 'ap_toggle', b: 'sb', g: 'gear', f: 'flaps', c: 'cam', p: 'pause', ' ': 'pause', r: 'restart', n: 'skip', k: 'quality', '[': 'slower', ']': 'faster', i: 'antiice', y: 'yd', h: 'help', v: 'ghost', '0': 'idle', m: 'mute', z: 'hud', tab: 'efb', '`': 'ckback', '1': 'ck0', '2': 'ck1', '3': 'ck2', '4': 'ck3', '5': 'ck4', '6': 'ck5', '7': 'trimMode', '8': 'machTrim', '9': 'nacelleHeat', t: 'atc', ';': 'atc_earlier', "'": 'atc_later', l: 'comms', u: 'nexrad', o: 'wxr', j: 'wxr_range' };
+      const map = { '{': 'hdg_dn', '}': 'hdg_up', '<': 'alt_dn', '>': 'alt_up', '\\': 'appr', '/': 'controls', x: 'ap_toggle', b: 'sb', g: 'gear', f: 'flaps', c: 'cam', p: 'pause', ' ': 'pause', r: 'restart', n: 'skip', k: 'quality', '[': 'slower', ']': 'faster', i: 'antiice', y: 'yd', h: 'help', v: 'ghost', '0': 'idle', m: 'mute', z: 'hud', tab: 'efb', '`': 'ckback', '1': 'ck0', '2': 'ck1', '3': 'ck2', '4': 'ck3', '5': 'ck4', '6': 'ck5', '7': 'trimMode', '8': 'machTrim', '9': 'nacelleHeat', t: 'atc', ';': 'atc_earlier', "'": 'atc_later', l: 'comms', u: 'nexrad', o: 'wxr', j: 'wxr_range' };
       if (map[k]) { this.events.push(map[k]); e.preventDefault(); }
       if (k === 'tab') e.preventDefault();
       if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) e.preventDefault();

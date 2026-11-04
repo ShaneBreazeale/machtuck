@@ -11,6 +11,7 @@ import { ForceFeedback } from './ffb.js';
 import { FreeEnv, setupStart, setWeight, STARTS, WEATHER, WEIGHTS, FAILURES } from './freeflight.js';
 import { takeoffSpeeds, vref, MAX_LANDING_LB } from './afm.js';
 import { runwayAt } from './ground.js';
+import { nearestIls } from './nav.js';
 import { Audio } from './audio.js';
 import { DEG, RAD, clamp, qmat, mulMV, nedToWorld, lerp, smoothstep, qfromEuler, wrap180, wrap360 } from './util.js';
 import { isa, RHO0, G0 } from './atmo.js';
@@ -85,7 +86,8 @@ function newFreeFlight(o) {
   const ac = new Learjet60(), env = new FreeEnv(o.wx), ap = new Autopilot(true); ac.hard = true;
   setWeight(ac, o.weight);
   const r = setupStart(ac, o.start, env);
-  ap.on = r.apOn; ap.why = ''; ap.trimLim = [STAB.min, STAB.max];
+  ap.on = r.apOn; ap.why = ''; ap.thetaLim = [-10 * DEG, 15 * DEG]; ap.fine = true;
+  ap.nav = (o) => nearestIls(ac.pos[0], ac.pos[1], o.h, o.track ?? o.psi);   // the ILS ahead (KPBI 10L / 28R)
   if (r.apOn) { ap.altTgt = -ac.pos[2]; ap.hdgTgt = wrap360(Math.atan2(ac.vel[1], ac.vel[0]) * RAD); }
   env.wind(ac.pos, 0, 0); ac.step(0, { wind: [0, 0, 0] });
   ATC.el.pause(); ATC.on = false;
@@ -119,6 +121,10 @@ function freeTick(h, out) {
   if (ft > 700) co.ra = {};
   if (!ac.wow && ac.ctl.gear && out.vs < -0.5) { co.ra = co.ra || {}; for (const a of [500, 100, 50, 40, 30, 20, 10]) if (ft <= a && ft > a - 25 && !co.ra[a]) { co.ra[a] = 1; AU.say(a === 500 ? 'Five hundred' : a === 100 ? 'One hundred' : String(a), 0); } }
   if (ac.wow && out.gs < 0.5 && ac.ctl.thr < 0.1) co.v1 = co.vr = co.v2 = 0;
+  // autopilot mode changes
+  const ap = G.ap, mode = ap.on ? `${ap.lat}/${ap.vert}` : 'off';
+  if (G.apMode && mode !== G.apMode && ap.on) { if (ap.lat === 'LOC' && !G.apMode.startsWith('LOC')) log('SYS', 'LOCALIZER captured'); if (ap.vert === 'GS' && !G.apMode.endsWith('GS')) log('SYS', 'GLIDESLOPE captured'); if (ap.vert === 'ALT' && G.apMode.endsWith('VS')) log('SYS', `ALT captured ${Math.round(ap.altTgt / FT).toLocaleString()} ft`); }
+  G.apMode = mode;
   // stopped after a landing: distance from touchdown and runway left
   if (G.td && !G.stopLogged && ac.wow && out.gs < 1) {
     G.stopLogged = true; const rw = runwayAt(ac.pos[0], ac.pos[1], out.track) || {};
@@ -141,7 +147,7 @@ function stepSim(h, held) {
   if (ap.on && pc.slipping && !G.slipLogged) { G.slipLogged = true; log('SYS', 'AP SERVO SLIPPING — the autopilot is still engaged and trimming against you. Disconnect: X.'); }
   ac.ctl.elev = surf.elev; ac.ctl.ail = surf.ail; if (!ap.on) ac.ctl.rud = surf.rud;
   G.trimRunaway = env.hyp.trimRunaway && t > UPSET_T && t < UPSET_T + 12 && ac.sys.trimMode === 'PRI';
-  if (G.trimRunaway) ac.ctl.trim = Math.max(-1, ac.ctl.trim - 0.3 * h);
+  if (G.trimRunaway) ac.ctl.trim = Math.max(STAB.min, ac.ctl.trim - 0.3 * h);   // runs to the nose-down stop
   const out = ac.step(h, { wind, dT: env.dT ?? 7 });   // the accident day is ISA+7 (KMFL sounding); free flight per weather
   const ir = env.iceRates(env.L, ac);
   ac.ice = clamp(ac.ice + ir.wing * h, 0, 1); ac.iceTail = clamp(ac.iceTail + ir.tail * h, 0, 1); ac.engIce = clamp(ac.engIce + ir.eng * h, 0, 1);
@@ -419,6 +425,9 @@ function handleEvents() {
     else if (e === 'idle') { ac.ctl.thr = 0; ac.ctl.rev = 0; }
     else if (e === 'mute') AU.muted = !AU.muted;
     else if (e === 'controls') HP.toggle();
+    else if (e === 'hdg_up' || e === 'hdg_dn') { ap.setHdg(ap.hdgTgt + (e === 'hdg_up' ? 5 : -5)); log('SYS', `HDG bug ${String(Math.round(ap.hdgTgt)).padStart(3, '0')}°${ap.on ? '' : ' (AP off)'}`); }
+    else if (e === 'alt_up' || e === 'alt_dn') { const a = Math.max(1000, Math.round(ap.altTgt / FT / 500) * 500 + (e === 'alt_up' ? 500 : -500)); ap.setAlt(a * FT, ac.out); log('SYS', `ALT preselect ${a.toLocaleString()} ft${ap.on ? (ap.vert === 'VS' ? ` — ${ap.vsTgt > 0 ? 'climbing' : 'descending'} ${Math.round(Math.abs(ap.vsTgt) * 196.85)} ft/min` : '') : ' (AP off)'}`); }
+    else if (e === 'appr') { if (!ap.on) log('SYS', 'APR: engage the autopilot first (X)'); else if (!ap.nav) log('SYS', 'APR: no ILS in this scenario'); else { ap.appr = !ap.appr; if (!ap.appr && ap.lat === 'LOC') { ap.lat = 'HDG'; ap.hdgTgt = wrap360(ac.out.psi * RAD); if (ap.vert === 'GS') { ap.vert = 'ALT'; ap.altTgt = ac.out.h; } } log('SYS', ap.appr ? 'APR armed: localizer, then glideslope' : 'APR off'); } }
   }
 }
 
@@ -441,7 +450,7 @@ function frame(now) {
       const was = ac.ctl.rev; ac.ctl.rev = clamp(ac.ctl.rev - IN.thrDelta * 2, 0, 1); ac.ctl.thr = 0;
       if (!was && ac.ctl.rev > 0) log('SYS', 'THRUST REVERSERS deployed'); else if (was && !ac.ctl.rev) log('SYS', 'THRUST REVERSERS stowed');
     } else ac.ctl.thr = clamp(ac.ctl.thr + IN.thrDelta, 0, 1);    // no autothrottle: the levers are always the pilot's
-    if (!ap.on) { const tr = ac.sys.trimMode === 'PRI' ? 1 : ac.sys.trimMode === 'SEC' ? 0.45 : 0; ac.ctl.trim = clamp(ac.ctl.trim + IN.trimDelta * tr, G.mode === 'free' ? STAB.min : -1, G.mode === 'free' ? STAB.max : 1); }
+    if (!ap.on) { const tr = ac.sys.trimMode === 'PRI' ? 1 : ac.sys.trimMode === 'SEC' ? 0.45 : 0; ac.ctl.trim = clamp(ac.ctl.trim + IN.trimDelta * tr, STAB.min, STAB.max); }
     const simDt = dt * G.timeScale; const sub = Math.max(1, Math.ceil(simDt / (1 / 240))); const h = simDt / sub;
     for (let i = 0; i < sub; i++) out = stepSim(h, held);
     G.time += simDt;
@@ -531,6 +540,7 @@ function frame(now) {
     const c = ac.ctl;
     const V = G.vsp, bugs = ac.wow || (out.agl < 300 && c.flaps <= 0.25 && !G.td) ? [{ v: V.v1, t: '1' }, { v: V.vr, t: 'R' }, { v: V.v2, t: '2' }] : c.flaps >= 0.5 || c.gear ? [{ v: V.ref, t: 'REF' }] : [];
     HS.free = { agl: out.agl, wow: ac.wow, gs: out.gs, park: c.park, brake: Math.max(c.brakeL, c.brakeR), flaps: c.flaps, gear: c.gear, touchFpm: ac.gnd.touchFpm, steer: ac.gnd.steer, wind: env.wx, gearDamage: ac.gnd.gearDamage, rev: c.rev, sb: c.sb, engFail: ac.engFail, bugs };
+    const il = nearestIls(ac.pos[0], ac.pos[1], out.h, out.track ?? out.psi); HS.ils = il && il.locValid ? il : null;
     HS.ghostProfile = null; HS.wxr = null; HS.nexOn = false; HS.map.nexImg = null; HS.map.ghost = []; HS.dbz = -30;   // clear air: nothing on the radar
   }
   if (HS.cockpit3d) {

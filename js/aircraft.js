@@ -68,7 +68,7 @@ export const ELEV_POWER = 0.45, ELEV_K = ELEV_POWER / 0.18;
 // nose-down) to 12 deg (full nose-up) on the PITCH TRIM indicator. The same tail-volume estimate as the elevator gives
 // ~0.054 per stabilizer degree (2.6 deg per unit), and the AFM takeoff trim (Fig 2-2: ~7 deg at mid CG) is what holds
 // V2 hands-off, which puts u = 0 at 4.3 deg. Cruise then trims near 5 deg, below the 6.5 deg high-speed index as the
-// PTM describes. The accident scenario keeps its calibrated +/-1 range.
+// PTM describes. Both the accident and free flight use this travel (a runaway runs to the 1 deg stop).
 export const STAB = { zero: 4.3, perUnit: 2.6, min: (1 - 4.3) / 2.6, max: (12 - 4.3) / 2.6 };
 export const stabDeg = (u) => STAB.zero + STAB.perUnit * u;
 
