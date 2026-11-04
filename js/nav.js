@@ -7,6 +7,10 @@
 import { RUNWAYS, runwayFrame, groundAlt } from './ground.js';
 
 const NM = 1852, FT = 0.3048, DEG = Math.PI / 180;
+// Marker beacons at the standard positions (KPBI's actual markers are not in data available here): outer marker
+// 4.5 nm and middle marker 3,500 ft before the threshold. Each sends a cone up the approach: the receiver lights while
+// the aircraft is within about 0.8 x its height (along track) of the beacon and near the course.
+export const MARKERS = [{ id: 'OM', back: 4.5 * NM }, { id: 'MM', back: 3500 * FT }];
 export const ILS = [
   { id: 'ILS 10L', rw: '10L/28R', fromB: false, gs: 3.0, tch: 55 },
   { id: 'ILS 28R', rw: '10L/28R', fromB: true, gs: 3.0, tch: 55 },
@@ -33,7 +37,9 @@ export function ilsDeviation(ils, n, e, h) {
   const locValid = dLoc > 0 && dLoc < 18 * NM + locAnt && Math.abs(azLoc) < 35 * DEG && along < f.L;
   const gsValid = locValid && dGs > 0 && dGs < 10 * NM && Math.abs(azLoc) < 8 * DEG;
   const gsErrM = hRel - Math.max(0, dGs) * gsX;               // height above (+) the glidepath, m
-  return { gsErrM, id: ils.id, loc: Math.max(-2.5, Math.min(2.5, loc)), gs: Math.max(-2.5, Math.min(2.5, gs)), locRaw: loc, gsRaw: gs, dme, locValid, gsValid, course: f.hdg, along, cross, hRel, gsAngle: ils.gs };
+  let marker = null;
+  for (const m of MARKERS) if (Math.abs(along + m.back) < 0.8 * Math.max(60, hRel) + 60 && Math.abs(cross) < 1500 && hRel > 30) marker = m.id;
+  return { marker, gsErrM, id: ils.id, loc: Math.max(-2.5, Math.min(2.5, loc)), gs: Math.max(-2.5, Math.min(2.5, gs)), locRaw: loc, gsRaw: gs, dme, locValid, gsValid, course: f.hdg, along, cross, hRel, gsAngle: ils.gs };
 }
 // the ILS whose localizer the aircraft is most nearly lined up with (within its coverage)
 export function nearestIls(n, e, h, track) {

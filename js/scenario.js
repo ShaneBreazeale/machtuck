@@ -217,20 +217,39 @@ export class Autopilot {
     this.thetaLim = [-2.5 * DEG, 4 * DEG];   // cruise; free flight widens it for slow flight and approaches
     this.fine = false;                       // free flight: PI vertical-speed loop (the accident keeps the calibrated cruise law)
     this.thRef = null;
+    this.fd = false;                         // flight director: the same guidance drawn as command bars, with or without the AP
+    this.fdTheta = null; this.fdPhi = null;  // its pitch and bank commands, rad
+    this.toPitch = 9 * DEG; this.gaPitch = 10 * DEG;   // TO: the AFM rotation attitude; GA: go-around pitch
+    this.missedAlt = 2000 * FT;              // missed-approach altitude after a go-around (generic, not the published KPBI procedure)
   }
-  disconnect(why) { if (this.on) { this.on = false; this.why = why; this.appr = false; } }
+  disconnect(why) { if (this.on) { this.on = false; this.why = why; if (!this.fd) this.appr = false; } }
   engage(out) {
     if (Math.abs(out.phi) > 30 * DEG || Math.abs(out.theta) > 15 * DEG || out.stalled) return false;
-    this.on = true; this.why = ''; this.altTgt = out.h; this.hdgTgt = wrap360(out.psi * RAD); this.lat = 'HDG'; this.vert = 'ALT'; this.appr = false; this.thRef = null; return true;
+    this.on = true; this.why = ''; this.thRef = null;
+    // from a takeoff or go-around (FD), keep the heading and climb to the preselected altitude; or from the FD's own
+    // modes, keep them; otherwise hold what the airplane is doing
+    if (this.fd && (this.vert === 'TO' || this.vert === 'GA')) { this.lat = 'HDG'; this.setAlt(this.altTgt, out); return true; }
+    if (this.fd && this.fdTheta !== null) return true;
+    this.altTgt = out.h; this.hdgTgt = wrap360(out.psi * RAD); this.lat = 'HDG'; this.vert = 'ALT'; this.appr = false; return true;
   }
   // a new target altitude: climb or descend toward it in VS mode, then hold it
   setAlt(h, out) {
-    this.altTgt = h; if (!this.on || this.vert === 'GS') return;
+    this.altTgt = h; if ((!this.on && !this.fd) || this.vert === 'GS' || this.vert === 'TO' || this.vert === 'GA') return;
     const dh = h - out.h; if (Math.abs(dh) > 30) { this.vert = 'VS'; this.vsTgt = dh > 0 ? (out.h < 3000 ? 7.6 : 5.1) : -7.6; } else this.vert = 'ALT';
   }
   setHdg(deg) { this.hdgTgt = wrap360(deg); if (this.lat === 'LOC') { this.lat = 'HDG'; this.appr = false; if (this.vert === 'GS') this.vert = 'ALT'; } }
+  // go-around: the AP lets go, the FD commands the go-around pitch on the current (or localizer) heading, and the
+  // preselected altitude becomes the missed-approach altitude
+  goAround(out) {
+    const d = this.ils;
+    this.hdgTgt = wrap360((this.lat === 'LOC' && d ? d.course : out.psi) * RAD);
+    this.lat = 'HDG'; this.vert = 'GA'; this.appr = false; this.altTgt = this.missedAlt; this.fd = true; this.thRef = null;
+    if (this.on) this.disconnect('GO AROUND');
+  }
+  // takeoff: FD pitch to the rotation attitude on the runway heading, then the preselected altitude
+  takeoff(hdgDeg, alt) { this.fd = true; this.lat = 'HDG'; this.vert = 'TO'; this.hdgTgt = wrap360(hdgDeg); this.altTgt = alt; this.appr = false; this.thRef = null; }
   step(ac, dt, out) {
-    if (!this.on) return;
+    if (!this.on && !this.fd) return;
     const { h, vs, theta, phi, psi, p, q, M, KIAS } = out;
     // approach: capture the localizer inside 1.5 dots, then the glideslope inside 0.4 dot
     const d = this.nav ? this.nav(out) : null; this.ils = d;
@@ -239,26 +258,30 @@ export class Autopilot {
       if (this.lat === 'LOC' && this.vert !== 'GS' && d.gsValid && Math.abs(d.gsRaw) < 0.4) this.vert = 'GS';
     }
     if ((this.lat === 'LOC' || this.vert === 'GS') && !(d && d.locValid)) { this.lat = 'HDG'; this.hdgTgt = wrap360(psi * RAD); if (this.vert === 'GS') { this.vert = 'ALT'; this.altTgt = h; } }
-    // vertical: commanded climb rate -> pitch attitude -> elevator (limited-authority servo)
+    // vertical: commanded climb rate -> pitch attitude -> elevator (limited-authority servo); TO / GA fly a pitch attitude
+    if ((this.vert === 'TO' || this.vert === 'GA') && !out.wow && vs > 1 && Math.abs(this.altTgt - h) < Math.max(60, vs * 8)) this.vert = 'ALT';
     let vsCmd;
-    if (this.vert === 'GS' && d) vsCmd = clamp(-out.gs * Math.tan(d.gsAngle * DEG) - 0.15 * d.gsErrM, -10, 3);
+    if (this.vert === 'TO' || this.vert === 'GA') vsCmd = 0;
+    else if (this.vert === 'GS' && d) vsCmd = clamp(-out.gs * Math.tan(d.gsAngle * DEG) - 0.15 * d.gsErrM, -10, 3);
     else if (this.vert === 'VS') { vsCmd = this.vsTgt; if (Math.abs(this.altTgt - h) < Math.max(30, Math.abs(vs) * 6)) this.vert = 'ALT'; }
     else vsCmd = clamp((this.altTgt - h) * 0.10, -8, 8);
-    let elev;
-    if (this.fine) {
+    let elev, thetaCmd;
+    if (this.vert === 'TO' || this.vert === 'GA') {
+      thetaCmd = this.vert === 'TO' ? this.toPitch : this.gaPitch; this.thRef = thetaCmd;
+      elev = clamp((3.0 * (thetaCmd - theta) - 1.5 * q) / ELEV_K, -0.25 / ELEV_K, 0.25 / ELEV_K);
+    } else if (this.fine) {
       // pitch-attitude reference integrates the climb-rate error; gains scale with airspeed (flight-path response ~ V)
       const V = Math.max(40, out.V || 100), e = vsCmd - vs;
       if (this.thRef === null) this.thRef = theta;
       this.thRef = clamp(this.thRef + e * (0.25 / V) * dt, this.thetaLim[0], this.thetaLim[1]);
-      const thetaCmd = clamp(this.thRef + e * (0.75 / V), this.thetaLim[0], this.thetaLim[1]);
+      thetaCmd = clamp(this.thRef + e * (0.75 / V), this.thetaLim[0], this.thetaLim[1]);
       elev = clamp((3.0 * (thetaCmd - theta) - 1.5 * q) / ELEV_K, -0.25 / ELEV_K, 0.25 / ELEV_K);
     } else {
       // Limited-authority servo: real APs saturate in a 4,000 ft/min updraft, which is how the +450 ft excursion happened.
-      const thetaCmd = clamp(theta + (vsCmd - vs) * 0.0025, this.thetaLim[0], this.thetaLim[1]);
+      thetaCmd = clamp(theta + (vsCmd - vs) * 0.0025, this.thetaLim[0], this.thetaLim[1]);
       elev = clamp((2.5 * (thetaCmd - theta) - 1.0 * q) / ELEV_K, -0.12 / ELEV_K, 0.12 / ELEV_K);
     }
-    ac.ctl.elev = elev; this.cmdElev = elev;
-    ac.ctl.trim = clamp(ac.ctl.trim + elev * ELEV_K * this.trimRate * dt, this.trimLim[0], this.trimLim[1]);   // auto-trim offloads the servo (and trims against a pilot fighting it)
+    this.fdTheta = thetaCmd;
     // lateral: heading, or the localizer course with a cross-track intercept (up to 30 deg) flown on the track
     let hErr, bankLim = 25;
     if (this.lat === 'LOC' && d) {
@@ -266,6 +289,10 @@ export class Autopilot {
       hErr = wrap180(want - (out.track ?? psi) * RAD); bankLim = 20;
     } else hErr = wrap180(this.hdgTgt - psi * RAD);
     const phiCmd = clamp(hErr * 1.5, -bankLim, bankLim) * DEG;
+    this.fdPhi = phiCmd;
+    if (!this.on) return;   // flight director only: the pilot flies the bars
+    ac.ctl.elev = elev; this.cmdElev = elev;
+    ac.ctl.trim = clamp(ac.ctl.trim + elev * ELEV_K * this.trimRate * dt, this.trimLim[0], this.trimLim[1]);   // auto-trim offloads the servo (and trims against a pilot fighting it)
     ac.ctl.ail = clamp(1.2 * (phiCmd - phi) - 0.5 * p, -0.6, 0.6); this.cmdAil = ac.ctl.ail;
     // No autothrottle on the Learjet 60: thrust stays where the crew left it.
     if (M > 0.845 || Math.abs(phi) > 50 * DEG || vs < -45) this.disconnect(M > 0.845 ? 'OVERSPEED' : 'ATTITUDE');

@@ -1,7 +1,7 @@
 // ILS (js/nav.js) and the autopilot's approach modes (js/scenario.js): deviation signs and scaling, altitude preselect,
 // and a coupled ILS 10L from the 14 nm intercept start to 200 ft, with a test pilot on the thrust levers and the
 // configuration (the Learjet 60 has no autothrottle).
-import { Learjet60 } from '../js/aircraft.js';
+import { Learjet60, ELEV_K } from '../js/aircraft.js';
 import { Autopilot } from '../js/scenario.js';
 import { setupStart, setWeight, FreeEnv, rwyByStart } from '../js/freeflight.js';
 import { ILS, ilsDeviation, nearestIls } from '../js/nav.js';
@@ -66,6 +66,56 @@ function speedHold(ac, o, kias) { ac.ctl.thr = clamp(ac.ctl.thr + (kias - o.KIAS
   expect(at200 && maxLoc < 0.5 && maxGs < 0.5 && maxBank < 10 * DEG, `1,000 to 200 ft coupled: LOC within ${maxLoc.toFixed(2)} dot, G/S within ${maxGs.toFixed(2)} dot, bank under ${(maxBank / DEG).toFixed(1)}°`);
   expect(at200 && Math.abs(at200.d.cross) < 15 && Math.abs(at200.d.gsErrM) < 6 && Math.abs(at200.kias - ref - 5) < 6 && at200.vs > -950 && at200.vs < -500,
     `at 200 ft: ${at200 && at200.d.cross.toFixed(1)} m off the centreline, ${at200 && at200.d.gsErrM.toFixed(1)} m off the glidepath, ${at200 && Math.round(at200.kias)} KIAS (VREF ${Math.round(ref)}), ${at200 && Math.round(at200.vs)} ft/min`);
+}
+
+// ---- flight director, markers, go-around, takeoff mode ----
+// a pilot who flies the FD bars (autopilot off)
+const flyFd = (ac, ap, o) => {
+  const e = ap.fdTheta - o.theta; ac.fI = o.wow ? 0 : clamp((ac.fI || 0) + e * DT * 4, -0.5, 0.5);   // no integrating on the wheels
+  ac.ctl.elev = clamp(((o.wow ? 3 : 6) * e - 2 * o.q) / ELEV_K + ac.fI, -1, 1);
+  ac.ctl.ail = clamp(1.2 * (ap.fdPhi - o.phi) - 0.5 * o.p, -1, 1);
+  ac.ctl.trim = clamp(ac.ctl.trim + ac.ctl.elev * ELEV_K * 0.2 * DT, -1.27, 2.96);
+};
+{
+  const ac = new Learjet60(); setWeight(ac, 'typical'); const fe = new FreeEnv('calm');
+  setupStart(ac, 'ils10L', fe); const ap = freeAp(ac); let o = ac.step(0, env);
+  ap.on = false; ap.fd = true; ap.lat = 'HDG'; ap.vert = 'ALT'; ap.altTgt = o.h; ap.hdgTgt = (o.psi / DEG + 360) % 360; ap.appr = true;
+  const ref = vref(ac.m / 0.45359); let conf = 0, maxLoc = 0, maxGs = 0, marks = [], ga = null, top = null, t = 0;
+  for (; t < 700; t += DT) {
+    const d = ap.ils, ft = (o.agl - 1.6) / FT;
+    if (d && d.gsValid && d.gsRaw < 1 && conf === 0) { conf = 1; ac.ctl.gear = 1; ac.ctl.flaps = 0.5; }
+    if (conf === 1 && ft < 1500) { conf = 2; ac.ctl.flaps = 1; }
+    if (d && d.marker && marks[marks.length - 1]?.id !== d.marker) marks.push({ id: d.marker, nm: d.along < 0 ? -d.along / 1852 : 0 });
+    if (conf < 3) speedHold(ac, o, conf === 0 ? 180 : conf === 1 ? 150 : ref + 5);
+    if (ft < 1000 && ft > 300 && d && conf < 3) { maxLoc = Math.max(maxLoc, Math.abs(d.locRaw)); maxGs = Math.max(maxGs, Math.abs(d.gsRaw)); }
+    // go around at 300 ft: T/O thrust, FD GA, flaps 20, gear up with a positive rate
+    if (conf === 2 && ft <= 300) { conf = 3; ap.goAround(o); ac.ctl.thr = 1; ac.ctl.flaps = 0.5; ga = { t, h: o.h }; }
+    if (conf === 3 && o.vs > 2) ac.ctl.gear = 0;
+    if (conf === 3 && ap.vert === 'ALT' && Math.abs(o.vs) < 1 && t > ga.t + 20) { top = { h: o.h, hdg: o.psi, t: t - ga.t }; break; }
+    ap.step(ac, DT, o); flyFd(ac, ap, o); o = ac.step(DT, env);
+    if (ac.crashed) break;
+  }
+  expect(maxLoc < 0.5 && maxGs < 0.6, `flying the FD bars, AP off, 1,000 to 300 ft: LOC within ${maxLoc.toFixed(2)} dot, G/S within ${maxGs.toFixed(2)} dot`);
+  expect(marks.length >= 2 && marks[0].id === 'OM' && Math.abs(marks[0].nm - 4.5) < 0.4 && marks[1].id === 'MM' && Math.abs(marks[1].nm - 0.58) < 0.25, `markers: ${marks.map((m) => `${m.id} at ${m.nm.toFixed(2)} nm`).join(', ')}`);
+  const f = rwyByStart('rwy10L'); let he = top ? top.hdg - f.hdg : 9; he = Math.atan2(Math.sin(he), Math.cos(he));
+  expect(top && Math.abs(top.h / FT - 2000) < 120 && Math.abs(he) < 5 * DEG && !ac.crashed, `go-around at 300 ft: FD 10°, levels at ${top && Math.round(top.h / FT)} ft (missed approach 2,000) on ${top && (((top.hdg / DEG) % 360 + 360) % 360).toFixed(0)}° (runway ${(f.hdg / DEG).toFixed(0)}°) after ${top && top.t.toFixed(0)} s`);
+}
+{
+  const ac = new Learjet60(); setWeight(ac, 'typical'); setupStart(ac, 'rwy10L', new FreeEnv('calm')); const ap = freeAp(ac); let o = ac.step(0, env);
+  ap.on = false; ap.takeoff(o.psi / DEG, 3000 * FT); ac.ctl.park = false; ac.ctl.thr = 1;
+  let rot = false, t = 0, done = null, maxTh = 0;
+  for (; t < 240; t += DT) {
+    if (o.KIAS > 136) rot = true;
+    if (!o.wow && o.vs > 2) ac.ctl.gear = 0;
+    if (!o.wow && (o.agl - 1.6) / FT > 1000 && ac.ctl.flaps) ac.ctl.flaps = 0;
+    if (ap.vert === 'ALT') ac.ctl.thr = clamp(ac.ctl.thr + (220 - o.KIAS) * 0.004 * DT * 60, 0, 1);
+    ap.step(ac, DT, o);
+    if (rot) flyFd(ac, ap, o); else { ac.ctl.elev = 0; ac.ctl.ail = 0; }
+    o = ac.step(DT, env); maxTh = Math.max(maxTh, o.theta);
+    if (ap.vert === 'ALT' && Math.abs(o.vs) < 1 && t > 40) { done = { h: o.h, t }; break; }
+    if (ac.crashed) break;
+  }
+  expect(done && Math.abs(done.h / FT - 3000) < 100 && maxTh < 12 * DEG, `FD takeoff: +9° bar to ${done && Math.round(done.h / FT)} ft (preselect 3,000), max pitch ${(maxTh / DEG).toFixed(1)}°, ${done && done.t.toFixed(0)} s`);
 }
 
 console.log(fail ? `\n${fail} FAILED` : '\nall nav tests passed');

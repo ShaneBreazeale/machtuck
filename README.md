@@ -69,6 +69,13 @@ climbs or descends to. `\` arms the approach: it captures the ILS localizer for 
 deviation scales on the PFD. There is no autothrottle on the Learjet 60, so speed stays yours. The glidepath (3.00°,
 55 ft over the threshold) uses standard values; the FAA's open ILS dataset has no KPBI entries.
 
+The flight director (`|`, on by default in free flight) draws the same guidance as magenta command bars, with or
+without the autopilot. On the runway it gives +9° for takeoff on the runway heading, then captures the preselected
+altitude (3,000 ft). `?` (or a bound TOGA button) goes around: the autopilot lets go, the FD commands 10° on the
+runway heading, and the missed-approach altitude of 2,000 ft is preselected; `X` re-engages the autopilot for the
+climb. Outer and middle marker beacons light on the PFD and sound their tones. The missed-approach altitude and the
+marker positions (4.5 nm and 3,500 ft) are standard values, not the published KPBI procedure.
+
 ## Controls
 
 | Action | Keyboard | Controller |
@@ -79,6 +86,7 @@ deviation scales on the PFD. There is no autothrottle on the Learjet 60, so spee
 | Pitch trim | `,` nose-down, `.` nose-up | R1 / L1 |
 | Autopilot off or on | X | Cross |
 | Heading bug, altitude preselect, approach (APR) | `{` `}`, `<` `>`, `\` | |
+| Flight director, go-around (TOGA) | `\|`, `?` (or a bound button) | |
 | Spoilers, gear, flaps | B, G, F | Circle, D-pad |
 | Brakes (free flight) | Hold Shift; toe brakes bind in the controls panel | D-pad left |
 | Thrust reversers (on the ground) | `−` past idle, `=` to stow; or a bound button | L2 past idle |

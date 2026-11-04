@@ -29,6 +29,7 @@ export const BUTTON_FNS = {
   brakes:    { label: 'Brakes (both, hold)', hold: true },
   park:      { label: 'Parking brake', hold: false },
   reverse:   { label: 'Thrust reversers (hold)', hold: true },
+  toga:      { label: 'Go-around (TOGA)', hold: false },
 };
 const KEY = 'n722bd_hw_v1';
 const DEAD = 0.03;                       // hardware dead zone around centre (fraction of half-travel)

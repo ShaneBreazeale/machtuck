@@ -88,6 +88,10 @@ function newFreeFlight(o) {
   const r = setupStart(ac, o.start, env);
   ap.on = r.apOn; ap.why = ''; ap.thetaLim = [-10 * DEG, 15 * DEG]; ap.fine = true;
   ap.nav = (o) => nearestIls(ac.pos[0], ac.pos[1], o.h, o.track ?? o.psi);   // the ILS ahead (KPBI 10L / 28R)
+  // flight director: on in free flight; TO mode on the runway (preselect 3,000 ft), the approach armed on the final
+  ap.fd = true;
+  if (r.onGround) ap.takeoff(ac.out.psi * RAD, 3000 * FT);
+  else if (o.start === 'final10L') { ap.hdgTgt = wrap360(Math.atan2(ac.vel[1], ac.vel[0]) * RAD); ap.altTgt = 2000 * FT; ap.lat = 'HDG'; ap.vert = 'ALT'; ap.appr = true; }
   if (r.apOn) { ap.altTgt = -ac.pos[2]; ap.hdgTgt = wrap360(Math.atan2(ac.vel[1], ac.vel[0]) * RAD); }
   env.wind(ac.pos, 0, 0); ac.step(0, { wind: [0, 0, 0] });
   ATC.el.pause(); ATC.on = false;
@@ -121,9 +125,13 @@ function freeTick(h, out) {
   if (ft > 700) co.ra = {};
   if (!ac.wow && ac.ctl.gear && out.vs < -0.5) { co.ra = co.ra || {}; for (const a of [500, 100, 50, 40, 30, 20, 10]) if (ft <= a && ft > a - 25 && !co.ra[a]) { co.ra[a] = 1; AU.say(a === 500 ? 'Five hundred' : a === 100 ? 'One hundred' : String(a), 0); } }
   if (ac.wow && out.gs < 0.5 && ac.ctl.thr < 0.1) co.v1 = co.vr = co.v2 = 0;
+  // marker passage
+  const mk = G.ap.ils ? G.ap.ils.marker : null;
+  if (mk && mk !== G.lastMk) log('SYS', mk === 'OM' ? 'OUTER MARKER' : mk === 'MM' ? 'MIDDLE MARKER' : 'INNER MARKER');
+  G.lastMk = mk;
   // autopilot mode changes
-  const ap = G.ap, mode = ap.on ? `${ap.lat}/${ap.vert}` : 'off';
-  if (G.apMode && mode !== G.apMode && ap.on) { if (ap.lat === 'LOC' && !G.apMode.startsWith('LOC')) log('SYS', 'LOCALIZER captured'); if (ap.vert === 'GS' && !G.apMode.endsWith('GS')) log('SYS', 'GLIDESLOPE captured'); if (ap.vert === 'ALT' && G.apMode.endsWith('VS')) log('SYS', `ALT captured ${Math.round(ap.altTgt / FT).toLocaleString()} ft`); }
+  const ap = G.ap, mode = ap.on || ap.fd ? `${ap.lat}/${ap.vert}` : 'off';
+  if (G.apMode && mode !== G.apMode && (ap.on || ap.fd)) { if (ap.lat === 'LOC' && !G.apMode.startsWith('LOC')) log('SYS', 'LOCALIZER captured'); if (ap.vert === 'GS' && !G.apMode.endsWith('GS')) log('SYS', 'GLIDESLOPE captured'); if (ap.vert === 'ALT' && /VS|GA|TO/.test(G.apMode)) log('SYS', `ALT captured ${Math.round(ap.altTgt / FT).toLocaleString()} ft`); }
   G.apMode = mode;
   // stopped after a landing: distance from touchdown and runway left
   if (G.td && !G.stopLogged && ac.wow && out.gs < 1) {
@@ -427,6 +435,8 @@ function handleEvents() {
     else if (e === 'controls') HP.toggle();
     else if (e === 'hdg_up' || e === 'hdg_dn') { ap.setHdg(ap.hdgTgt + (e === 'hdg_up' ? 5 : -5)); log('SYS', `HDG bug ${String(Math.round(ap.hdgTgt)).padStart(3, '0')}°${ap.on ? '' : ' (AP off)'}`); }
     else if (e === 'alt_up' || e === 'alt_dn') { const a = Math.max(1000, Math.round(ap.altTgt / FT / 500) * 500 + (e === 'alt_up' ? 500 : -500)); ap.setAlt(a * FT, ac.out); log('SYS', `ALT preselect ${a.toLocaleString()} ft${ap.on ? (ap.vert === 'VS' ? ` — ${ap.vsTgt > 0 ? 'climbing' : 'descending'} ${Math.round(Math.abs(ap.vsTgt) * 196.85)} ft/min` : '') : ' (AP off)'}`); }
+    else if (e === 'fd') { ap.fd = !ap.fd; if (ap.fd && !ap.on) { if (ac.wow) ap.takeoff(ac.out.psi * RAD, Math.max(ap.altTgt, ac.out.h + 1000 * FT)); else { ap.lat = 'HDG'; ap.vert = 'ALT'; ap.hdgTgt = wrap360(ac.out.psi * RAD); ap.altTgt = ac.out.h; ap.thRef = null; } } log('SYS', `FLIGHT DIRECTOR ${ap.fd ? 'ON' : 'OFF'}`); }
+    else if (e === 'toga') { if (G.mode !== 'free') log('SYS', 'GO AROUND: free flight only'); else if (ac.wow) { ap.takeoff(ac.out.psi * RAD, Math.max(ap.altTgt, 3000 * FT)); log('SYS', 'FD TAKEOFF mode: +9° on the runway heading'); } else { ap.goAround(ac.out); log('SYS', `GO AROUND — T/O thrust, pitch to the FD (10°), flaps 20, positive rate gear up. Missed approach: runway heading, climb to ${Math.round(ap.altTgt / FT).toLocaleString()} ft (X re-engages the autopilot).`); AU.say('Go around', 0); } }
     else if (e === 'appr') { if (!ap.on) log('SYS', 'APR: engage the autopilot first (X)'); else if (!ap.nav) log('SYS', 'APR: no ILS in this scenario'); else { ap.appr = !ap.appr; if (!ap.appr && ap.lat === 'LOC') { ap.lat = 'HDG'; ap.hdgTgt = wrap360(ac.out.psi * RAD); if (ap.vert === 'GS') { ap.vert = 'ALT'; ap.altTgt = ac.out.h; } } log('SYS', ap.appr ? 'APR armed: localizer, then glideslope' : 'APR off'); } }
   }
 }
@@ -541,6 +551,7 @@ function frame(now) {
     const V = G.vsp, bugs = ac.wow || (out.agl < 300 && c.flaps <= 0.25 && !G.td) ? [{ v: V.v1, t: '1' }, { v: V.vr, t: 'R' }, { v: V.v2, t: '2' }] : c.flaps >= 0.5 || c.gear ? [{ v: V.ref, t: 'REF' }] : [];
     HS.free = { agl: out.agl, wow: ac.wow, gs: out.gs, park: c.park, brake: Math.max(c.brakeL, c.brakeR), flaps: c.flaps, gear: c.gear, touchFpm: ac.gnd.touchFpm, steer: ac.gnd.steer, wind: env.wx, gearDamage: ac.gnd.gearDamage, rev: c.rev, sb: c.sb, engFail: ac.engFail, bugs };
     const il = nearestIls(ac.pos[0], ac.pos[1], out.h, out.track ?? out.psi); HS.ils = il && il.locValid ? il : null;
+    HS.marker = HS.ils ? HS.ils.marker : null;
     HS.ghostProfile = null; HS.wxr = null; HS.nexOn = false; HS.map.nexImg = null; HS.map.ghost = []; HS.dbz = -30;   // clear air: nothing on the radar
   }
   if (HS.cockpit3d) {
@@ -553,7 +564,7 @@ function frame(now) {
   if (G.phase === 'run' && !G.paused) IN.haptics({ shaker: !!ac.shaker && !ac.broken, buffet: !!out.buffet, broken: ac.broken });
   // force feedback: the column's feel while flying, a light centring spring otherwise (paused, briefing, replay)
   FF.update(G.phase === 'run' && !G.paused ? G.pc.feel({ shaker: !!ac.shaker && !ac.broken, buffet: !!out.buffet, broken: ac.broken }) : null, dt);
-  AU.update(dt, { qbar: out.qbar || 0, V: out.V || 0, n1: ac.n1, overspeed: !!out.overspeed, stall: !!out.stalled && out.alpha > 0, buffet: !!out.buffet, inCloud: env.L.cloud, ext: G.ext, broken: ac.broken, flash: env.flash, flashDist: env.flashDist ?? env.L.r });
+  AU.update(dt, { marker: G.mode === 'free' && G.phase === 'run' && !G.paused ? HS.marker : null, qbar: out.qbar || 0, V: out.V || 0, n1: ac.n1, overspeed: !!out.overspeed, stall: !!out.stalled && out.alpha > 0, buffet: !!out.buffet, inCloud: env.L.cloud, ext: G.ext, broken: ac.broken, flash: env.flash, flashDist: env.flashDist ?? env.L.r });
   if ((G.phase === 'run' || G.phase === 'replay') && !G.paused) {
     if (Math.abs(out.phi) > 45 * DEG) AU.say('Bank angle', 3);
     if (out.vs < -30 && out.h < 3000) AU.say('Pull up', 2);
