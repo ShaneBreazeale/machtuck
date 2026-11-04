@@ -130,7 +130,7 @@ export const tasFor = (kias, h, dT = 0) => { const atm = isa(h, dT); return kias
 // Set up a sortie start: s = { apt, start, rwy, app }, legs = the loaded approach (js/navdb.js procedureLegs).
 // Returns { onGround, apOn, msg, legIdx (the flight-plan leg to make active), alt (ft, the altitude to preselect) }.
 export function setupStart(ac, s, env, legs = []) {
-  ac.failures.tailIce = false; ac.failures.tuck = true; ac.ice = 0; ac.iceTail = 0; ac.engIce = 0; ac.hard = true;
+  ac.failures.tailIce = false; ac.failures.tuck = true; ac.ice = 0; ac.iceTail = 0; ac.engIce = 0;
   const dT = env ? env.dT : 0, kind = STARTS[s.start] ? s.start : 'rwy';
   if (kind === 'rwy') {
     const f = frameFor(s.apt, s.rwy);

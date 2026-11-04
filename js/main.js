@@ -72,7 +72,7 @@ function atcSync() {
   else if (Math.abs(el.currentTime - want) > 0.6) el.currentTime = want;
 }
 function newGame(hypKey, hard = true) {
-  const ac = new Learjet60(), env = new Environment(hypKey, hard), ap = new Autopilot(hard); ac.hard = hard;
+  const ac = new Learjet60(), env = new Environment(hypKey, hard), ap = new Autopilot(hard);
   ac.failures.tailIce = env.hyp.tailIce; ac.failures.tuck = env.hyp.tuck;
   const g0 = ghost[0];
   ac.setState({ n: g0.n, e: g0.e, d: g0.d, psi: g0.hdg, theta: 1.95 * DEG, phi: 0, V: 232 });
@@ -132,7 +132,7 @@ function newFreeFlight(o) {
   const apt = DB.loaded(o.apt);
   if (!apt) { console.warn('airport not loaded', o.apt); return; }
   const legs = o.app ? procedureLegs(apt, 'APP', o.app, { trans: o.trans || null }) : [];
-  const ac = new Learjet60(), env = new FreeEnv(o.wx), ap = new Autopilot(true), fms = new FMS(); ac.hard = true;
+  const ac = new Learjet60(), env = new FreeEnv(o.wx), ap = new Autopilot(true), fms = new FMS();
   setWeight(ac, o.weight);
   const r = setupStart(ac, o, env, legs);
   env.wind(ac.pos, 0, 0); ac.step(0, { wind: [0, 0, 0] });

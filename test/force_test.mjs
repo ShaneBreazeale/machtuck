@@ -6,6 +6,8 @@ import { PilotControls, FORCE } from '../js/controls.js';
 import { DEG } from '../js/util.js';
 import { FT } from '../js/atmo.js';
 
+// MODE=trainer runs the trainer's autopilot (slower auto-trim, no nose-down handover trim); the airplane is the same
+const HARD = process.env.MODE !== 'trainer';
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 const KT = 0.514444, qOf = (keas) => 0.5 * 1.225 * (keas * KT) ** 2;
 let fail = 0;
@@ -44,7 +46,7 @@ const seed = (n) => { let a = n >>> 0; Math.random = () => { a = (a + 0x6D2B79F5
 const ghost = buildGhost();
 function run(hyp, limited, sd, delay = 2.0) {
   seed(sd);
-  const ac = new Learjet60(), env = new Environment(hyp, true), ap = new Autopilot(true), pc = new PilotControls(); ac.hard = true;
+  const ac = new Learjet60(), env = new Environment(hyp, HARD), ap = new Autopilot(HARD), pc = new PilotControls();
   ac.failures.tailIce = env.hyp.tailIce; ac.failures.tuck = env.hyp.tuck;
   const g0 = ghost[0];
   ac.setState({ n: g0.n, e: g0.e, d: g0.d, psi: g0.hdg, theta: 1.95 * DEG, phi: 0, V: 232 });

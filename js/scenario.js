@@ -144,7 +144,7 @@ export class Environment {
     // Real echoes: reflectivity growing between volumes marks the updraft, decaying marks downdraft
     if (this.nex && this.useNex) updraft += (6 * smoothstep(5, 20, growth) - 5 * smoothstep(5, 20, -growth)) * (cloud > 0.2 ? 1 : 0) * this.hyp.shear;
     // Severe turbulence persists in the dive: the track stays in and under the cell's downshear for ~40 s after exit
-    const under = (this.hard ? 1 : 0) * smoothstep(70, 78, t) * (1 - smoothstep(110, 125, t));
+    const under = smoothstep(70, 78, t) * (1 - smoothstep(110, 125, t));
     const turb = clamp(0.25 * (cloud > 0 ? 1 : 0.3) + 1.2 * coreN + 0.6 * ring * vert + 0.9 * under, 0, 1.6);
     return { core: coreN, cloud, updraft, turb, r, hf, top, dbz, growth };
   }
@@ -186,7 +186,8 @@ export class Environment {
   scriptedUpset(ac, ap, t) {
     if (t < 76 || t > 77.5) return;
     if (this.hyp.tailIce && !ac.tailStalled && ac.iceTail > 0.35) ac.tailStalled = true;
-    // As flown: the servo had been trimming nose-down chasing the balloon; the airplane is handed over trimmed ND
+    // As flown: the servo had been trimming nose-down chasing the balloon; the airplane is handed over trimmed ND. This and
+    // the autopilot's trim rate are the ONLY things the mode changes: the airplane and the storm are the same in both.
     if (this.hard && this.hyp.tailIce) ac.ctl.trim = Math.min(ac.ctl.trim, -0.35);
     if (this.hyp.apFail && ap.on) { ac.ctl.trim = Math.min(ac.ctl.trim, -0.45); ap.disconnect('OVERSPEED'); }
   }

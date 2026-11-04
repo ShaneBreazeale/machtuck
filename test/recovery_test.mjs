@@ -6,13 +6,15 @@ import { Environment, Autopilot, buildGhost, RecoveryJudge, UPSET_T, EVENT_T } f
 import { DEG } from '../js/util.js';
 import { FT } from '../js/atmo.js';
 
+// MODE=trainer runs the trainer's autopilot (slower auto-trim, no nose-down handover trim); the airplane is the same
+const HARD = process.env.MODE !== 'trainer';
 const ghost = buildGhost(), clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 // Turbulence, gusts and lightning draw on Math.random: seed it per run so each case is reproducible
 const seed = (n) => { let a = n >>> 0; Math.random = () => { a = (a + 0x6D2B79F5) >>> 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; };
 const SEEDS = (process.env.SEEDS || '1,2,3,4,5').split(',').map(Number);
 
 function run(hyp, pilot, takeoverT = null) {
-  const ac = new Learjet60(), env = new Environment(hyp, true), ap = new Autopilot(true); ac.hard = true;
+  const ac = new Learjet60(), env = new Environment(hyp, HARD), ap = new Autopilot(HARD);
   ac.failures.tailIce = env.hyp.tailIce; ac.failures.tuck = env.hyp.tuck;
   const g0 = ghost[0];
   ac.setState({ n: g0.n, e: g0.e, d: g0.d, psi: g0.hdg, theta: 1.95 * DEG, phi: 0, V: 232 });
@@ -78,7 +80,11 @@ for (const hyp of (process.env.HYP ? process.env.HYP.split(',') : ['combined', '
     console.log(`  ${name.padEnd(30)} seed ${SEEDS[i]}  end ${f(r.t)}${r.crashed ? ' CRASH' : ''}${r.broken ? ' BREAKUP' : ''} | old rule recovered ${f(r.oldRecovered)} | upset ${f(r.upsetAt)} (${r.why || '-'}) recovered ${f(r.recoveredAt)}${r.recoveredFt !== null ? ` at ${Math.round(r.recoveredFt)} ft` : ''} avoided ${f(r.avoidedAt)}`);
   expect(R.early.every(r => r.recoveredAt === null || r.upsetAt !== null && r.recoveredAt > r.upsetAt && r.upsetAt >= EVENT_T), `${hyp}: early takeover never credited before an upset (${SEEDS.length} seeds)`);
   expect(R.early.some(r => r.oldRecovered !== null && r.oldRecovered < UPSET_T), `${hyp}: (regression) the old rule did credit it before the upset`);
-  expect(R.none.every(r => r.recoveredAt === null), `${hyp}: no pilot input never credited (${SEEDS.length} seeds)`);
+  // As flown, the autopilot hands over trimmed nose-down, so hands-off never recovers. The trainer's autopilot doesn't, and
+  // the airplane can fly itself out (the judge credits that correctly): reported there, not asserted.
+  const noneRec = R.none.filter(r => r.recoveredAt !== null).length;
+  if (HARD) expect(noneRec === 0, `${hyp}: no pilot input never credited (${SEEDS.length} seeds)`);
+  else console.log(`  no pilot input, trainer autopilot: recovers on its own ${noneRec}/${SEEDS.length}`);
   // A genuine recovery must still be credited: hand-flying through the event at cruise power (the early-takeover pilot)
   // rides out the upset and stabilises. Not in trim, where nobody selects SEC/OFF and the runaway wins.
   const heldOn = R.early.filter(r => r.upsetAt !== null && r.recoveredAt !== null).length;

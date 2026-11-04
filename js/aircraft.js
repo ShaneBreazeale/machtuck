@@ -98,8 +98,6 @@ export class Learjet60 {
     this.N1to = 93;                      // takeoff-rated N1 (thrust levers at T/O below 1,500 ft)
     this.tailStalled = false;
     this.failures = { tailIce: true, tuck: true };
-    // 'hard' = as-flown realism: sticky iced tail, asymmetric ice, stronger tuck, degraded lateral control
-    this.hard = true;
     this.rw = 0;                         // random-walk asymmetry for stall
     this.out = {};
     this.maxG = 1; this.minG = 1; this.maxM = 0; this.maxKEAS = 0; this.maxVS = 0;
@@ -206,21 +204,22 @@ export class Learjet60 {
     const aoaWing = (alpha - alpha0) / (aStall - alpha0);                     // true fraction of the (iced) wing's stall AOA
     this.shaker = this.sys.stallWarn && !this.broken && alpha > 0 && aoaN > shakerAoaN(h);
     const elevCmd = ctl.elev;
-    const alphaT = 0.7 * alpha * RAD - 3.0 + (this.hard ? 8.0 : 6.0) * ELEV_K * elevCmd;   // deg; push drives the tail toward its negative stall, full pull re-attaches it
+    const alphaT = 0.7 * alpha * RAD - 3.0 + 8.0 * ELEV_K * elevCmd;   // deg; push drives the tail toward its negative stall, full pull re-attaches it
     const iceT = this.iceTail;
     const tailCrit = this.failures.tailIce ? 14 - 11.5 * iceT : 14;
     if (!this.tailStalled && alphaT < -tailCrit) this.tailStalled = true;
-    // Contaminated tail re-attaches only with margin: hard mode needs a real pull or less speed
-    if (this.tailStalled && alphaT > -tailCrit + (this.hard ? 3.0 : 1.5)) this.tailStalled = false;
-    const effTail = this.tailStalled ? (this.hard ? 0.22 : 0.3) : 1 - (this.hard ? 0.45 : 0.25) * iceT;
+    // Contaminated tail re-attaches only with margin: it takes a real pull or less speed
+    if (this.tailStalled && alphaT > -tailCrit + 3.0) this.tailStalled = false;
+    const effTail = this.tailStalled ? 0.22 : 1 - 0.45 * iceT;
     let Cm = 0.02 + this.cmAlpha(M) * (alpha - ALPHA0) - 45 * qhat
       + ELEV_POWER * effM * effTail * elevCmd + 0.14 * effM * effTail * ctl.trim;
     if (this.failures.tuck) {
-      let tuck = this.hard ? -0.14 * smoothstep(0.78, 0.92, M) : -0.09 * smoothstep(0.80, 0.93, M);   // Mach tuck
+      let tuck = -0.14 * smoothstep(0.78, 0.92, M);   // Mach tuck: hand-set, NOT derived from the pressure model (aero.js); only its
+      // ordering is checked (test/aero_validate.mjs: trim gradient stable to 0.77 with Mach trim failed, to Mmo with it working)
       if (this.sys.machTrim && !this.sys.machTrimFail) tuck -= Math.max(tuck, -0.05) * 0.9;            // Mach trim compensator: offsets up to ~0.045 of it
       Cm += tuck;
     }
-    if (this.tailStalled) Cm += this.hard ? -0.17 : -0.22;              // tail unload -> pitch down
+    if (this.tailStalled) Cm += -0.17;              // tail unload -> pitch down
     if (ge) Cm += ge.cm;                                                 // ground effect: less downwash at the tail
     // AFM FM-123 (Overspeed Recovery, Pitch Axis Malfunction): "significant nose-down pitching moment associated with
     // spoiler deployment" above Vmo/Mmo, hence "do not extend spoilers during any nose-down pitch upset at any speed".
@@ -235,7 +234,7 @@ export class Learjet60 {
 
     // ---- Lateral-directional ----
     this.rw += ((Math.random() * 2 - 1) * 6 - this.rw * 2) * dt; this.rw = clamp(this.rw, -1, 1);
-    const effA = (1 - 0.4 * smoothstep(0.86, 0.98, M)) * (this.hard ? 1 - 0.3 * ice : 1);
+    const effA = (1 - 0.4 * smoothstep(0.86, 0.98, M)) * (1 - 0.3 * ice);
     let rudTot = clamp(ctl.rud + (ctl.yd && !this.wow ? -1.5 * r : 0), -1, 1);   // yaw damper off with weight on wheels
     // Sign convention: positive rudder = nose right. Yaw damper opposes yaw rate.
     // Aileron power: ~50°/s peak roll rate at cruise (full deflection)
@@ -244,7 +243,7 @@ export class Learjet60 {
     const CY = -0.75 * beta - 0.15 * rudTot;
     if (stalled) { Cl += 0.05 * this.rw * Math.min(1, stallEx * 8); Cn += 0.01 * this.rw; }
     // Asymmetric ice shedding/accretion: persistent left-wing-heavy rolling moment plus slow wander
-    if (this.hard) { Cl += -0.0045 * ice * (1 + 0.6 * this.rw); Cn += 0.001 * ice * this.rw; }
+    Cl += -0.0045 * ice * (1 + 0.6 * this.rw); Cn += 0.001 * ice * this.rw;
     const KIAS = casKt(M, atm.p);
     if (ctl.flaps > 0 && KIAS > vfe(ctl.flaps)) Cl += -0.006 * ctl.flaps;   // overspeeding flaps: asymmetry
 
