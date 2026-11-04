@@ -1,6 +1,6 @@
 // Control-force model (js/controls.js): calibration against the AFM figure, normal handling, pilot fatigue, the
 // autopilot's clutched servos, and the as-flown upset recovered by an AFM-procedure pilot with and without force limits.
-import { Learjet60, ELEV_K, ELEV_POWER } from '../js/aircraft.js';
+import { Learjet60, ELEV_K, ELEV_POWER, STAB } from '../js/aircraft.js';
 import { Environment, Autopilot, buildGhost, UPSET_T } from '../js/scenario.js';
 import { PilotControls, FORCE } from '../js/controls.js';
 import { DEG } from '../js/util.js';
@@ -50,7 +50,9 @@ function run(hyp, limited, sd, delay = 2.0) {
   ac.setState({ n: g0.n, e: g0.e, d: g0.d, psi: g0.hdg, theta: 1.95 * DEG, phi: 0, V: 232 });
   ac.ctl.trim = 0.37; ac.ctl.thr = 0.83; ac.n1 = 0.83; ac.ice = 0.15; ac.iceTail = 0.25; ac.sys.machTrimFail = !!env.hyp.machTrimFail;
   const dt = 1 / 200; let t = 0, apOff = null, stable = 0, rec = null, minH = 1e9, maxLb = 0, want = { elev: 0, ail: 0 };
-  while (t < 200 && !ac.crashed && !ac.broken) {
+  let recT = null;
+  while (t < 200 && !ac.crashed && !ac.broken && !(recT !== null && t > recT + 10)) {   // the AFM procedure ends once recovered: stop 10 s later
+
     const wind = env.wind(ac.pos, t, dt);
     let out = ac.out || {};
     if (apOff !== null) {
@@ -64,7 +66,7 @@ function run(hyp, limited, sd, delay = 2.0) {
     const ir = env.iceRates(env.L, ac);
     ac.ice = clamp(ac.ice + ir.wing * dt, 0, 1); ac.iceTail = clamp(ac.iceTail + ir.tail * dt, 0, 1); ac.engIce = clamp(ac.engIce + ir.eng * dt, 0, 1);
     ap.hdgTgt = t < 25 ? 58 : Math.min(100, 58 + (t - 25) * (42 / 45));
-    if (env.hyp.trimRunaway && t > UPSET_T && t < UPSET_T + 12 && ac.sys.trimMode === 'PRI') ac.ctl.trim = Math.max(-1, ac.ctl.trim - 0.3 * dt);
+    if (env.hyp.trimRunaway && t > UPSET_T && t < UPSET_T + 12 && ac.sys.trimMode === 'PRI') ac.ctl.trim = Math.max(STAB.min, ac.ctl.trim - 0.3 * dt);
     ap.step(ac, dt, out);
     env.scriptedUpset(ac, ap, t); if (ac.tailStalled && ap.on) ap.disconnect('PITCH');
     if (ap.on && env.hyp.trimRunaway && ac.ctl.trim < -0.5) ap.disconnect('TRIM');
@@ -79,10 +81,12 @@ function run(hyp, limited, sd, delay = 2.0) {
       const gCmd = Math.abs(out.phi) < 30 * DEG ? (out.M > 0.86 ? 1.8 : 2.3) : 1.0;
       want.elev = clamp(want.elev + ((out.buffet || out.stalled ? Math.min(gCmd, 0.9) : gCmd) - out.nz) * 0.9 * dt * 60 / ELEV_K, -1 / ELEV_K, 1 / ELEV_K);   // the scripted pilot's authority, in pitching moment, as calibrated
       if (out.theta > 3 * DEG && out.vs > 0) want.elev = Math.min(want.elev, 0.05 / ELEV_K);
-      if (ac.sys.trimMode !== 'OFF' && want.elev > 0.25 / ELEV_K) ac.ctl.trim = Math.min(1, ac.ctl.trim + 0.25 * dt);
+      // trim off the column force, either way (with the full stabilizer range, never trimming back zooms the airplane)
+      if (ac.sys.trimMode !== 'OFF' && want.elev > 0.25 / ELEV_K && out.nz < gCmd) ac.ctl.trim = Math.min(STAB.max, ac.ctl.trim + 0.25 * dt);   // not into a g overshoot
+      else if (ac.sys.trimMode !== 'OFF' && want.elev < -0.05 / ELEV_K) ac.ctl.trim = Math.max(STAB.min, ac.ctl.trim - 0.25 * dt);
     }
     minH = Math.min(minH, out.h);
-    if (apOff !== null && t > UPSET_T && Math.abs(out.phi) < 15 * DEG && out.vs > -7.6 && out.nz > 0.6 && out.nz < 1.6) { stable += dt; if (stable > 5 && rec === null) rec = out.h; } else stable = 0;
+    if (apOff !== null && t > UPSET_T && Math.abs(out.phi) < 15 * DEG && out.vs > -7.6 && out.nz > 0.6 && out.nz < 1.6) { stable += dt; if (stable > 5 && rec === null) { rec = out.h; recT = t; } } else stable = 0;
     t += dt;
   }
   return { crashed: ac.crashed, broken: ac.broken, rec, minH, maxLb, why: ac.broken ? `${ac.brokenWhat} M${ac.maxM.toFixed(2)} ${Math.round(ac.maxKEAS)}KEAS ${ac.maxG.toFixed(1)}g/${ac.minG.toFixed(1)}g` : '' };

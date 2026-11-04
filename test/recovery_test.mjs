@@ -1,7 +1,7 @@
 // Pass/fail judgement: an early takeover that just holds level flight must not count as a recovery.
 // Runs the as-flown scenario with three pilots and compares the old rule (AP off 3 s, then 3 s stable) with
 // RecoveryJudge (a real upset first, then 10 s of stable flight). Exits non-zero on a failed expectation.
-import { Learjet60, ELEV_K, ELEV_POWER } from '../js/aircraft.js';
+import { Learjet60, ELEV_K, ELEV_POWER, STAB } from '../js/aircraft.js';
 import { Environment, Autopilot, buildGhost, RecoveryJudge, UPSET_T, EVENT_T } from '../js/scenario.js';
 import { DEG } from '../js/util.js';
 import { FT } from '../js/atmo.js';
@@ -26,7 +26,7 @@ function run(hyp, pilot, takeoverT = null) {
     const ir = env.iceRates(env.L, ac);
     ac.ice = clamp(ac.ice + ir.wing * dt, 0, 1); ac.iceTail = clamp(ac.iceTail + ir.tail * dt, 0, 1); ac.engIce = clamp(ac.engIce + ir.eng * dt, 0, 1);
     ap.hdgTgt = t < 25 ? 58 : Math.min(100, 58 + (t - 25) * (42 / 45));
-    if (env.hyp.trimRunaway && t > UPSET_T && t < UPSET_T + 12 && ac.sys.trimMode === 'PRI') ac.ctl.trim = Math.max(-1, ac.ctl.trim - 0.3 * dt);   // as main.js
+    if (env.hyp.trimRunaway && t > UPSET_T && t < UPSET_T + 12 && ac.sys.trimMode === 'PRI') ac.ctl.trim = Math.max(STAB.min, ac.ctl.trim - 0.3 * dt);   // as main.js
     ap.step(ac, dt, out);
     env.scriptedUpset(ac, ap, t); if (ac.tailStalled && ap.on) ap.disconnect('PITCH');
     if (ap.on && env.hyp.trimRunaway && ac.ctl.trim < -0.5) ap.disconnect('TRIM');
@@ -62,7 +62,7 @@ const textbook = (ac, out, t, t0) => {
   if (out.buffet || out.stalled) gCmd = Math.min(gCmd, 0.9);
   ac.ctl.elev = clamp(ac.ctl.elev + (gCmd - out.nz) * 0.9 * (1 / 200) * 60 / ELEV_K, -1 / ELEV_K, 1 / ELEV_K);
   if (out.theta > 5 * DEG && out.vs > 0) ac.ctl.elev = 0;
-  ac.ctl.trim = Math.min(1, ac.ctl.trim + 0.25 / 200 * (ac.ctl.elev > 0.3 / ELEV_K ? 1 : 0));
+  ac.ctl.trim = clamp(ac.ctl.trim + 0.25 / 200 * (ac.ctl.elev > 0.3 / ELEV_K ? 1 : ac.ctl.elev < -0.05 / ELEV_K ? -1 : 0), STAB.min, STAB.max);   // trim off the force either way
 };
 
 let fail = 0;

@@ -17,6 +17,7 @@ export class Audio {
     this.clk = C.createOscillator(); this.clk.type = 'square'; this.clk.frequency.value = 1400; this.clkG = C.createGain(); this.clkG.gain.value = 0; this.clk.connect(this.clkG); this.clkG.connect(this.master); this.clk.start();
     this.horn = C.createOscillator(); this.horn.type = 'triangle'; this.horn.frequency.value = 330; this.hornG = C.createGain(); this.hornG.gain.value = 0; this.horn.connect(this.hornG); this.hornG.connect(this.master); this.horn.start();
     this.shaker = mk('lowpass', 60, 1); // stick shaker rumble
+    this.mk = C.createOscillator(); this.mk.type = 'sine'; this.mkG = C.createGain(); this.mkG.gain.value = 0; this.mk.connect(this.mkG); this.mkG.connect(this.master); this.mk.start();   // marker beacons
     this.t = 0;
   }
   update(dt, S) {
@@ -33,6 +34,12 @@ export class Audio {
     this.clkG.gain.setTargetAtTime(m * (S.overspeed && (Math.floor(this.t * 9) % 2 === 0) ? 0.08 : 0), now, 0.005);
     this.hornG.gain.setTargetAtTime(m * (S.stall && (Math.floor(this.t * 4) % 2 === 0) ? 0.12 : 0), now, 0.01);
     this.shaker.g.gain.setTargetAtTime(m * (S.buffet ? 0.9 : 0) * Math.min(1, q * 2), now, 0.05);
+    // marker beacons: outer 400 Hz dashes (2 per second), middle 1,300 Hz alternating dot-dash, inner 3,000 Hz dots
+    let on = 0;
+    if (S.marker === 'OM') { this.mk.frequency.value = 400; on = (this.t * 2) % 1 < 0.75; }
+    else if (S.marker === 'MM') { this.mk.frequency.value = 1300; const c = (this.t * 1.6) % 1; on = c < 0.15 || (c > 0.3 && c < 0.75); }
+    else if (S.marker === 'IM') { this.mk.frequency.value = 3000; on = (this.t * 6) % 1 < 0.5; }
+    this.mkG.gain.setTargetAtTime(m * (on ? 0.06 : 0), now, 0.004);
     if (S.flash > 0.95 && !this.flashLatched) { this.flashLatched = true; setTimeout(() => this.thunder(S.flashDist), 300 + Math.random() * 1500); }
     if (S.flash < 0.5) this.flashLatched = false;
   }

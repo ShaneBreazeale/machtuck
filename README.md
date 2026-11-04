@@ -55,13 +55,26 @@ Click **Fly it**, or press `N` to skip ahead to core entry. The autopilot flies 
 when it can no longer cope.
 
 **Free flight** is a separate mode at the bottom of the briefing screen, with no storm and no accident script. Pick a
-start (runway 10L or 28R lined up, a 6 nm final to 10L, or cruise at FL350), weather and weight, then **Free flight**.
+start (runway 10L or 28R lined up, a 6 nm final to 10L, an ILS 10L intercept, or cruise at FL350), weather and weight,
+then **Free flight**.
 You can also arm an engine failure at V1 or after takeoff. On the runway the parking brake is set and takeoff trim
 is dialled in. The AFM V1, VR and V2 for your weight appear on the speed tape and are called out. Hold Shift to release
 the brake, add full thrust, and rotate at VR to about +9° (the tail strikes at 11°). On approach the bug shows VREF and
 radio altitude is called from 500 ft. Touch down below 600 ft/min; harder than that the gear is damaged, and near
 960 ft/min it collapses. On the ground the spoilers deploy themselves at idle above 60 kt, and pulling thrust back past
 idle (`−` or L2) deploys the thrust reversers. The log reports touchdown point, centreline offset and runway left.
+
+The autopilot (X) holds heading and altitude. `{` `}` move the heading bug and `<` `>` preselect an altitude, which it
+climbs or descends to. `\` arms the approach: it captures the ILS localizer for 10L or 28R, then the glideslope, with
+deviation scales on the PFD. There is no autothrottle on the Learjet 60, so speed stays yours. The glidepath (3.00°,
+55 ft over the threshold) uses standard values; the FAA's open ILS dataset has no KPBI entries.
+
+The flight director (`|`, on by default in free flight) draws the same guidance as magenta command bars, with or
+without the autopilot. On the runway it gives +9° for takeoff on the runway heading, then captures the preselected
+altitude (3,000 ft). `?` (or a bound TOGA button) goes around: the autopilot lets go, the FD commands 10° on the
+runway heading, and the missed-approach altitude of 2,000 ft is preselected; `X` re-engages the autopilot for the
+climb. Outer and middle marker beacons light on the PFD and sound their tones. The missed-approach altitude and the
+marker positions (4.5 nm and 3,500 ft) are standard values, not the published KPBI procedure.
 
 ## Controls
 
@@ -72,6 +85,8 @@ idle (`−` or L2) deploys the thrust reversers. The log reports touchdown point
 | Throttle | `-` / `=`, `0` for idle | R2 / L2, square for idle |
 | Pitch trim | `,` nose-down, `.` nose-up | R1 / L1 |
 | Autopilot off or on | X | Cross |
+| Heading bug, altitude preselect, approach (APR) | `{` `}`, `<` `>`, `\` | |
+| Flight director, go-around (TOGA) | `\|`, `?` (or a bound button) | |
 | Spoilers, gear, flaps | B, G, F | Circle, D-pad |
 | Brakes (free flight) | Hold Shift; toe brakes bind in the controls panel | D-pad left |
 | Thrust reversers (on the ground) | `−` past idle, `=` to stow; or a bound button | L2 past idle |
@@ -129,8 +144,9 @@ against you until you disconnect it.
 Full elevator is worth ΔCm 0.45 at low speed, a T-tail estimate (tail about 5.6 m², arm about 7.5 m) that rotation
 at VR needs: the main wheels sit about 0.6 m behind the CG (the TCDS CG range against the gear contact points). The
 stabilizer trims over the PTM's 1–12° range at 0.054 Cm per degree. Takeoff trim works out to 7.3°, inside the AFM's
-takeoff segment, and cruise trims near 5°. The upset scenario keeps its earlier calibration: column force, tail-stall
-onset and autopilot authority per unit of pitching moment are unchanged, and so are its ±1 trim limits.
+takeoff segment, and cruise trims near 5°. Both modes use the full stabilizer travel: a nose-down trim runaway now runs
+to the real stop, and nose-up trim has more to give in a recovery. The upset scenario keeps its earlier calibration
+otherwise: column force, tail-stall onset and autopilot authority per unit of pitching moment are unchanged.
 
 ### Ground
 
@@ -200,8 +216,10 @@ the all-engine distance, and the landing from 50 ft at VREF.
 | Landing distance from 50 ft, 6 cases | rms 1.3 %, all within 2.2 % | AFM Fig 5-74 |
 
 `node test/force_test.mjs` flies the upset with a force-limited pilot following the AFM procedure. Starting the
-recovery 2 seconds after the autopilot lets go saves the airplane in three of the four hypotheses. At 5 seconds it
-costs about 8,000 ft. From 8 seconds on, the wing fails before the pilot acts.
+recovery 2 seconds after the autopilot lets go saves the airplane in three of the four hypotheses (the trim runaway
+breaks up). At 5 seconds it is marginal: the tail-stall case loses about 8,000 ft and the combined case, already
+near its structural limit, can break the tail as the iced stabilizer stalls and re-attaches. From 8 to 12 seconds
+on, the wing fails before the recovery takes hold.
 
 ## Real data
 
@@ -245,11 +263,12 @@ node tools/bench.mjs 2560x1320 8080
 | `js/controls.js` | Column and wheel forces, pilot strength, autopilot clutches |
 | `js/input.js`, `js/hardware.js`, `js/hwui.js` | Keyboard and mouse, all connected flight hardware, the binding panel |
 | `js/ground.js`, `js/freeflight.js` | Landing gear and ground contact; free-flight starts, weather and trim solver |
+| `js/nav.js`, `js/afm.js` | ILS geometry and deviations; AFM takeoff speeds and VREF |
 | `js/ffb.js` | USB PID force-feedback driver over WebHID |
 | `js/scenario.js` | Storm environment, ADS-B reconstruction, ATC timeline, autopilot, hypotheses |
 | `js/render.js`, `js/shaders.js` | WebGL2 renderer |
 | `js/hud.js`, `js/cockpit.js`, `js/vcgauges.js` | Instruments, 3D cockpit, standby gauges |
-| `test/` | Flight-test card, AFM table validation, upset, recovery, force, ground, hardware and force-feedback checks |
+| `test/` | Flight-test card, AFM table validation, upset, recovery, force, ground, performance, ILS, hardware and force-feedback checks |
 | `tools/` | Data fetchers, model and livery converters, benchmark |
 
 Debug views load the reconstruction paused at a given time:
