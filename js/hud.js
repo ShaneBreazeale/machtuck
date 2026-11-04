@@ -6,6 +6,7 @@ import { stabDeg } from './aircraft.js';
 import { RUNWAYS } from './ground.js';
 import { FT, KT } from './atmo.js';
 import { clockStr, TIMELINE } from './scenario.js';
+import { drawPfd } from './pfd.js';
 
 const FONT = '"SF Mono", Menlo, Consolas, monospace';
 const COL = { bezel: '#23262c', panel: '#15171b', face: '#0b0c0f', text: '#dfe6ee', dim: '#8a94a0', green: '#6cff6c', amber: '#ffb000', red: '#ff3b3b', cyan: '#7fd7ff', magenta: '#ff40c0' };
@@ -52,8 +53,7 @@ export class HUD {
     // EFB / procedures
     this.efb(S, X(cols[0][0]), y1, X(cols[0][1]) - X(cols[0][0]), rowH);
     // PFD
-    const pw = X(cols[1][1]) - X(cols[1][0]); const s = Math.min(pw / 1.62, rowH / 1.28);
-    this.pfd(S, blink, X(cols[1][0]) + pw * 0.5 - s * 0.02, y1 + s * 0.52, s);
+    drawPfd(this, S, blink, X(cols[1][0]), y1, X(cols[1][1]) - X(cols[1][0]), rowH);   // Pro Line 4 PFD (js/pfd.js)
     // Engines
     this.engines(S, X(cols[2][0]), y1, X(cols[2][1]) - X(cols[2][0]), rowH);
     // MFD
@@ -111,9 +111,10 @@ export class HUD {
   fgcModes(S) { const a = S.ap, g = a.on || a.fd; return [['AP', a.on], ['FD', !!a.fd], ['YD', S.ac.ctl.yd], [a.lat || 'HDG', g], [a.vert || 'ALT', g], ['APR', g && a.appr]]; }
   fgcText(S) {
     const a = S.ap; if (!a.on && !a.fd) return a.why ? `AP OFF · ${a.why}` : 'AP OFF';
-    const alt = Math.round(a.altTgt / FT / 100) * 100, v = a.vert === 'TO' || a.vert === 'GA' ? `${a.vert} → ${alt}` : a.vert === 'VS' ? `VS ${a.vsTgt > 0 ? '+' : '−'}${Math.round(Math.abs(a.vsTgt) * 196.85)} → ${alt}` : a.vert === 'GS' ? 'GS' : `ALT ${alt}`;
-    const l = a.lat === 'LOC' ? 'LOC' : `HDG ${String(Math.round(a.hdgTgt)).padStart(3, '0')}°`;
-    return `${a.on ? '' : 'FD  '}${v}  ${l}${a.appr && a.lat !== 'LOC' ? '  LOC armed' : a.appr && a.vert !== 'GS' ? '  GS armed' : ''}`;
+    const alt = Math.round(a.altTgt / FT / 100) * 100, v = a.vert === 'TO' || a.vert === 'GA' ? `${a.vert} → ${alt}` : a.vert === 'VS' ? `VS ${a.vsTgt > 0 ? '+' : '−'}${Math.round(Math.abs(a.vsTgt) * 196.85)} → ${alt}` : /^(GS|GP|VNAV)$/.test(a.vert) ? `${a.vert} · ${alt}` : `${a.vert} ${alt}`;
+    const l = a.lat === 'HDG' ? `HDG ${String(Math.round(a.hdgTgt)).padStart(3, '0')}°` : a.lat;
+    const armed = [a.latArm, a.vertArm].filter(Boolean).join(' ');
+    return `${a.on ? '' : 'FD  '}${v}  ${l}${armed ? `  ${armed} armed` : ''}`;
   }
   // Label fitted to its box: shrink to fit, or split two-word labels onto two lines when that reads larger
   fitLabel(t, cx, cy, maxW, maxH, color) {
@@ -172,7 +173,7 @@ export class HUD {
     ctx.strokeStyle = COL.green; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(fx, fy, s * 0.025, 0, 6.28); ctx.moveTo(fx - s * 0.025, fy); ctx.lineTo(fx - s * 0.07, fy); ctx.moveTo(fx + s * 0.025, fy); ctx.lineTo(fx + s * 0.07, fy); ctx.moveTo(fx, fy - s * 0.025); ctx.lineTo(fx, fy - s * 0.05); ctx.stroke();
     const g = o.nz; this.text(`G ${g.toFixed(2)}`, -s * 0.46, s * 0.44, s * 0.055, g > 3.5 || g < -1 ? COL.red : g > 2.5 ? COL.amber : '#fff', 'left', 'bold');
     this.text(`α ${(o.alpha * RAD).toFixed(1)}°`, s * 0.46, s * 0.44, s * 0.045, o.stalled ? COL.red : '#cfd', 'right');
-    const apTxt = S.ap.on || S.ap.fd ? `${S.ap.on ? 'AP' : 'FD'}  ${S.ap.vert || 'ALT'}  ${S.ap.lat || 'HDG'}${S.ap.appr && S.ap.lat !== 'LOC' ? '  (LOC)' : S.ap.appr && S.ap.vert !== 'GS' ? '  (GS)' : ''}` : (S.ap.why ? `AP OFF (${S.ap.why})` : 'AP OFF');
+    const apTxt = S.ap.on || S.ap.fd ? `${S.ap.on ? 'AP' : 'FD'}  ${S.ap.lat || 'HDG'}${S.ap.latArm ? ` (${S.ap.latArm})` : ''}  ${S.ap.vert || 'ALT'}${S.ap.vertArm ? ` (${S.ap.vertArm})` : ''}` : (S.ap.why ? `AP OFF (${S.ap.why})` : 'AP OFF');
     // flight director: crosshair command bars (pitch bar up = pitch up; roll bar right = bank right), magenta
     if (S.ap.fd && S.ap.fdTheta !== null && S.ap.fdPhi !== null) {
       const by = clamp(-(S.ap.fdTheta - o.theta) * RAD * ppd, -s * 0.3, s * 0.3), bx = clamp((S.ap.fdPhi - ph) * RAD * s * 0.008, -s * 0.3, s * 0.3);
@@ -388,6 +389,13 @@ export class HUD {
     ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1; for (const f of [0.5, 1]) { ctx.beginPath(); ctx.arc(cx, cy, rangeM * sc * f, 0, 6.28); ctx.stroke(); }
     // airport
     ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; for (const rw of RUNWAYS) { const [x1, y1] = P(rw.a[0], rw.a[1]), [x2, y2] = P(rw.b[0], rw.b[1]); ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); }
+    // flight plan (FMS): legs through their fixes, active leg magenta, the rest white; fix names
+    if (M.route && M.route.pts.length) {
+      const R = M.route; ctx.lineWidth = 2;
+      for (let k = 1; k < R.pts.length; k++) { const a = R.pts[k - 1], b = R.pts[k]; if (!a.ne || !b.ne) continue; const [x1, y1] = P(a.ne[0], a.ne[1]), [x2, y2] = P(b.ne[0], b.ne[1]); ctx.strokeStyle = b.i === R.active ? COL.magenta : b.missed ? 'rgba(127,215,255,0.7)' : '#fff'; ctx.setLineDash(b.missed ? [5, 4] : []); ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); }
+      ctx.setLineDash([]);
+      for (const q of R.pts) { if (!q.ne || !q.id) continue; const [px, py] = P(q.ne[0], q.ne[1]); ctx.strokeStyle = q.i === R.active ? COL.magenta : '#fff'; ctx.beginPath(); ctx.moveTo(px, py - 4); ctx.lineTo(px + 4, py); ctx.lineTo(px, py + 4); ctx.lineTo(px - 4, py); ctx.closePath(); ctx.stroke(); this.text(q.id, px + 6, py - 6, 8.5, q.i === R.active ? COL.magenta : '#cfd'); }
+    }
     // reported track (magenta) and own trail (green)
     ctx.strokeStyle = COL.magenta; ctx.lineWidth = 1.5; ctx.setLineDash([4, 3]); ctx.beginPath(); M.ghost.forEach((p, i) => { const [px, py] = P(p[0], p[1]); i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }); ctx.stroke(); ctx.setLineDash([]);
     if (M.ghost.length) { const [gx, gy] = P(M.ghost[M.ghost.length - 1][0], M.ghost[M.ghost.length - 1][1]); ctx.strokeStyle = COL.magenta; ctx.beginPath(); ctx.moveTo(gx - 5, gy - 5); ctx.lineTo(gx + 5, gy + 5); ctx.moveTo(gx + 5, gy - 5); ctx.lineTo(gx - 5, gy + 5); ctx.stroke(); }
@@ -451,8 +459,8 @@ export class HUD {
   header(S) {
     const y = 14;
     if (S.free) {
-      this.text(`LEARJET 60 · FREE FLIGHT · KPBI${S.replay ? '  ·  REPLAY · ' + ['COCKPIT', 'CHASE', 'GROUND CAM'][S.camMode] : ''}`, 12, y, 13, '#ffe34d', 'left', 'bold');
-      this.text(S.hypName.replace(/^FREE FLIGHT · /, ''), 12, y + 17, 11, '#9ab');
+      this.text(`LEARJET 60 · FREE FLIGHT SORTIE${S.replay ? '  ·  REPLAY · ' + ['COCKPIT', 'CHASE', 'GROUND CAM'][S.camMode] : ''}`, 12, y, 13, '#ffe34d', 'left', 'bold');
+      this.text(S.hypName.replace(/^SORTIE · /, ''), 12, y + 17, 11, '#9ab');
       this.text('[H] help  [C] camera  [R] restart  [Shift] brakes  [G] gear  [F] flaps  [B] spoilers  [X] autopilot  [/] controls  [Z] hide HUD', 12, y + 33, 11, '#678');
       return;
     }
@@ -506,7 +514,7 @@ export class HUD {
   }
   help() {
     const ctx = this.ctx, W = this.W, H = this.H;
-    const L = ['CONTROLS', '', 'Pitch: ↑/↓ or W/S (↓ or S = pull)  ·  Roll: ←/→ or A/D  ·  Rudder: Q/E  ·  inputs are FORCE on unboosted controls (gauge: COLUMN FORCE)', 'Throttle: − / =   ·   0 = idle   ·   B spoilers   ·   G gear (VLO 200 / VLE 260 KIAS)   ·   F flaps 8/20/40 (VFE 250/200/165 KIAS)', 'Brakes: hold Shift (or toe brakes, a bound button, D-pad left)  ·  a runway start has the parking brake set: brakes release it  ·  pedals / Q·E steer the nosewheel', 'Autopilot: X engage (HDG + ALT)  ·  { } heading bug  ·  < > altitude preselect (climbs / descends to it)  ·  \\ APR: captures the localizer, then the glideslope (KPBI ILS 10L / 28R)', '| flight director on / off (magenta bars: fly them)  ·  ? go around: AP off, FD 10° on runway heading, climbs to 2,000 ft  ·  on the runway the FD gives +9° for takeoff  ·  OM / MM marker lights and tones', 'On the ground: − past idle (or L2) = thrust reversers, = stows  ·  spoilers deploy themselves at idle above 60 kt  ·  V1 / VR / V2 and VREF bugs on the speed tape', 'Pitch trim: , nose-down  . nose-up (PRI/SEC only)   ·   7 = trim PRI/SEC/OFF   ·   8 = Mach trim', 'I = wing+stab heat   ·   9 = nacelle heat   ·   6 = stall warning (shaker) cutout   ·   Y = yaw damper', 'X = autopilot off / engage   ·   TAB = EFB map / procedures / off   ·   1–6 = procedure card   ·   ` = back', 'C camera (right-drag orbits)   ·   V ghost   ·   T ATC audio   ·   ; / \' nudge tape   ·   U NEXRAD   ·   O/J radar', 'N skip   ·   [ ] sim rate   ·   K quality   ·   P pause   ·   R restart   ·   M mute   ·   Z hide HUD   ·   / controls & hardware   ·   H help', 'Controller (DualShock/DualSense/Xbox): L stick pitch/roll · R stick rudder · R2/L2 thrust · R1/L1 trim up/down · ✕ AP · ○ spoilers · □ idle · △ camera · D-pad ↑ gear ↓ flaps · L3 yaw damper · Options pause · Create help · rumble on shaker/buffet (Chrome)', 'Force-feedback joystick (USB PID, Chrome/Edge): connect in Controls (/)  ·  stick position = column position, its motor = the hinge moment', '3D cockpit: right-drag to look around, mouse wheel to zoom; the switch panel and EFB are clickable.', '', 'UPSET / OVERSPEED RECOVERY (after AFM FM-123; our wording):', '1. Thrust IDLE, AP off (X).  2. Identify pitch AND roll on the PFD.  3. LEVEL THE WINGS before pulling.', '4. Elevator + nose-up TRIM (.) to raise the nose; forces can exceed 75 lb, trim takes them off you.', '5. Extreme speed or attitude: GEAR DOWN (G).  NO SPOILERS: nose-down pitch above Vmo/Mmo.'];
+    const L = ['CONTROLS', '', 'Pitch: ↑/↓ or W/S (↓ or S = pull)  ·  Roll: ←/→ or A/D  ·  Rudder: Q/E  ·  inputs are FORCE on unboosted controls (gauge: COLUMN FORCE)', 'Throttle: − / =   ·   0 = idle   ·   B spoilers   ·   G gear (VLO 200 / VLE 260 KIAS)   ·   F flaps 8/20/40 (VFE 250/200/165 KIAS)', 'Brakes: hold Shift (or toe brakes, a bound button, D-pad left)  ·  a runway start has the parking brake set: brakes release it  ·  pedals / Q·E steer the nosewheel', 'Autopilot: X engage (HDG + ALT)  ·  { } heading bug  ·  < > altitude preselect (climbs / descends to it)  ·  \\ APR: captures the localizer, then the glideslope (KPBI ILS 10L / 28R)', '~ approach plates (FAA charts for KPBI, now DJT)  ·  | flight director on / off (magenta bars: fly them)  ·  ? go around: AP off, FD 10°, then the published missed approach  ·  on the runway the FD gives +9° for takeoff  ·  minimums callout at the DA', 'On the ground: − past idle (or L2) = thrust reversers, = stows  ·  spoilers deploy themselves at idle above 60 kt  ·  V1 / VR / V2 and VREF bugs on the speed tape', 'Pitch trim: , nose-down  . nose-up (PRI/SEC only)   ·   7 = trim PRI/SEC/OFF   ·   8 = Mach trim', 'I = wing+stab heat   ·   9 = nacelle heat   ·   6 = stall warning (shaker) cutout   ·   Y = yaw damper', 'X = autopilot off / engage   ·   TAB = EFB map / procedures / off   ·   1–6 = procedure card   ·   ` = back', 'C camera (right-drag orbits)   ·   V ghost   ·   T ATC audio   ·   ; / \' nudge tape   ·   U NEXRAD   ·   O/J radar', 'N skip   ·   [ ] sim rate   ·   K quality   ·   P pause   ·   R restart   ·   M mute   ·   Z hide HUD   ·   / controls & hardware   ·   H help', 'Controller (DualShock/DualSense/Xbox): L stick pitch/roll · R stick rudder · R2/L2 thrust · R1/L1 trim up/down · ✕ AP · ○ spoilers · □ idle · △ camera · D-pad ↑ gear ↓ flaps · L3 yaw damper · Options pause · Create help · rumble on shaker/buffet (Chrome)', 'Force-feedback joystick (USB PID, Chrome/Edge): connect in Controls (/)  ·  stick position = column position, its motor = the hinge moment', '3D cockpit: right-drag to look around, mouse wheel to zoom; the switch panel and EFB are clickable.', '', 'UPSET / OVERSPEED RECOVERY (after AFM FM-123; our wording):', '1. Thrust IDLE, AP off (X).  2. Identify pitch AND roll on the PFD.  3. LEVEL THE WINGS before pulling.', '4. Elevator + nose-up TRIM (.) to raise the nose; forces can exceed 75 lb, trim takes them off you.', '5. Extreme speed or attitude: GEAR DOWN (G).  NO SPOILERS: nose-down pitch above Vmo/Mmo.'];
     // wrap to the screen, then size the box to the text
     ctx.font = `12px ${FONT}`;
     const maxW = Math.min(W - 80, 1000), rows = [];

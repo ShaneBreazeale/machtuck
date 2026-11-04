@@ -66,3 +66,15 @@ button.sm { font-size: 12px; padding: 4px 10px; margin-right: 4px; }
 .freebox .ffrow { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; }
 .freebox .ffrow label { display: inline-flex; gap: 6px; align-items: center; }
 .freebox select { width: auto; margin-top: 0; }
+
+#plates { z-index: 21; }
+#plates .panel.plates { width: min(96vw, 1100px); max-height: 94vh; display: flex; flex-direction: column; }
+#plates .ptop { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 6px; }
+#plates .ptop .ptitle { margin-right: 10px; }
+#plates .ptabs { display: inline-flex; flex-wrap: wrap; gap: 4px; flex: 1; }
+#plates .ptabs button.on { background: #ffe34d; color: #000; }
+#plates .pview { overflow: auto; background: #fff; border-radius: 4px; flex: 1; min-height: 0; text-align: center; }
+#plates .pimg { max-width: 100%; }
+
+/* sortie planner: the assembled flight plan */
+#sortie .plan { font-size: 12px; line-height: 1.5; color: #cfd8e3; margin: 10px 0 0; }

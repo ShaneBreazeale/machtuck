@@ -8,10 +8,12 @@ import { Cockpit } from './cockpit.js';
 import { Input } from './input.js';
 import { HardwarePanel } from './hwui.js';
 import { ForceFeedback } from './ffb.js';
-import { FreeEnv, setupStart, setWeight, STARTS, WEATHER, WEIGHTS, FAILURES } from './freeflight.js';
+import { FreeEnv, setupStart, setWeight, configureGuidance, frameFor, approachRunway, STARTS, WEATHER, WEIGHTS, FAILURES } from './freeflight.js';
 import { takeoffSpeeds, vref, MAX_LANDING_LB } from './afm.js';
 import { runwayAt } from './ground.js';
 import { nearestIls } from './nav.js';
+import { NavDB, procedureLegs, procedureList } from './navdb.js';
+import { FMS } from './fms.js';
 import { Audio } from './audio.js';
 import { DEG, RAD, clamp, qmat, mulMV, nedToWorld, lerp, smoothstep, qfromEuler, wrap180, wrap360 } from './util.js';
 import { isa, RHO0, G0 } from './atmo.js';
@@ -33,6 +35,10 @@ const ghostProfile = ghost.map(p => ({ t: p.t, alt: -p.d / FT }));
 const ghostAlt = (t) => -ghostAt(ghost, t).d / FT;
 let SUN = scenarioSun(0).v;   // real solar position for the scenario clock (js/sun.js), updated each frame
 let G = null;
+// Navigation database (FAA CIFP via tools/fetch_cifp.py): airports, runways, ILS and procedures for free-flight sorties
+const DB = new NavDB();
+const DB_READY = DB.init().then(() => DB.airport('KDJT')).then(() => { console.log('[NAVDB] cycle', DB.index.cycle, DB.airportList().length, 'airports'); return DB; })
+  .catch((e) => { console.warn('[NAVDB] not available', e); return null; });
 let NEX = null;            // [{f: NexradField, t}, {f, t}]
 // The posted clip is edited: silences between transmissions were cut. Piecewise map clip time -> sim time (s after 12:47:00),
 // aligned from the clip's captions against the ATC timeline (12:47:16 turbulence, 12:47:33 ice, 12:48:02 climb request,
@@ -80,27 +86,79 @@ function newGame(hypKey, hard = true) {
     camPos: null, shake: 0, endMsg: null, judge: new RecoveryJudge(), avoided: null, bangDone: false, upsetT: UPSET_T, time: 0, hideHud: false, camMode: 0, replay: null, recon: false, camEff: 0, ckActive: null, trimRunaway: false };
   document.getElementById('debrief').classList.add('hidden');
 }
-// Free flight (js/freeflight.js): KPBI without the storm or the accident script. Same game state shape as newGame.
-const FREE_KEY = 'n722bd_free_v1';
+// Free flight sortie (js/freeflight.js): no storm, no script. The airport, runway and approach come from the nav
+// database; the flight plan is flown by the FMS (js/fms.js) through the autopilot / flight director.
+const FREE_KEY = 'n722bd_sortie_v2';
+const magOf = (apt, t) => String(Math.round(wrap360(t - (apt ? apt.magvar : 0))) || 360).padStart(3, '0');
+const altTxt = (a) => !a ? '' : a.d === '+' || a.d === 'H' || a.d === 'J' || a.d === 'V' ? ` ≥${a.a1.toLocaleString()}` : a.d === '-' || a.d === 'Y' ? ` ≤${a.a1.toLocaleString()}` : a.d === 'B' ? ` ${a.a2.toLocaleString()}–${a.a1.toLocaleString()}` : ` ${a.a1.toLocaleString()}`;
+// one line per leg, plain language, from the leg data
+function legText(apt, l) {
+  const fx = l.fix ? l.fix.id : '', crs = l.crsMag != null ? String(Math.round(l.crsMag) || 360).padStart(3, '0') + '°' : l.crsT != null ? magOf(apt, l.crsT) + '°' : '', turn = l.turn ? (l.turn === 'L' ? 'left ' : 'right ') : '';
+  switch (l.pt) {
+    case 'IF': return `${fx}${altTxt(l.alt)}`;
+    case 'TF': case 'DF': return `${turn}direct ${fx}${altTxt(l.alt)}`;
+    case 'CF': return `${turn}course ${crs} to ${fx}${altTxt(l.alt)}`;
+    case 'CA': case 'FA': return `${turn}course ${crs} to${altTxt(l.alt)} ft`;
+    case 'VA': return `${turn}heading ${crs} to${altTxt(l.alt)} ft`;
+    case 'CI': case 'VI': return `${turn}${l.pt === 'VI' ? 'heading' : 'course'} ${crs} to intercept`;
+    case 'CD': case 'FD': case 'VD': return `${turn}${crs} to ${l.dist} DME`;
+    case 'RF': case 'AF': return `${turn}arc to ${fx}${altTxt(l.alt)}`;
+    case 'HF': case 'HA': case 'HM': return `hold at ${fx}, inbound ${crs}, ${l.turn === 'L' ? 'left' : 'right'} turns${altTxt(l.alt)}${l.pt === 'HM' ? '' : l.pt === 'HF' ? ' (one circuit)' : ' (to the altitude)'}`;
+    default: return `${l.pt} ${fx}`;
+  }
+}
+function planSummary(apt, legs) {
+  const m = legs.findIndex((l) => l.map);
+  const fin = legs.slice(0, m + 1).map((l) => legText(apt, l) + (l.faf ? ' (FAF)' : l.map ? ' (MAP)' : '')), miss = legs.slice(m + 1).map((l) => legText(apt, l));
+  return `${fin.join(' · ')}${miss.length ? ` — MISSED APPROACH: ${miss.join(', then ')}` : ''}`;
+}
+// Approach minimums from the FAA plate (tools/fetch_plates.py reads them from each chart's text layer; CIFP has none).
+// The Learjet 60 is approach Category C: VREF at the 19,500 lb maximum landing weight is 139 kt (121-140 kt).
+// Line of minimums by procedure: ILS -> S-ILS, LOC -> S-LOC, LDA -> S-LDA, RNAV (GPS) -> LNAV/VNAV (baro-VNAV, no
+// WAAS), else LNAV; RNAV (RNP) -> RNP 0.30. Returns { alt (ft MSL), type, chart } or null.
+const APPROACH_CAT = 'C';
+function plateMinimums(app, rwy) {
+  if (!PL.meta || !app || !rwy) return null;
+  const k = app[0], want = { I: ['S-ILS'], L: ['S-LOC'], X: ['S-LDA'], R: ['LNAV/VNAV', 'LNAV'], H: ['RNP 0.30', 'RNP 0.11'] }[k] || [];
+  const title = procName(app), charts = PL.meta.charts.filter((c) => c.code === 'IAP' && c.title.endsWith('RWY ' + rwy) &&
+    (k === 'I' ? /^ILS/.test(c.title) : k === 'L' ? /LOC/.test(c.title) : c.title === title));
+  for (const t of want) for (const c of charts) {
+    const m = (c.minimums || []).find((x) => x.type === t && (!x.rwy || x.rwy === rwy));
+    if (m && m.cat[APPROACH_CAT]) return { alt: m.cat[APPROACH_CAT].alt, rvr: m.cat[APPROACH_CAT].rvr, type: t, chart: `${c.title}${c.amdt ? ' Amdt ' + c.amdt : ''}` };
+  }
+  return null;
+}
 function newFreeFlight(o) {
-  const ac = new Learjet60(), env = new FreeEnv(o.wx), ap = new Autopilot(true); ac.hard = true;
+  const apt = DB.loaded(o.apt);
+  if (!apt) { console.warn('airport not loaded', o.apt); return; }
+  const legs = o.app ? procedureLegs(apt, 'APP', o.app, { trans: o.trans || null }) : [];
+  const ac = new Learjet60(), env = new FreeEnv(o.wx), ap = new Autopilot(true), fms = new FMS(); ac.hard = true;
   setWeight(ac, o.weight);
-  const r = setupStart(ac, o.start, env);
-  ap.on = r.apOn; ap.why = ''; ap.thetaLim = [-10 * DEG, 15 * DEG]; ap.fine = true;
-  ap.nav = (o) => nearestIls(ac.pos[0], ac.pos[1], o.h, o.track ?? o.psi);   // the ILS ahead (KPBI 10L / 28R)
-  // flight director: on in free flight; TO mode on the runway (preselect 3,000 ft), the approach armed on the final
-  ap.fd = true;
-  if (r.onGround) ap.takeoff(ac.out.psi * RAD, 3000 * FT);
-  else if (o.start === 'final10L') { ap.hdgTgt = wrap360(Math.atan2(ac.vel[1], ac.vel[0]) * RAD); ap.altTgt = 2000 * FT; ap.lat = 'HDG'; ap.vert = 'ALT'; ap.appr = true; }
-  if (r.apOn) { ap.altTgt = -ac.pos[2]; ap.hdgTgt = wrap360(Math.atan2(ac.vel[1], ac.vel[0]) * RAD); }
+  const r = setupStart(ac, o, env, legs);
   env.wind(ac.pos, 0, 0); ac.step(0, { wind: [0, 0, 0] });
+  // the ILS: the loaded approach's localizer, else the nearest one ahead
+  ap.nav = (q) => { const id = fms.approachNav(), il = id && apt.ils[id]; return nearestIls(il ? [il] : DB.allIls(), ac.pos[0], ac.pos[1], q.h, q.track ?? q.psi); };
+  configureGuidance(ap, fms, r, o, legs, ac.out);
   ATC.el.pause(); ATC.on = false;
   newGame('combined', true);   // builds the shared state; then swap in the free-flight pieces
   const lb = ac.m / 0.45359237, V = takeoffSpeeds(lb, 19);
-  Object.assign(G, { mode: 'free', free: o, ac, env, ap, hypKey: 'free', vsp: { ...V, ref: vref(Math.min(lb, 23100)) }, co: {}, failAt: o.fail === 'climb' ? 400 + Math.random() * 1100 : null, autoSb: true, hypName: `FREE FLIGHT · ${STARTS[o.start].name} · ${WEATHER[o.wx].name} · ${WEIGHTS[o.weight].name}`, showGhost: false, logIdx: TIMELINE.length, log: [], onGround: r.onGround, airT: 0 });
+  const rwy = o.start === 'rwy' ? o.rwy : approachRunway(legs, o.app), il = legs.length && fms.approachNav() ? apt.ils[fms.approachNav()] : null;
+  const tdze = rwy && apt.runways['RW' + rwy] ? apt.runways['RW' + rwy].elev : apt.elev;
+  Object.assign(G, { mode: 'free', free: o, ac, env, ap, fms, apt, legs, hypKey: 'free', vsp: { ...V, ref: vref(Math.min(lb, 23100)) }, co: {}, failAt: o.fail === 'climb' ? 400 + Math.random() * 1100 : null, autoSb: true,
+    mins: null, minsFrom: null, legI: -1,
+    hypName: `SORTIE · ${o.apt}${o.app ? ' · ' + o.app + (o.trans ? '.' + o.trans : '') : ''} · ${STARTS[o.start].name.split(',')[0]} · ${WEATHER[o.wx].name.split(':')[0]} · ${WEIGHTS[o.weight].name.split(' (')[0]}` });
+  const pm = legs.length ? plateMinimums(o.app, rwy) : null;
+  G.mins = pm ? pm.alt : legs.length ? tdze + (il ? 200 : 400) : null; G.minsFrom = pm;
   log('SYS', r.msg);
+  if (legs.length) {
+    log('SYS', `FLIGHT PLAN ${o.app}${o.trans ? ' via ' + o.trans : ''} (FAA CIFP ${DB.index.cycle}): ${planSummary(apt, legs)}`);
+    const minTxt = pm ? `${pm.type} ${/MDA|LOC|LNAV$|LDA/.test(pm.type) && !/VNAV/.test(pm.type) ? 'MDA' : 'DA'} ${pm.alt} ft (${Math.round(pm.alt - tdze)} above touchdown, Cat ${APPROACH_CAT}${pm.rvr ? `, RVR ${pm.rvr}` : ''}; ${pm.chart})`
+      : `${Math.round(G.mins)} ft (no plate minimums for this approach: ${il ? 200 : 400} ft above touchdown)`;
+    if (il) log('SYS', `${il.id.replace(/^I/, 'I-')} ${il.freq.toFixed(2)}, course ${magOf(apt, il.crsT)}°, ${o.app[0] === 'I' ? `glideslope ${il.gs.toFixed(1)}°` : 'localizer only: no glideslope (GP flies the FMS path)'}. Minimums: ${minTxt}. Press ~ for the plates.`);
+    else log('SYS', `Minimums: ${minTxt}.`);
+  }
   if (r.onGround) log('SYS', `AFM takeoff speeds, flaps 8, ${Math.round(lb).toLocaleString()} lb: V1 ${Math.round(V.v1)}, VR ${Math.round(V.vr)}, V2 ${Math.round(V.v2)} KIAS (bugs on the speed tape).`);
-  else if (o.start === 'final10L') log('SYS', `VREF flaps 40: ${Math.round(G.vsp.ref)} KIAS${lb > MAX_LANDING_LB ? ` (above the ${MAX_LANDING_LB.toLocaleString()} lb maximum landing weight)` : ''}.`);
+  else if (o.start === 'final') log('SYS', `VREF flaps 40: ${Math.round(G.vsp.ref)} KIAS${lb > MAX_LANDING_LB ? ` (above the ${MAX_LANDING_LB.toLocaleString()} lb maximum landing weight)` : ''}.`);
   if (o.fail && o.fail !== 'none') log('SYS', `Failure armed: ${FAILURES[o.fail].name}.`);
 }
 function log(who, txt) { G.log.push({ t: G.t, who, txt }); }
@@ -125,19 +183,57 @@ function freeTick(h, out) {
   if (ft > 700) co.ra = {};
   if (!ac.wow && ac.ctl.gear && out.vs < -0.5) { co.ra = co.ra || {}; for (const a of [500, 100, 50, 40, 30, 20, 10]) if (ft <= a && ft > a - 25 && !co.ra[a]) { co.ra[a] = 1; AU.say(a === 500 ? 'Five hundred' : a === 100 ? 'One hundred' : String(a), 0); } }
   if (ac.wow && out.gs < 0.5 && ac.ctl.thr < 0.1) co.v1 = co.vr = co.v2 = 0;
+  // flight plan: the missed approach and holds as the FMS sequences them
+  const F = G.fms, ap = G.ap;
+  if (F) {
+    for (const ev of F.events.splice(0)) {
+      if (ev.type === 'hold') log('SYS', `${ev.leg.fix.id}: ${ev.entry} entry — ${legText(G.apt, ev.leg)}`);
+      else if (ev.type === 'leg' && G.legI >= 0) { const m = F.mapIndex(); if (m >= 0 && ev.i === m + 1) log('SYS', `MISSED APPROACH: ${F.missedLegs().map((l) => legText(G.apt, l)).join(', then ')}`); }
+    }
+    G.legI = F.i;
+  }
+  // minimums (radio callouts on the barometric bug), on an approach with the gear down
+  const hft = out.h / FT;
+  if (ac.ctl.gear && out.vs < 0 && !ac.wow && G.mins) {
+    if (hft <= G.mins + 100 && !co.amin) { co.amin = 1; AU.say('Approaching minimums', 0); }
+    if (hft <= G.mins && !co.min) { co.min = 1; AU.say('Minimums', 0); log('SYS', `MINIMUMS ${Math.round(G.mins)} ft: runway in sight to continue, otherwise go around (?)`); }
+  }
+  if (hft > (G.mins || 0) + 400) { co.amin = 0; co.min = 0; }
   // marker passage
-  const mk = G.ap.ils ? G.ap.ils.marker : null;
+  const mk = ap.ils ? ap.ils.marker : null;
   if (mk && mk !== G.lastMk) log('SYS', mk === 'OM' ? 'OUTER MARKER' : mk === 'MM' ? 'MIDDLE MARKER' : 'INNER MARKER');
   G.lastMk = mk;
-  // autopilot mode changes
-  const ap = G.ap, mode = ap.on || ap.fd ? `${ap.lat}/${ap.vert}` : 'off';
-  if (G.apMode && mode !== G.apMode && (ap.on || ap.fd)) { if (ap.lat === 'LOC' && !G.apMode.startsWith('LOC')) log('SYS', 'LOCALIZER captured'); if (ap.vert === 'GS' && !G.apMode.endsWith('GS')) log('SYS', 'GLIDESLOPE captured'); if (ap.vert === 'ALT' && /VS|GA|TO/.test(G.apMode)) log('SYS', `ALT captured ${Math.round(ap.altTgt / FT).toLocaleString()} ft`); }
+  // flight guidance mode changes (positive capture annunciation, AC 25.1329-1C 65c(2)); loss of approach mode alerts
+  const mode = ap.on || ap.fd ? `${ap.lat}/${ap.vert}` : 'off', was = G.apMode || '';
+  if (was && mode !== was && (ap.on || ap.fd)) {
+    const [la, va] = mode.split('/'), [lw, vw] = was.split('/');
+    if (la !== lw && /LOC|LNAV/.test(la)) log('SYS', `${la === 'LOC' ? 'LOCALIZER' : 'LNAV'} captured`);
+    if (va !== vw && /GS|GP|VNAV|ALT$/.test(va)) log('SYS', va === 'GS' ? 'GLIDESLOPE captured' : va === 'GP' ? 'GLIDEPATH captured' : va === 'VNAV' ? 'VNAV path' : `ALTITUDE ${Math.round(ap.altTgt / FT).toLocaleString()} captured`);
+    // the pilot monitoring sets the missed-approach altitude once established on final (AC 25.1329-1C 67a)
+    if ((va === 'GS' || va === 'GP') && F) { const ma = F.missedAlt(); if (ma && ma * FT > ap.altTgt + 30) { ap.altTgt = ma * FT; log('PM', `Missed-approach altitude ${ma.toLocaleString()} set`); } }
+  }
+  if (ap.lost) { log('SYS', `${ap.lost === 'LOC' ? 'APPROACH MODE LOST — localizer' : ap.lost + ' LOST'}: holding heading and altitude`); AU.apDisconnect(); ap.lost = null; }
   G.apMode = mode;
   // stopped after a landing: distance from touchdown and runway left
   if (G.td && !G.stopLogged && ac.wow && out.gs < 1) {
     G.stopLogged = true; const rw = runwayAt(ac.pos[0], ac.pos[1], out.track) || {};
-    log('SYS', `STOPPED ${Math.round((((rw.s ?? G.td.s) - G.td.s)) / FT).toLocaleString()} ft after touchdown${rw.left !== undefined ? `, ${Math.round(rw.left / FT).toLocaleString()} ft of runway ${G.td.id} left` : ''}.`);
+    const lda = ldaFt(G.td.apt, G.td.id), sFt = rw.s !== undefined ? rw.s / FT : null;
+    const ldaTxt = lda && sFt !== null ? (sFt <= lda ? `, ${Math.round(lda - sFt).toLocaleString()} ft of the ${lda.toLocaleString()} ft landing distance available left` : `, ${Math.round(sFt - lda).toLocaleString()} ft BEYOND the ${lda.toLocaleString()} ft landing distance available`) : '';
+    log('SYS', `STOPPED ${Math.round((((rw.s ?? G.td.s) - G.td.s)) / FT).toLocaleString()} ft after touchdown${rw.left !== undefined ? `, ${Math.round(rw.left / FT).toLocaleString()} ft of runway ${G.td.id} pavement left` : ''}${ldaTxt}.`);
+    if (lda && sFt !== null && sFt > lda) AU.say('Overrun', 0);
   }
+}
+// landing distance available, ft: landing threshold to the far end of the pavement (CIFP runway data)
+function ldaFt(apt, id) { try { const f = frameFor(apt, id); return Math.round((f.L - f.disp) / FT); } catch { return null; } }
+// what the PFD's course pointer and deviation show: the localizer when it is the approach being flown (or no plan is
+// active), otherwise the flight plan's active leg (deviation 0.5 nm a dot, 0.15 nm on the final approach)
+function navSource(ac, ap, F) {
+  const il = ap.ils, g = ap.fmsG, leg = F && F.active;
+  if (il && il.locValid && (ap.lat === 'LOC' || ap.latArm === 'LOC' || !leg)) return { src: 'LOC1', col: '#3dff5a', crs: il.course * RAD, dev: il.loc, dist: il.dme, wpt: il.ident || null, brg: null };
+  if (!leg || !g) return null;
+  const pos = [ac.pos[0], ac.pos[1]], fx = leg.fix ? leg.fix.ne : null, brg = fx ? wrap360(Math.atan2(fx[1] - pos[1], fx[0] - pos[0]) * RAD) : null;
+  const crs = F.legCourse(leg, F.from) ?? g.trk ?? g.hdg ?? null, scale = F.i > F.fafIndex() && F.fafIndex() >= 0 && F.i <= F.mapIndex() ? 0.15 : 0.5;
+  return { src: 'FMS1', col: '#ff4fd8', crs, dev: g.xtk != null ? -g.xtk / 1852 / scale : null, dist: fx ? Math.hypot(fx[0] - pos[0], fx[1] - pos[1]) / 1852 : null, wpt: leg.fix ? leg.fix.id : leg.pt, brg };
 }
 function failEngine() {
   const side = Math.random() < 0.5 ? 'L' : 'R'; G.ac.engFail = side;
@@ -185,8 +281,8 @@ function stepSim(h, held) {
     else if (e.type === 'touch' && e.leg !== 'nose' && !G.onGround) {
       G.onGround = true;
       if (G.mode === 'free') {
-        const rw = runwayAt(ac.pos[0], ac.pos[1], out.track); G.td = rw ? { s: rw.s, id: rw.id } : null;
-        log('SYS', `TOUCHDOWN ${Math.round(Math.max(0, e.fps) * 60)} ft/min, ${Math.round(out.KIAS)} KIAS${rw ? `, ${Math.round(rw.s / FT).toLocaleString()} ft past the ${rw.id} threshold, ${Math.abs(rw.c / FT).toFixed(0)} ft ${rw.c >= 0 ? 'right' : 'left'} of the centreline` : ', off the runway'}`);
+        const rw = runwayAt(ac.pos[0], ac.pos[1], out.track); G.td = rw ? { s: rw.s, id: rw.id, apt: rw.apt } : null;
+        log('SYS', `TOUCHDOWN ${Math.round(Math.max(0, e.fps) * 60)} ft/min, ${Math.round(out.KIAS)} KIAS${rw ? `, ${Math.round(rw.s / FT).toLocaleString()} ft past the ${rw.id} threshold, ${Math.abs(rw.c / FT).toFixed(0)} ft ${rw.c >= 0 ? 'right' : 'left'} of the centreline${ldaFt(rw.apt, rw.id) ? `, ${Math.round(ldaFt(rw.apt, rw.id) - rw.s / FT).toLocaleString()} ft of landing distance available left${ldaFt(rw.apt, rw.id) - rw.s / FT < 3000 ? ' — LONG' : ''}` : ''}` : ', off the runway'}`);
       }
     }
   }
@@ -433,11 +529,22 @@ function handleEvents() {
     else if (e === 'idle') { ac.ctl.thr = 0; ac.ctl.rev = 0; }
     else if (e === 'mute') AU.muted = !AU.muted;
     else if (e === 'controls') HP.toggle();
-    else if (e === 'hdg_up' || e === 'hdg_dn') { ap.setHdg(ap.hdgTgt + (e === 'hdg_up' ? 5 : -5)); log('SYS', `HDG bug ${String(Math.round(ap.hdgTgt)).padStart(3, '0')}°${ap.on ? '' : ' (AP off)'}`); }
+    else if (e === 'hdg_up' || e === 'hdg_dn') { ap.bumpHdg(e === 'hdg_up' ? 5 : -5, ac.out.psi * RAD); log('SYS', `HDG bug ${String(Math.round(ap.hdgTgt)).padStart(3, '0')}°${ap.on ? '' : ' (AP off)'}`); }
     else if (e === 'alt_up' || e === 'alt_dn') { const a = Math.max(1000, Math.round(ap.altTgt / FT / 500) * 500 + (e === 'alt_up' ? 500 : -500)); ap.setAlt(a * FT, ac.out); log('SYS', `ALT preselect ${a.toLocaleString()} ft${ap.on ? (ap.vert === 'VS' ? ` — ${ap.vsTgt > 0 ? 'climbing' : 'descending'} ${Math.round(Math.abs(ap.vsTgt) * 196.85)} ft/min` : '') : ' (AP off)'}`); }
+    else if (e === 'plates') togglePlates();
     else if (e === 'fd') { ap.fd = !ap.fd; if (ap.fd && !ap.on) { if (ac.wow) ap.takeoff(ac.out.psi * RAD, Math.max(ap.altTgt, ac.out.h + 1000 * FT)); else { ap.lat = 'HDG'; ap.vert = 'ALT'; ap.hdgTgt = wrap360(ac.out.psi * RAD); ap.altTgt = ac.out.h; ap.thRef = null; } } log('SYS', `FLIGHT DIRECTOR ${ap.fd ? 'ON' : 'OFF'}`); }
-    else if (e === 'toga') { if (G.mode !== 'free') log('SYS', 'GO AROUND: free flight only'); else if (ac.wow) { ap.takeoff(ac.out.psi * RAD, Math.max(ap.altTgt, 3000 * FT)); log('SYS', 'FD TAKEOFF mode: +9° on the runway heading'); } else { ap.goAround(ac.out); log('SYS', `GO AROUND — T/O thrust, pitch to the FD (10°), flaps 20, positive rate gear up. Missed approach: runway heading, climb to ${Math.round(ap.altTgt / FT).toLocaleString()} ft (X re-engages the autopilot).`); AU.say('Go around', 0); } }
-    else if (e === 'appr') { if (!ap.on) log('SYS', 'APR: engage the autopilot first (X)'); else if (!ap.nav) log('SYS', 'APR: no ILS in this scenario'); else { ap.appr = !ap.appr; if (!ap.appr && ap.lat === 'LOC') { ap.lat = 'HDG'; ap.hdgTgt = wrap360(ac.out.psi * RAD); if (ap.vert === 'GS') { ap.vert = 'ALT'; ap.altTgt = ac.out.h; } } log('SYS', ap.appr ? 'APR armed: localizer, then glideslope' : 'APR off'); } }
+    else if (e === 'toga') {
+      if (G.mode !== 'free') log('SYS', 'GO AROUND: free flight only');
+      else if (ac.wow) { ap.takeoff(ac.out.psi * RAD, Math.max(ap.altTgt, 3000 * FT)); log('SYS', `FD TAKEOFF mode: +9° on the runway heading${ap.latArm ? ', LNAV armed (400 ft)' : ''}`); }
+      else { ap.goAround(ac.out); const miss = G.fms ? G.fms.missedLegs() : []; log('SYS', `GO AROUND — T/O thrust, pitch to the FD (10°), flaps 20, positive rate gear up. ${miss.length ? `LNAV armed (400 ft): ${miss.map((l) => legText(G.apt, l)).join(', then ')}` : 'No missed approach loaded: runway heading.'}${ap.altTgt > ac.out.h ? ` Climbing to ${Math.round(ap.altTgt / FT).toLocaleString()} ft.` : ' Set a missed-approach altitude above you (> / <).'}`); }
+    }
+    else if (e === 'appr') {
+      if (!ap.on && !ap.fd) log('SYS', 'APR: engage the autopilot (X) or flight director (|) first');
+      else if (!(G.fms && G.fms.fafIndex() >= 0) && !(ap.nav && ap.nav(ac.out))) log('SYS', 'APR: no approach loaded and no localizer in range');
+      else { ap.appr = !ap.appr; if (!ap.appr) { ap.latArm = ap.vertArm = null; if (ap.lat === 'LOC') { ap.lat = 'HDG'; ap.hdgTgt = wrap360(ac.out.psi * RAD); } if (ap.vert === 'GS' || ap.vert === 'GP') { ap.vert = 'ALT'; ap.altTgt = ac.out.h; } } log('SYS', ap.appr ? `APR armed: ${ap.latArm || 'LOC'} then ${ap.vertArm || 'GS'}` : 'APR off'); }
+    }
+    else if (e === 'lnav') { if (G.fms && ap.armLnav()) log('SYS', ap.lat === 'LNAV' ? 'LNAV' : 'LNAV armed: engages on the flight-plan path'); else log('SYS', 'LNAV: no flight plan'); }
+    else if (e === 'vnav') { if (G.fms && ap.armVnav()) log('SYS', 'VNAV armed: flies the plan\'s altitude constraints within the preselected altitude'); else log('SYS', 'VNAV: no flight plan'); }
   }
 }
 
@@ -538,7 +645,7 @@ function frame(now) {
   S.camVel = CO || G.camEff === 2 ? [0, 0, 0] : [ac.vel[1], -ac.vel[2], ac.vel[0]];   // attached cameras move with the airplane
   if (env.flashId !== undefined && env.flashId !== G.lastFlashId) { G.lastFlashId = env.flashId; if (Math.random() < 0.35 && env.flashPos) R.strike(env.flashPos[0], env.flashPos[2], WX.deckBase + 400); else R.bolt = null; }
   R.render(S); G.lastFov = S.fov;
-  const HS = { out, ac, ap, t: G.t, log: G.log, inCloud: env.L.cloud, core: env.L.core, updraft: env.L.updraft, ext: G.ext, hist: G.hist, ghostProfile, ghostAlt, recovered: G.recovered, recoveredAlt: G.recoveredAlt, upsetT: UPSET_T,
+  const HS = { out, ac, ap, t: G.t, magvar: G.apt ? G.apt.magvar : (DB.loaded('KDJT') || { magvar: -6 }).magvar, log: G.log, inCloud: env.L.cloud, core: env.L.core, updraft: env.L.updraft, ext: G.ext, hist: G.hist, ghostProfile, ghostAlt, recovered: G.recovered, recoveredAlt: G.recoveredAlt, upsetT: UPSET_T,
     apOffAt: G.apOffAt, apOffWall: G.apOffWall, timeScale: G.timeScale, quality: R.quality, help: G.help, paused: G.paused, hypName: G.hypName, endMsg: G.endMsg, antiice: G.antiice, flash: env.flash, fps,
     wxr: SETTINGS.wxr && NEX ? { range: SETTINGS.wxrRange, sample: (n, e, h0, h1) => { h0 -= 1500; const w = clamp((G.t - NEX[0].t) / (NEX[1].t - NEX[0].t), 0, 1); return lerp(NEX[0].f.dbzBand(n, e, h0, h1), NEX[1].f.dbzBand(n, e, h0, h1), w); } } : null,
     efb: { mode: SETTINGS.efb, range: SETTINGS.wxrRange }, checklist: evalProcedures(), trimRunaway: G.trimRunaway,
@@ -550,8 +657,10 @@ function frame(now) {
     const c = ac.ctl;
     const V = G.vsp, bugs = ac.wow || (out.agl < 300 && c.flaps <= 0.25 && !G.td) ? [{ v: V.v1, t: '1' }, { v: V.vr, t: 'R' }, { v: V.v2, t: '2' }] : c.flaps >= 0.5 || c.gear ? [{ v: V.ref, t: 'REF' }] : [];
     HS.free = { agl: out.agl, wow: ac.wow, gs: out.gs, park: c.park, brake: Math.max(c.brakeL, c.brakeR), flaps: c.flaps, gear: c.gear, touchFpm: ac.gnd.touchFpm, steer: ac.gnd.steer, wind: env.wx, gearDamage: ac.gnd.gearDamage, rev: c.rev, sb: c.sb, engFail: ac.engFail, bugs };
-    const il = nearestIls(ac.pos[0], ac.pos[1], out.h, out.track ?? out.psi); HS.ils = il && il.locValid ? il : null;
+    const il = ap.ils; HS.ils = il && il.locValid ? il : null;
     HS.marker = HS.ils ? HS.ils.marker : null;
+    if (G.fms && G.fms.legs.length) { const F = G.fms, m = F.mapIndex(); HS.map.route = { active: F.i, pts: F.legs.map((l, i) => ({ i, id: l.fix ? l.fix.id : null, ne: l.fix ? l.fix.ne : null, missed: m >= 0 && i > m })) }; }
+    HS.mins = G.mins; HS.nav = navSource(ac, ap, G.fms); HS.vdev = ap.vnav && ap.vnav.path != null && /VNAV|GP/.test(ap.vert + (ap.vertArm || '')) ? (ap.vnav.path - out.h / FT) / 100 : null;
     HS.ghostProfile = null; HS.wxr = null; HS.nexOn = false; HS.map.nexImg = null; HS.map.ghost = []; HS.dbz = -30;   // clear air: nothing on the radar
   }
   if (HS.cockpit3d) {
@@ -581,16 +690,62 @@ document.getElementById('begin').addEventListener('click', () => {
   ATC.on = document.getElementById('atcbox').checked; SETTINGS.nexrad = document.getElementById('nexbox').checked;
   newGame(sel.value, document.getElementById('diff').value === 'hard'); hc.focus();
 });
-{ // free-flight selectors (remembered in this browser)
-  const keep = (() => { try { return JSON.parse(localStorage.getItem(FREE_KEY) || '{}'); } catch { return {}; } })();
-  const fill = (id, obj, def) => { const el = document.getElementById(id); for (const [k, v] of Object.entries(obj)) { const o = document.createElement('option'); o.value = k; o.textContent = v.name; el.appendChild(o); } el.value = keep[id] && obj[keep[id]] ? keep[id] : def; return el; };
-  const st = fill('ffstart', STARTS, 'rwy10L'), wx = fill('ffwx', WEATHER, 'calm'), wt = fill('ffwt', WEIGHTS, 'typical'), fl = fill('ffail', FAILURES, 'none');
-  document.getElementById('ffgo').addEventListener('click', () => {
-    localStorage.setItem(FREE_KEY, JSON.stringify({ ffstart: st.value, ffwx: wx.value, ffwt: wt.value, ffail: fl.value }));
-    document.getElementById('brief').classList.add('hidden'); AU.start();
-    newFreeFlight({ start: st.value, wx: wx.value, weight: wt.value, fail: fl.value }); hc.focus();
-  });
+// ---------- free-flight sortie planner (selections remembered in this browser) ----------
+const $ = (id) => document.getElementById(id);
+const SORTIE = $('sortie');
+const PROC_KIND = { I: 'ILS', L: 'LOC', R: 'RNAV (GPS)', H: 'RNAV (RNP)', V: 'VOR', S: 'VOR', D: 'VOR/DME', N: 'NDB', Q: 'NDB/DME', B: 'LOC BC', X: 'LDA', U: 'SDF', P: 'GPS', J: 'GLS' };
+// procedure ident -> chart-style name: I10L -> ILS RWY 10L, R10LY -> RNAV (GPS) Y RWY 10L, H14-Z -> RNAV (RNP) Z RWY 14
+const procName = (id) => { const m = id.slice(1).match(/^(\d\d[LRC]?)-?([A-Z]?)$/); return m ? `${PROC_KIND[id[0]] || id[0]} ${m[2] ? m[2] + ' ' : ''}RWY ${m[1]}` : `${PROC_KIND[id[0]] || ''} ${id.slice(1)}`.trim(); };
+const setOpts = (el, list, want) => { el.innerHTML = ''; for (const [v, t] of list) { const o = document.createElement('option'); o.value = v; o.textContent = t; el.appendChild(o); } el.value = list.some((x) => x[0] === want) ? want : list.length ? list[0][0] : ''; };
+const SK = (() => { try { return JSON.parse(localStorage.getItem(FREE_KEY) || '{}'); } catch { return {}; } })();
+setOpts($('sstart'), Object.entries(STARTS).map(([k, v]) => [k, v.name]), SK.start || 'rwy');
+setOpts($('swx'), Object.entries(WEATHER).map(([k, v]) => [k, v.name]), SK.wx || 'calm');
+setOpts($('swt'), Object.entries(WEIGHTS).map(([k, v]) => [k, v.name]), SK.weight || 'typical');
+setOpts($('sfail'), Object.entries(FAILURES).map(([k, v]) => [k, v.name]), SK.fail || 'none');
+const sortieSel = () => ({ apt: $('sapt').value, start: $('sstart').value, rwy: $('srwy').value, app: $('sapp').value, trans: $('strans').value, wx: $('swx').value, weight: $('swt').value, fail: $('sfail').value });
+function sortiePreview() {
+  const o = sortieSel(), apt = DB.loaded(o.apt), el = $('splan'), needApp = o.start === 'app' || o.start === 'final';
+  $('srwy').disabled = o.start !== 'rwy';
+  $('strans').disabled = !o.app;
+  if (!apt) { el.textContent = ''; return; }
+  if (needApp && !o.app) { el.textContent = 'This start needs an approach.'; $('ffgo').disabled = true; return; }
+  $('ffgo').disabled = false;
+  try { const legs = o.app ? procedureLegs(apt, 'APP', o.app, { trans: o.trans || null }) : []; el.textContent = legs.length ? planSummary(apt, legs) : 'No flight plan: fly it by hand, heading and altitude modes.'; }
+  catch (e) { el.textContent = String(e.message || e); }
 }
+function sortieTrans(want) {
+  const apt = DB.loaded($('sapt').value), app = $('sapp').value;
+  const p = apt && app ? procedureList(apt, 'APP').find((x) => x.id === app) : null;
+  setOpts($('strans'), [['', 'None (from the intermediate fix)'], ...(p ? p.trans.map((t) => [t, t]) : [])], want ?? (p && p.trans[0]) ?? '');
+  sortiePreview();
+}
+async function sortieAirport(id, keep = {}) {
+  const apt = await DB.airport(id);
+  const rwys = Object.keys(apt.runways).map((k) => k.slice(2)).filter((r) => { try { frameFor(id, r); return true; } catch { return false; } });
+  setOpts($('srwy'), rwys.map((r) => [r, `Runway ${r} · ${apt.runways['RW' + r].length.toLocaleString()} ft`]), keep.rwy);
+  const apps = procedureList(apt, 'APP').sort((a, b) => a.id.localeCompare(b.id));
+  setOpts($('sapp'), [['', 'None'], ...apps.map((p) => [p.id, procName(p.id)])], keep.app ?? (apps.find((p) => p.id[0] === 'I') || apps[0] || { id: '' }).id);
+  sortieTrans(keep.trans);
+}
+DB_READY.then((db) => {
+  if (!db) { $('splan').textContent = 'Nav database not available (run tools/fetch_cifp.py).'; $('ffgo').disabled = true; return; }
+  $('cycle').textContent = db.index.cycle;
+  const list = db.airportList().slice().sort((a, b) => (a.id === 'KDJT' ? -1 : b.id === 'KDJT' ? 1 : a.id.localeCompare(b.id)));
+  setOpts($('sapt'), list.map((a) => [a.id, `${a.id} · ${a.name}`]), SK.apt && list.some((a) => a.id === SK.apt) ? SK.apt : 'KDJT');
+  sortieAirport($('sapt').value, SK);
+});
+$('sapt').addEventListener('change', () => sortieAirport($('sapt').value));
+$('sapp').addEventListener('change', () => sortieTrans());
+for (const id of ['sstart', 'strans', 'srwy']) $(id).addEventListener('change', sortiePreview);
+$('tosortie').addEventListener('click', () => { $('brief').classList.add('hidden'); SORTIE.classList.remove('hidden'); });
+$('sback').addEventListener('click', () => { SORTIE.classList.add('hidden'); $('brief').classList.remove('hidden'); });
+$('ffgo').addEventListener('click', () => {
+  const o = sortieSel(); if (!DB.loaded(o.apt)) return;
+  localStorage.setItem(FREE_KEY, JSON.stringify(o));
+  SORTIE.classList.add('hidden'); AU.start();
+  newFreeFlight(o); hc.focus();
+});
+if (location.hash === '#sortie') { $('brief').classList.add('hidden'); SORTIE.classList.remove('hidden'); }
 document.getElementById('replay').addEventListener('click', () => { if (G.recon) startReconstruction(); else startReplay(); hc.focus(); });
 document.getElementById('watch').addEventListener('click', () => {
   document.getElementById('brief').classList.add('hidden'); AU.start();
@@ -601,9 +756,47 @@ document.getElementById('csv').addEventListener('click', () => {
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([fdrCsv()], { type: 'text/csv' })); a.download = `n722bd_${G.hypKey}_${G.hard ? 'asflown' : 'trainer'}_${Math.round(G.t)}s.csv`; a.click();
 });
 document.getElementById('hwbtn').addEventListener('click', () => HP.show());
+// ---------- approach plates (FAA d-TPP, data/plates; tools/fetch_plates.py) ----------
+const PL = { el: document.getElementById('plates'), meta: null, i: 0, rot: 0 };
+fetch('data/plates/plates.json').then((r) => r.json()).then((m) => {
+  PL.meta = m; const tabs = PL.el.querySelector('.ptabs');
+  m.charts.forEach((c, i) => { const b = document.createElement('button'); b.className = 'alt sm'; b.textContent = c.title.replace('ILS OR LOC ', 'ILS '); b.onclick = () => showPlate(i); tabs.appendChild(b); });
+  PL.el.querySelector('.pnote').textContent = `${m.airport} (${m.icao}) · FAA d-TPP cycle ${m.cycle}, ${m.valid_from} to ${m.valid_to} · public domain · NOT FOR NAVIGATION`;
+}).catch(() => {});
+function showPlate(i) {
+  if (!PL.meta) return; PL.i = i; const c = PL.meta.charts[i];
+  PL.rot = c.code === 'APD' ? 90 : 0;   // this airport diagram is printed sideways: north-up after a quarter turn
+  PL.src = new Image(); PL.src.onload = applyRot; PL.src.src = 'data/plates/' + c.file;
+  PL.el.querySelectorAll('.ptabs button').forEach((b, k) => b.classList.toggle('on', k === i));
+}
+// rotate the pixels (a CSS transform leaves the layout box unrotated and clips the chart)
+function applyRot() {
+  const im = PL.src, img = PL.el.querySelector('.pimg'); if (!im || !im.naturalWidth) return;
+  if (!PL.rot) { img.src = im.src; return; }
+  const q = PL.rot % 180 !== 0, c = document.createElement('canvas'); c.width = q ? im.naturalHeight : im.naturalWidth; c.height = q ? im.naturalWidth : im.naturalHeight;
+  const x = c.getContext('2d'); x.translate(c.width / 2, c.height / 2); x.rotate(PL.rot * Math.PI / 180); x.drawImage(im, -im.naturalWidth / 2, -im.naturalHeight / 2);
+  img.src = c.toDataURL('image/png');
+}
+function togglePlates() {
+  if (!PL.meta) { log('SYS', 'Approach plates not loaded'); return; }
+  if (PL.el.classList.contains('hidden')) {
+    let i = 0;   // open on the approach ahead, or the airport diagram on the ground
+    if (G && G.mode === 'free') {
+      const rw = G.legs && G.legs.length ? approachRunway(G.legs, G.free.app) : null;
+      const app = G.free.app || '', mine = (c) => c.code === 'IAP' && c.title.endsWith('RWY ' + rw) && (app[0] === 'I' ? /^ILS/.test(c.title) : app[0] === 'L' ? /LOC/.test(c.title) : c.title === procName(app));
+      const k = G.ac.wow || !rw ? PL.meta.charts.findIndex((c) => c.code === 'APD') : PL.meta.charts.findIndex(mine);
+      if (k >= 0) i = k;
+    }
+    showPlate(i); PL.el.classList.remove('hidden');
+  } else { PL.el.classList.add('hidden'); hc.focus(); }
+}
+PL.el.querySelector('.pclose').addEventListener('click', togglePlates);
+PL.el.querySelector('.prot').addEventListener('click', () => { PL.rot = (PL.rot + 90) % 360; applyRot(); });
+document.getElementById('platebtn').addEventListener('click', togglePlates);
+window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !PL.el.classList.contains('hidden')) togglePlates(); });
 document.getElementById('again').addEventListener('click', () => { if (G.mode === 'free') newFreeFlight(G.free); else newGame(G.hypKey, G.hard); });
 document.getElementById('continue').addEventListener('click', () => { document.getElementById('debrief').classList.add('hidden'); });
-document.getElementById('brief-again').addEventListener('click', () => { document.getElementById('debrief').classList.add('hidden'); document.getElementById('brief').classList.remove('hidden'); });
+document.getElementById('brief-again').addEventListener('click', () => { document.getElementById('debrief').classList.add('hidden'); (G && G.mode === 'free' ? SORTIE : document.getElementById('brief')).classList.remove('hidden'); });
 document.getElementById('nexbox').checked = true; document.getElementById('atcbox').checked = false;   // Chrome restores form state on reload
 newGame('combined'); G.paused = true;
 IN.onClick = (x, y) => {
@@ -612,7 +805,7 @@ IN.onClick = (x, y) => {
   else h = H.hit(x, y);
   if (!h) return false; toggleSwitch(h.id); return true;
 };
-window.SIM = { get G() { return G; }, R, ATC, SETTINGS, IN, FF, get NEX() { return NEX; } };   // debug / flight-data access from the console
+window.SIM = { get G() { return G; }, R, ATC, SETTINGS, IN, FF, CK, H, get NEX() { return NEX; } };   // debug / flight-data access from the console
 // debug inspection shots: #shot=x,y,z,yaw,pitch,fov[,nex 0/1[,t]]  (starts the reconstruction paused at t with a free camera)
 if (location.hash.startsWith('#shot=')) {
   const v = location.hash.slice(6).split(',').map(Number);

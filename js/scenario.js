@@ -207,63 +207,107 @@ export class Environment {
   iceRate(L, h, antiIce) { return this.iceRates(L, { sys: { wingHeat: antiIce, stabHeat: antiIce, nacelleHeat: true }, n1: 0.6 }).wing; }
 }
 
-// ---------------- Autopilot: HDG / LOC lateral, ALT / VS / GS vertical, auto-trim (no autothrottle) ----------------
-// The accident uses HDG + ALT with the cruise pitch limits it was calibrated with. Free flight adds a preselected
-// altitude (VS mode toward it), and APR: arms the localizer, then the glideslope, on the ILS supplied by `nav()`.
+// ---------------- Flight guidance: autopilot + flight director (no autothrottle on the Learjet 60) ----------------
+// Modes after AC 25.1329-1C chapter 6. Lateral: HDG (select; turns the way the bug was spun, even past 180 deg), LOC,
+// LNAV (the flight plan in js/fms.js). Vertical: ALT, ALTS (altitude capture, armed at all times), VS, VNAV (the plan's
+// constraints, never climbing or descending through the preselected altitude except on final), GS, GP (an RNAV
+// approach's final path), TO and GA (pitch attitude; GA climbs until the preselected altitude is above the airplane).
+// Armed modes (latArm, vertArm) wait for their capture criteria and are annunciated alongside the active ones.
+// The accident flies HDG + ALT with the cruise pitch law it was calibrated with.
 export class Autopilot {
   constructor(hard = true) {
     this.on = true; this.altTgt = 35000 * FT; this.hdgTgt = 58; this.trimRate = hard ? 0.35 : 0.08; this.why = ''; this.trimLim = [STAB.min, STAB.max];   // the stabilizer's travel, 1-12 deg (PTM)
     this.lat = 'HDG'; this.vert = 'ALT'; this.vsTgt = 0; this.appr = false; this.nav = null; this.ils = null;
+    this.latArm = null; this.vertArm = null;  // armed modes: 'LOC' | 'LNAV'; 'GS' | 'GP' | 'VNAV'
+    this.fms = null; this.fmsG = null; this.vnav = null;   // flight plan (js/fms.js): its lateral guidance and vertical target this step
+    this.agl = 0;                            // height above the ground, m (LNAV engages after takeoff / go-around at 400 ft)
     this.thetaLim = [-2.5 * DEG, 4 * DEG];   // cruise; free flight widens it for slow flight and approaches
     this.fine = false;                       // free flight: PI vertical-speed loop (the accident keeps the calibrated cruise law)
     this.thRef = null;
     this.fd = false;                         // flight director: the same guidance drawn as command bars, with or without the AP
     this.fdTheta = null; this.fdPhi = null;  // its pitch and bank commands, rad
     this.toPitch = 9 * DEG; this.gaPitch = 10 * DEG;   // TO: the AFM rotation attitude; GA: go-around pitch
-    this.missedAlt = 2000 * FT;              // missed-approach altitude after a go-around (generic, not the published KPBI procedure)
+    this.hdgLeft = null; this.lastPsi = null;          // heading select: degrees still to turn when the bug was spun past 180
   }
-  disconnect(why) { if (this.on) { this.on = false; this.why = why; if (!this.fd) this.appr = false; } }
+  disconnect(why) { if (this.on) { this.on = false; this.why = why; if (!this.fd) { this.appr = false; this.latArm = this.vertArm = null; } } }
   engage(out) {
     if (Math.abs(out.phi) > 30 * DEG || Math.abs(out.theta) > 15 * DEG || out.stalled) return false;
     this.on = true; this.why = ''; this.thRef = null;
-    // from a takeoff or go-around (FD), keep the heading and climb to the preselected altitude; or from the FD's own
-    // modes, keep them; otherwise hold what the airplane is doing
-    if (this.fd && (this.vert === 'TO' || this.vert === 'GA')) { this.lat = 'HDG'; this.setAlt(this.altTgt, out); return true; }
+    // with the flight director on, the autopilot flies its modes (a takeoff or go-around keeps climbing to the
+    // preselected altitude); otherwise it holds what the airplane is doing
     if (this.fd && this.fdTheta !== null) return true;
-    this.altTgt = out.h; this.hdgTgt = wrap360(out.psi * RAD); this.lat = 'HDG'; this.vert = 'ALT'; this.appr = false; return true;
+    this.altTgt = out.h; this.hdgTgt = wrap360(out.psi * RAD); this.lat = 'HDG'; this.vert = 'ALT'; this.appr = false; this.latArm = this.vertArm = null; return true;
   }
-  // a new target altitude: climb or descend toward it in VS mode, then hold it
+  // a new preselected altitude: climb or descend toward it in VS mode, then capture it (VNAV, GS and GP keep flying)
   setAlt(h, out) {
-    this.altTgt = h; if ((!this.on && !this.fd) || this.vert === 'GS' || this.vert === 'TO' || this.vert === 'GA') return;
+    this.altTgt = h; if ((!this.on && !this.fd) || /^(GS|GP|TO|GA|VNAV)$/.test(this.vert)) return;
     const dh = h - out.h; if (Math.abs(dh) > 30) { this.vert = 'VS'; this.vsTgt = dh > 0 ? (out.h < 3000 ? 7.6 : 5.1) : -7.6; } else this.vert = 'ALT';
   }
-  setHdg(deg) { this.hdgTgt = wrap360(deg); if (this.lat === 'LOC') { this.lat = 'HDG'; this.appr = false; if (this.vert === 'GS') this.vert = 'ALT'; } }
-  // go-around: the AP lets go, the FD commands the go-around pitch on the current (or localizer) heading, and the
-  // preselected altitude becomes the missed-approach altitude
+  // heading select: HDG mode on the new bug (leaves LOC / LNAV; the approach disarms)
+  setHdg(deg, keepTurn = false) {
+    this.hdgTgt = wrap360(deg); if (!keepTurn) this.hdgLeft = null;
+    if (this.lat !== 'HDG') { this.lat = 'HDG'; this.latArm = null; this.appr = false; if (this.vert === 'GS' || this.vert === 'GP') { this.vert = 'ALT'; this.vertArm = null; } }
+  }
+  // the heading knob: the airplane turns the way it was spun (AC 25.1329-1C 63b, CS/14 CFR 25.779)
+  bumpHdg(d, psiDeg) {
+    this.hdgLeft = (this.hdgLeft ?? wrap180(this.hdgTgt - psiDeg)) + d;
+    this.setHdg(this.hdgTgt + d, true);
+  }
+  // LNAV / VNAV buttons: arm (engage when the capture criteria are met)
+  armLnav() { if (!this.fms || !this.fms.active) return false; if (this.lat !== 'LNAV') this.latArm = 'LNAV'; return true; }
+  armVnav() { if (!this.fms || !this.fms.active) return false; if (this.vert !== 'VNAV') this.vertArm = 'VNAV'; return true; }
+  // go-around: the AP lets go, the FD commands the go-around pitch wings-level on the current (or localizer) heading,
+  // LNAV arms to fly the published missed approach from the flight plan (engages at 400 ft). The preselected altitude
+  // is not touched: the climb continues until it is above the airplane and captured.
   goAround(out) {
     const d = this.ils;
-    this.hdgTgt = wrap360((this.lat === 'LOC' && d ? d.course : out.psi) * RAD);
-    this.lat = 'HDG'; this.vert = 'GA'; this.appr = false; this.altTgt = this.missedAlt; this.fd = true; this.thRef = null;
+    this.hdgTgt = wrap360((d && d.locValid && this.lat === 'LOC' ? d.course : out.psi) * RAD); this.hdgLeft = null;
+    this.lat = 'HDG'; this.vert = 'GA'; this.appr = false; this.vertArm = null; this.fd = true; this.thRef = null;
+    this.latArm = this.fms && this.fms.active ? 'LNAV' : null;
     if (this.on) this.disconnect('GO AROUND');
   }
-  // takeoff: FD pitch to the rotation attitude on the runway heading, then the preselected altitude
-  takeoff(hdgDeg, alt) { this.fd = true; this.lat = 'HDG'; this.vert = 'TO'; this.hdgTgt = wrap360(hdgDeg); this.altTgt = alt; this.appr = false; this.thRef = null; }
+  // takeoff: FD pitch to the rotation attitude on the runway heading; LNAV arms if a departure is loaded
+  takeoff(hdgDeg, alt) { this.fd = true; this.lat = 'HDG'; this.vert = 'TO'; this.hdgTgt = wrap360(hdgDeg); this.hdgLeft = null; this.altTgt = alt; this.appr = false; this.thRef = null; this.latArm = this.fms && this.fms.active ? 'LNAV' : null; this.vertArm = null; }
+  // annunciation: [active lateral, armed lateral, active vertical, armed vertical]
+  modes() { return { lat: this.lat, latArm: this.latArm, vert: this.vert, vertArm: this.vertArm }; }
   step(ac, dt, out) {
-    if (!this.on && !this.fd) return;
-    const { h, vs, theta, phi, psi, p, q, M, KIAS } = out;
-    // approach: capture the localizer inside 1.5 dots, then the glideslope inside 0.4 dot
+    const { h, vs, theta, phi, psi, p, q, M } = out;
+    const psiD = psi * RAD, trkD = (out.track ?? psi) * RAD;
+    // navigation runs whatever the AP / FD are doing: the ILS ahead, and the flight plan sequencing its legs
     const d = this.nav ? this.nav(out) : null; this.ils = d;
-    if (this.appr && d) {
-      if (this.lat !== 'LOC' && d.locValid && Math.abs(d.locRaw) < 1.5) this.lat = 'LOC';
-      if (this.lat === 'LOC' && this.vert !== 'GS' && d.gsValid && Math.abs(d.gsRaw) < 0.4) this.vert = 'GS';
+    const g = this.fms ? this.fms.update({ ne: [ac.pos[0], ac.pos[1]], h: h / FT, trk: trkD, hdg: psiD, gs: Math.max(30, out.gs || out.V || 0), dt }) : null;
+    this.fmsG = g; this.vnav = this.fms && g ? this.fms.vertical({ ne: [ac.pos[0], ac.pos[1]], h: h / FT }) : null;
+    this.agl = out.agl ?? h;
+    if (!this.on && !this.fd) { this.lastPsi = psiD; return; }
+    // approach: an ILS arms LOC + GS; a localizer-only approach (LOC, LDA) LOC + GP; RNAV LNAV + GP. With no
+    // approach in the plan, the localizer ahead with its glideslope.
+    if (this.appr) {
+      const plan = this.fms && this.fms.fafIndex() >= 0, proc = plan ? this.fms.legs[this.fms.fafIndex()].proc || '' : '';
+      const onLoc = plan ? !!this.fms.approachNav() && /^I/.test(this.fms.approachNav()) && /^[ILXB]/.test(proc) : !!d;
+      if (onLoc) { if (this.lat !== 'LOC') this.latArm = 'LOC'; const v = !plan || proc[0] === 'I' ? 'GS' : 'GP'; if (this.vert !== v) this.vertArm = v; }
+      else if (plan) { if (this.lat !== 'LNAV') this.latArm = 'LNAV'; if (this.vert !== 'GP') this.vertArm = 'GP'; }
     }
-    if ((this.lat === 'LOC' || this.vert === 'GS') && !(d && d.locValid)) { this.lat = 'HDG'; this.hdgTgt = wrap360(psi * RAD); if (this.vert === 'GS') { this.vert = 'ALT'; this.altTgt = h; } }
-    // vertical: commanded climb rate -> pitch attitude -> elevator (limited-authority servo); TO / GA fly a pitch attitude
-    if ((this.vert === 'TO' || this.vert === 'GA') && !out.wow && vs > 1 && Math.abs(this.altTgt - h) < Math.max(60, vs * 8)) this.vert = 'ALT';
+    // captures: LOC inside 1.5 dots; GS inside 0.4 dot (on the localizer); LNAV inside 2 nm of the path, above 400 ft;
+    // VNAV once LNAV is flying; GP past the final approach fix
+    if (this.latArm === 'LOC' && d && d.locValid && Math.abs(d.locRaw) < 1.5) { this.lat = 'LOC'; this.latArm = null; }
+    if (this.vertArm === 'GS' && d && d.gsValid && Math.abs(d.gsRaw) < 0.4 && Math.abs(d.locRaw) < 2) { this.vert = 'GS'; this.vertArm = null; }
+    if (this.latArm === 'LNAV' && g && (g.xtk == null || Math.abs(g.xtk) < 2 * 1852) && (this.agl > 400 * FT || !out.wow && this.vert !== 'TO' && this.vert !== 'GA')) { this.lat = 'LNAV'; this.latArm = null; }
+    if (this.vertArm === 'VNAV' && this.lat === 'LNAV' && this.vnav && this.vert !== 'TO' && this.vert !== 'GA') { this.vert = 'VNAV'; this.vertArm = null; this.thRef = null; }
+    if (this.vertArm === 'GP' && (this.lat === 'LNAV' || this.lat === 'LOC') && this.fms && this.fms.i > this.fms.fafIndex()) { this.vert = 'GP'; this.vertArm = null; }
+    // losing the signal or the plan: back to holding heading / altitude (loss of approach mode is annunciated, 45c)
+    if ((this.lat === 'LOC' || this.vert === 'GS') && !(d && d.locValid)) { this.lat = 'HDG'; this.hdgTgt = wrap360(psiD); this.appr = false; this.latArm = null; if (this.vert === 'GS') { this.vert = 'ALT'; this.altTgt = h; } this.lost = 'LOC'; }
+    if (this.lat === 'LNAV' && !g) { this.lat = 'HDG'; this.hdgTgt = wrap360(psiD); this.lost = 'LNAV'; }
+    if ((this.vert === 'VNAV' || this.vert === 'GP') && !this.vnav) { this.lost = this.vert; this.vert = 'ALT'; this.altTgt = Math.round(h / FT / 100) * 100 * FT; }
+    // ---- vertical: commanded climb rate -> pitch attitude -> elevator (limited-authority servo); TO / GA fly a pitch attitude
+    // TO / GA capture the preselected altitude only from below (a go-around keeps climbing while it is set lower)
+    if ((this.vert === 'TO' || this.vert === 'GA') && !out.wow && vs > 1 && this.altTgt > h - 10 && this.altTgt - h < Math.max(60, vs * 8)) this.vert = 'ALTS';
+    if (this.vert === 'VS' && Math.abs(this.altTgt - h) < Math.max(30, Math.abs(vs) * 6)) this.vert = 'ALTS';
+    if (this.vert === 'ALTS' && Math.abs(this.altTgt - h) < 15 && Math.abs(vs) < 1) this.vert = 'ALT';
     let vsCmd;
     if (this.vert === 'TO' || this.vert === 'GA') vsCmd = 0;
     else if (this.vert === 'GS' && d) vsCmd = clamp(-out.gs * Math.tan(d.gsAngle * DEG) - 0.15 * d.gsErrM, -10, 3);
-    else if (this.vert === 'VS') { vsCmd = this.vsTgt; if (Math.abs(this.altTgt - h) < Math.max(30, Math.abs(vs) * 6)) this.vert = 'ALT'; }
+    else if (this.vert === 'VS') vsCmd = this.vsTgt;
+    else if (this.vert === 'VNAV' || this.vert === 'GP') vsCmd = this.vnavRate(h, vs, out);
     else vsCmd = clamp((this.altTgt - h) * 0.10, -8, 8);
     let elev, thetaCmd;
     if (this.vert === 'TO' || this.vert === 'GA') {
@@ -282,20 +326,45 @@ export class Autopilot {
       elev = clamp((2.5 * (thetaCmd - theta) - 1.0 * q) / ELEV_K, -0.12 / ELEV_K, 0.12 / ELEV_K);
     }
     this.fdTheta = thetaCmd;
-    // lateral: heading, or the localizer course with a cross-track intercept (up to 30 deg) flown on the track
+    // ---- lateral: heading select; the localizer course with a cross-track intercept (up to 30 deg) flown on the track;
+    // or the flight plan's track / heading, turning the published way
+    if (this.hdgLeft != null) { if (this.lastPsi != null) this.hdgLeft -= wrap180(psiD - this.lastPsi); if (Math.abs(this.hdgLeft) < 179) this.hdgLeft = null; }
+    this.lastPsi = psiD;
     let hErr, bankLim = 25;
-    if (this.lat === 'LOC' && d) {
+    if (this.lat === 'LNAV' && g) {
+      hErr = g.trk != null ? wrap180(g.trk - trkD) : wrap180(g.hdg - psiD);
+      if (g.turnDir && Math.sign(hErr) === -g.turnDir && Math.abs(hErr) > 5) hErr += 360 * g.turnDir;   // published turn direction: the long way round
+    } else if (this.lat === 'LOC' && d) {
       const want = d.course * RAD - clamp(d.cross * 0.012, -30, 30);
-      hErr = wrap180(want - (out.track ?? psi) * RAD); bankLim = 20;
-    } else hErr = wrap180(this.hdgTgt - psi * RAD);
+      hErr = wrap180(want - trkD); bankLim = 20;
+    } else hErr = this.hdgLeft ?? wrap180(this.hdgTgt - psiD);
+    if (this.agl < 400 * FT && !out.wow) bankLim = Math.min(bankLim, 15);   // near the ground: keep the wingtips clear (63c(3))
     const phiCmd = clamp(hErr * 1.5, -bankLim, bankLim) * DEG;
     this.fdPhi = phiCmd;
     if (!this.on) return;   // flight director only: the pilot flies the bars
     ac.ctl.elev = elev; this.cmdElev = elev;
     ac.ctl.trim = clamp(ac.ctl.trim + elev * ELEV_K * this.trimRate * dt, this.trimLim[0], this.trimLim[1]);   // auto-trim offloads the servo (and trims against a pilot fighting it)
-    ac.ctl.ail = clamp(1.2 * (phiCmd - phi) - 0.5 * p, -0.6, 0.6); this.cmdAil = ac.ctl.ail;
+    // free flight: an integrator removes the steady bank error a held turn needs aileron for (roll stability, adverse yaw)
+    if (this.fine) this.ailI = clamp((this.ailI || 0) + (phiCmd - phi) * 0.6 * dt, -0.2, 0.2);
+    ac.ctl.ail = clamp(1.2 * (phiCmd - phi) - 0.5 * p + (this.fine ? this.ailI : 0), -0.6, 0.6); this.cmdAil = ac.ctl.ail;
     // No autothrottle on the Learjet 60: thrust stays where the crew left it.
     if (M > 0.845 || Math.abs(phi) > 50 * DEG || vs < -45) this.disconnect(M > 0.845 ? 'OVERSPEED' : 'ATTITUDE');
+  }
+  // VNAV / GP climb rate (m/s): climb toward an at-or-above / at constraint, or descend on the published path. Outside
+  // the final approach (GP) the preselected altitude bounds it: no climb unless it is above, no descent unless it is
+  // below, never through it (AC 25.1329-1C 64i(2)).
+  vnavRate(h, vs, out) {
+    const v = this.vnav, final = this.vert === 'GP'; if (!v) return 0;
+    let tgt = v.alt * FT, path = v.path != null ? v.path * FT : null;
+    if (!final) {
+      const msp = this.altTgt;
+      if (tgt > h) tgt = Math.min(tgt, Math.max(msp, h)); else tgt = Math.max(tgt, Math.min(msp, h));
+      if (path != null) path = Math.max(path, msp);
+    }
+    const climb = h < 3000 ? 7.6 : 5.1;
+    // on a descent path: level while it is still above (never climb to meet it), then follow it down
+    if (path != null && h > tgt + 15) return path > h + 15 ? 0 : clamp(-(out.gs || 60) * Math.tan((v.ang || 3) * DEG) + 0.12 * (path - h), -12, 0.5);
+    return clamp((tgt - h) * 0.10, -7.6, climb);
   }
 }
 

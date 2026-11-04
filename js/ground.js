@@ -16,29 +16,35 @@ import { mulMV, mulMTV } from './util.js';
 
 export const groundAlt = (n, e) => (n * n + e * e) / 12720000;
 
-// KPBI runways from OpenStreetMap (aeroway=runway ways), metres north / east of the scenario origin (26.6832 N,
-// 80.0956 W). Threshold a -> b is the direction of the first designator.
-// KPBI airport boundary (OpenStreetMap aeroway=aerodrome, simplified to 32 vertices), [east, north] m. The renderer keeps
-// its imagery-driven 3D houses out of it: runway concrete and aprons read as roofs in the aerial photo.
+// Runways: every runway pair at the IFR airports in the navigation database (FAA CIFP via tools/fetch_cifp.py): landing
+// thresholds (displaced where published), displaced distances, width, threshold elevations. Pavement runs from each
+// landing threshold back by its displaced distance. id 'apt 10L/28R'; a / b: landing thresholds [north, east] m.
+import RWY_DATA from '../data/nav/runways.json' with { type: 'json' };
+const LAT0 = 26.6832, LON0 = -80.0956;
+// KDJT (KPBI) airport boundary (OpenStreetMap aeroway=aerodrome, simplified to 32 vertices), [east, north] m. The renderer
+// keeps its imagery-driven 3D houses out of it: runway concrete and aprons read as roofs in the aerial photo.
 export const AIRPORT = [[-915, 1241], [-1051, 1203], [-1287, 993], [-1389, 962], [-1505, 960], [-1508, 867], [-1480, 791], [-1489, 557], [-1589, 561], [-1594, 518], [-1491, 517], [-1494, 419], [-1597, 421], [-1619, -243], [-1427, -252], [-1436, -531], [-847, -622], [-421, -616], [1013, -662], [1213, -645], [1829, -538], [2008, -447], [2110, -329], [2155, -185], [2164, 151], [2144, 267], [2044, 537], [2032, 789], [2000, 833], [-426, 933], [-559, 980], [-800, 1201]];
-export const RUNWAYS = [
-  { id: '10L/28R', a: [1.1, -1271.6], b: [-147.7, 1772.4], w: 46 },
-  { id: '10R/28L', a: [-223.5, -1063.0], b: [-271.5, -85.9], w: 23 },
-  { id: '14/32', a: [959.9, -837.3], b: [-544.2, 650.4], w: 46 },
-];
+const ne = (p) => [(p[0] - LAT0) * 111320, (p[1] - LON0) * 111320 * Math.cos((p[0] + LAT0) / 2 * Math.PI / 180)];
+export const RUNWAYS = RWY_DATA.map((r) => ({ id: r.ids.join('/'), apt: r.apt, ids: r.ids, a: ne(r.a), b: ne(r.b), dispA: (r.dispA || 0) * 0.3048, dispB: (r.dispB || 0) * 0.3048,
+  w: (r.width || 100) * 0.3048, elevA: r.elevA, elevB: r.elevB }));
+export const runwayById = (apt, id) => RUNWAYS.find((r) => r.apt === apt && r.ids.includes(id.replace(/^RW/, ''))) || null;
+// a runway seen from one end: landing threshold, pavement start and end, unit vector, pavement length, heading (rad true)
 export function runwayFrame(rw, fromB = false) {
-  const [a, b] = fromB ? [rw.b, rw.a] : [rw.a, rw.b];
-  const L = Math.hypot(b[0] - a[0], b[1] - a[1]), u = [(b[0] - a[0]) / L, (b[1] - a[1]) / L];
-  return { thr: a, end: b, u, L, w: rw.w, hdg: Math.atan2(u[1], u[0]) };   // hdg: true heading, rad
+  const [a, b, da, db] = fromB ? [rw.b, rw.a, rw.dispB, rw.dispA] : [rw.a, rw.b, rw.dispA, rw.dispB];
+  const Lt = Math.hypot(b[0] - a[0], b[1] - a[1]), u = [(b[0] - a[0]) / Lt, (b[1] - a[1]) / Lt];
+  const start = [a[0] - u[0] * da, a[1] - u[1] * da], end = [b[0] + u[0] * db, b[1] + u[1] * db];
+  return { thr: a, start, end, u, L: Lt + da + db, disp: da, dispFar: db, w: rw.w, hdg: Math.atan2(u[1], u[0]), id: (fromB ? rw.ids[1] : rw.ids[0]), apt: rw.apt };
 }
-// which runway (and which end, by direction of travel) a point is on: distance past the threshold, offset (+ = right
-// of the centreline), runway left. null off the runways.
+const near = (rw, n, e, r) => Math.abs(rw.a[0] - n) < r && Math.abs(rw.a[1] - e) < r;
+// which runway (and which end, by direction of travel) a point is on: distance past the landing threshold, offset (+ =
+// right of the centreline), pavement left. null off the runways.
 export function runwayAt(n, e, track) {
-  for (const rw of RUNWAYS) for (const fromB of [false, true]) {
-    const f = runwayFrame(rw, fromB); if (Math.cos(track - f.hdg) < 0.5) continue;
-    const dn = n - f.thr[0], de = e - f.thr[1], s = dn * f.u[0] + de * f.u[1], c = -dn * f.u[1] + de * f.u[0];
-    if (s >= -300 && s <= f.L + 60 && Math.abs(c) <= f.w / 2 + 25) {
-      const ids = rw.id.split('/'); return { id: fromB ? ids[1] : ids[0], s, c, left: f.L - s, L: f.L };
+  for (const rw of RUNWAYS) {
+    if (!near(rw, n, e, 6000)) continue;
+    for (const fromB of [false, true]) {
+      const f = runwayFrame(rw, fromB); if (Math.cos(track - f.hdg) < 0.5) continue;
+      const dn = n - f.thr[0], de = e - f.thr[1], s = dn * f.u[0] + de * f.u[1], c = -dn * f.u[1] + de * f.u[0];
+      if (s >= -f.disp - 300 && s <= f.L - f.disp + 60 && Math.abs(c) <= f.w / 2 + 25) return { id: f.id, apt: rw.apt, s, c, left: f.L - f.disp - s, L: f.L };
     }
   }
   return null;
@@ -46,7 +52,8 @@ export function runwayAt(n, e, track) {
 // 'paved' on a runway, 'grass' elsewhere (taxiways and aprons are not modelled yet)
 export function surfaceAt(n, e) {
   for (const rw of RUNWAYS) {
-    const f = runwayFrame(rw), dn = n - f.thr[0], de = e - f.thr[1];
+    if (!near(rw, n, e, 6000)) continue;
+    const f = runwayFrame(rw), dn = n - f.start[0], de = e - f.start[1];
     const s = dn * f.u[0] + de * f.u[1], c = -dn * f.u[1] + de * f.u[0];
     if (s >= -30 && s <= f.L + 30 && Math.abs(c) <= f.w / 2 + 1.5) return 'paved';
   }

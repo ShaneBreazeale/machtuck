@@ -1,0 +1,657 @@
+{
+ "cycle": "261029",
+ "source": "https://aeronav.faa.gov/Upload_313-d/cifp/CIFP_261029.zip",
+ "center": "KDJT",
+ "radius_nm": 160,
+ "airports": [
+  {
+   "id": "06FA",
+   "name": "WILLIAM P GWINN",
+   "lat": 26.908153,
+   "lon": -80.328414,
+   "elev": 28.0,
+   "magvar": -5.0,
+   "procs": 6
+  },
+  {
+   "id": "07FA",
+   "name": "OCEAN REEF CLUB",
+   "lat": 25.324308,
+   "lon": -80.275731,
+   "elev": 6.0,
+   "magvar": -7.0,
+   "procs": 8
+  },
+  {
+   "id": "2IS",
+   "name": "AIRGLADES",
+   "lat": 26.735172,
+   "lon": -81.051061,
+   "elev": 20.0,
+   "magvar": -5.0,
+   "procs": 2
+  },
+  {
+   "id": "7FL6",
+   "name": "SPRUCE CREEK",
+   "lat": 29.080194,
+   "lon": -81.046628,
+   "elev": 25.0,
+   "magvar": -5.0,
+   "procs": 1
+  },
+  {
+   "id": "F45",
+   "name": "NORTH PALM BEACH COUNTY GENERA",
+   "lat": 26.845925,
+   "lon": -80.222342,
+   "elev": 21.0,
+   "magvar": -7.0,
+   "procs": 9
+  },
+  {
+   "id": "FA54",
+   "name": "CORAL CREEK",
+   "lat": 26.853742,
+   "lon": -82.252603,
+   "elev": 7.0,
+   "magvar": -5.0,
+   "procs": 2
+  },
+  {
+   "id": "KAPF",
+   "name": "NAPLES MUNI",
+   "lat": 26.152442,
+   "lon": -81.775639,
+   "elev": 8.0,
+   "magvar": -3.0,
+   "procs": 11
+  },
+  {
+   "id": "KAVO",
+   "name": "AVON PARK EXEC",
+   "lat": 27.5913,
+   "lon": -81.528967,
+   "elev": 160.0,
+   "magvar": -5.0,
+   "procs": 2
+  },
+  {
+   "id": "KBCT",
+   "name": "BOCA RATON",
+   "lat": 26.378486,
+   "lon": -80.107697,
+   "elev": 13.0,
+   "magvar": -5.0,
+   "procs": 13
+  },
+  {
+   "id": "KBOW",
+   "name": "BARTOW EXEC",
+   "lat": 27.943358,
+   "lon": -81.783436,
+   "elev": 125.0,
+   "magvar": -4.0,
+   "procs": 4
+  },
+  {
+   "id": "KCHN",
+   "name": "WAUCHULA MUNI",
+   "lat": 27.514917,
+   "lon": -81.880472,
+   "elev": 108.0,
+   "magvar": -4.0,
+   "procs": 2
+  },
+  {
+   "id": "KCOF",
+   "name": "PATRICK SPACE FORCE BASE",
+   "lat": 28.235008,
+   "lon": -80.609978,
+   "elev": 8.0,
+   "magvar": -7.0,
+   "procs": 1
+  },
+  {
+   "id": "KCOI",
+   "name": "MERRITT ISLAND",
+   "lat": 28.3416,
+   "lon": -80.685486,
+   "elev": 6.0,
+   "magvar": -5.0,
+   "procs": 4
+  },
+  {
+   "id": "KDAB",
+   "name": "DAYTONA BEACH INTL",
+   "lat": 29.179908,
+   "lon": -81.058042,
+   "elev": 34.0,
+   "magvar": -5.0,
+   "procs": 10
+  },
+  {
+   "id": "KDED",
+   "name": "DELAND MUNI-SIDNEY H TAYLOR FL",
+   "lat": 29.067031,
+   "lon": -81.283758,
+   "elev": 79.0,
+   "magvar": -5.0,
+   "procs": 5
+  },
+  {
+   "id": "KDJT",
+   "name": "PRESIDENT DONALD J TRUMP INTL",
+   "lat": 26.683161,
+   "lon": -80.095592,
+   "elev": 20.0,
+   "magvar": -6.0,
+   "procs": 26
+  },
+  {
+   "id": "KEVB",
+   "name": "NEW SMYRNA BEACH MUNI (JACK BO",
+   "lat": 29.055689,
+   "lon": -80.94885,
+   "elev": 11.0,
+   "magvar": -4.0,
+   "procs": 5
+  },
+  {
+   "id": "KEYW",
+   "name": "KEY WEST INTL",
+   "lat": 24.556119,
+   "lon": -81.759956,
+   "elev": 3.0,
+   "magvar": -4.0,
+   "procs": 5
+  },
+  {
+   "id": "KFLL",
+   "name": "FORT LAUDERDALE/HOLLYWOOD INTL",
+   "lat": 26.071667,
+   "lon": -80.149694,
+   "elev": 65.0,
+   "magvar": -6.0,
+   "procs": 35
+  },
+  {
+   "id": "KFMY",
+   "name": "PAGE FLD",
+   "lat": 26.586617,
+   "lon": -81.863247,
+   "elev": 17.0,
+   "magvar": -3.0,
+   "procs": 10
+  },
+  {
+   "id": "KFPR",
+   "name": "TREASURE COAST INTL",
+   "lat": 27.497472,
+   "lon": -80.372639,
+   "elev": 23.0,
+   "magvar": -7.0,
+   "procs": 6
+  },
+  {
+   "id": "KFXE",
+   "name": "FORT LAUDERDALE EXEC",
+   "lat": 26.197281,
+   "lon": -80.170706,
+   "elev": 13.0,
+   "magvar": -7.0,
+   "procs": 22
+  },
+  {
+   "id": "KGIF",
+   "name": "WINTER HAVEN RGNL",
+   "lat": 28.062919,
+   "lon": -81.753314,
+   "elev": 146.0,
+   "magvar": -4.0,
+   "procs": 2
+  },
+  {
+   "id": "KHST",
+   "name": "HOMESTEAD ARB",
+   "lat": 25.48855,
+   "lon": -80.383567,
+   "elev": 6.0,
+   "magvar": -6.0,
+   "procs": 18
+  },
+  {
+   "id": "KHWO",
+   "name": "NORTH PERRY",
+   "lat": 26.001261,
+   "lon": -80.240694,
+   "elev": 9.0,
+   "magvar": -6.0,
+   "procs": 7
+  },
+  {
+   "id": "KIMM",
+   "name": "IMMOKALEE RGNL",
+   "lat": 26.433711,
+   "lon": -81.400478,
+   "elev": 37.0,
+   "magvar": -5.0,
+   "procs": 4
+  },
+  {
+   "id": "KISM",
+   "name": "KISSIMMEE GATEWAY",
+   "lat": 28.289808,
+   "lon": -81.437081,
+   "elev": 82.0,
+   "magvar": -5.0,
+   "procs": 16
+  },
+  {
+   "id": "KLAL",
+   "name": "LAKELAND LINDER INTL",
+   "lat": 27.987639,
+   "lon": -82.019,
+   "elev": 142.0,
+   "magvar": -6.0,
+   "procs": 13
+  },
+  {
+   "id": "KLEE",
+   "name": "LEESBURG INTL",
+   "lat": 28.822897,
+   "lon": -81.808417,
+   "elev": 76.0,
+   "magvar": -5.0,
+   "procs": 10
+  },
+  {
+   "id": "KLNA",
+   "name": "PALM BEACH COUNTY PARK",
+   "lat": 26.593047,
+   "lon": -80.085064,
+   "elev": 14.0,
+   "magvar": -7.0,
+   "procs": 6
+  },
+  {
+   "id": "KMCF",
+   "name": "MACDILL AFB",
+   "lat": 27.849344,
+   "lon": -82.521219,
+   "elev": 14.0,
+   "magvar": -6.0,
+   "procs": 4
+  },
+  {
+   "id": "KMCO",
+   "name": "ORLANDO INTL",
+   "lat": 28.429394,
+   "lon": -81.308992,
+   "elev": 96.0,
+   "magvar": -6.0,
+   "procs": 46
+  },
+  {
+   "id": "KMIA",
+   "name": "MIAMI INTL",
+   "lat": 25.795361,
+   "lon": -80.290117,
+   "elev": 9.0,
+   "magvar": -5.0,
+   "procs": 49
+  },
+  {
+   "id": "KMKY",
+   "name": "MARCO ISLAND EXEC",
+   "lat": 25.995028,
+   "lon": -81.672528,
+   "elev": 5.0,
+   "magvar": -3.0,
+   "procs": 6
+  },
+  {
+   "id": "KMLB",
+   "name": "MELBOURNE ORLANDO INTL",
+   "lat": 28.10275,
+   "lon": -80.64525,
+   "elev": 33.0,
+   "magvar": -7.0,
+   "procs": 11
+  },
+  {
+   "id": "KMTH",
+   "name": "THE FLORIDA KEYS MARATHON INTL",
+   "lat": 24.726286,
+   "lon": -81.051417,
+   "elev": 7.0,
+   "magvar": -4.0,
+   "procs": 2
+  },
+  {
+   "id": "KNQX",
+   "name": "KEY WEST NAS (BOCA CHICA FLD)",
+   "lat": 24.574636,
+   "lon": -81.686644,
+   "elev": 6.0,
+   "magvar": -6.0,
+   "procs": 2
+  },
+  {
+   "id": "KOBE",
+   "name": "OKEECHOBEE COUNTY",
+   "lat": 27.266575,
+   "lon": -80.850392,
+   "elev": 34.0,
+   "magvar": -6.0,
+   "procs": 4
+  },
+  {
+   "id": "KOPF",
+   "name": "MIAMI-OPA LOCKA EXEC",
+   "lat": 25.907417,
+   "lon": -80.278222,
+   "elev": 8.0,
+   "magvar": -6.0,
+   "procs": 31
+  },
+  {
+   "id": "KORL",
+   "name": "ORLANDO EXEC",
+   "lat": 28.545464,
+   "lon": -81.332931,
+   "elev": 113.0,
+   "magvar": -6.0,
+   "procs": 18
+  },
+  {
+   "id": "KPCM",
+   "name": "PLANT CITY",
+   "lat": 28.000167,
+   "lon": -82.163306,
+   "elev": 153.0,
+   "magvar": -5.0,
+   "procs": 2
+  },
+  {
+   "id": "KPGD",
+   "name": "PUNTA GORDA",
+   "lat": 26.918592,
+   "lon": -81.990886,
+   "elev": 26.0,
+   "magvar": -6.0,
+   "procs": 8
+  },
+  {
+   "id": "KPHK",
+   "name": "PALM BEACH COUNTY GLADES",
+   "lat": 26.785028,
+   "lon": -80.693361,
+   "elev": 16.0,
+   "magvar": -7.0,
+   "procs": 2
+  },
+  {
+   "id": "KPIE",
+   "name": "ST PETE-CLEARWATER INTL",
+   "lat": 27.908633,
+   "lon": -82.686511,
+   "elev": 11.0,
+   "magvar": -5.0,
+   "procs": 15
+  },
+  {
+   "id": "KPMP",
+   "name": "POMPANO BEACH AIRPARK",
+   "lat": 26.247361,
+   "lon": -80.111128,
+   "elev": 19.0,
+   "magvar": -7.0,
+   "procs": 23
+  },
+  {
+   "id": "KRSW",
+   "name": "SOUTHWEST FLORIDA INTL",
+   "lat": 26.536164,
+   "lon": -81.755156,
+   "elev": 30.0,
+   "magvar": -4.0,
+   "procs": 11
+  },
+  {
+   "id": "KSEF",
+   "name": "SEBRING RGNL",
+   "lat": 27.456389,
+   "lon": -81.342389,
+   "elev": 62.0,
+   "magvar": -5.0,
+   "procs": 4
+  },
+  {
+   "id": "KSFB",
+   "name": "ORLANDO SANFORD INTL",
+   "lat": 28.777178,
+   "lon": -81.234914,
+   "elev": 55.0,
+   "magvar": -5.0,
+   "procs": 20
+  },
+  {
+   "id": "KSPG",
+   "name": "ALBERT WHITTED",
+   "lat": 27.765114,
+   "lon": -82.626939,
+   "elev": 7.0,
+   "magvar": -5.0,
+   "procs": 7
+  },
+  {
+   "id": "KSRQ",
+   "name": "SARASOTA/BRADENTON INTL",
+   "lat": 27.395444,
+   "lon": -82.554389,
+   "elev": 30.0,
+   "magvar": -5.0,
+   "procs": 12
+  },
+  {
+   "id": "KSUA",
+   "name": "WITHAM FLD",
+   "lat": 27.1817,
+   "lon": -80.221294,
+   "elev": 16.0,
+   "magvar": -6.0,
+   "procs": 5
+  },
+  {
+   "id": "KTIX",
+   "name": "SPACE COAST RGNL",
+   "lat": 28.514797,
+   "lon": -80.799228,
+   "elev": 34.0,
+   "magvar": -5.0,
+   "procs": 9
+  },
+  {
+   "id": "KTMB",
+   "name": "MIAMI EXEC",
+   "lat": 25.647564,
+   "lon": -80.433225,
+   "elev": 10.0,
+   "magvar": -6.0,
+   "procs": 24
+  },
+  {
+   "id": "KTNT",
+   "name": "DADE-COLLIER TRAINING AND TRAN",
+   "lat": 25.861806,
+   "lon": -80.897,
+   "elev": 13.0,
+   "magvar": -5.0,
+   "procs": 1
+  },
+  {
+   "id": "KTPA",
+   "name": "TAMPA INTL",
+   "lat": 27.975469,
+   "lon": -82.533247,
+   "elev": 27.0,
+   "magvar": -5.0,
+   "procs": 27
+  },
+  {
+   "id": "KTPF",
+   "name": "PETER O KNIGHT",
+   "lat": 27.915444,
+   "lon": -82.449389,
+   "elev": 7.0,
+   "magvar": -5.0,
+   "procs": 4
+  },
+  {
+   "id": "KTTS",
+   "name": "SPACE FLORIDA LAUNCH AND LANDI",
+   "lat": 28.614889,
+   "lon": -80.694369,
+   "elev": 9.0,
+   "magvar": -5.0,
+   "procs": 3
+  },
+  {
+   "id": "KVDF",
+   "name": "TAMPA EXEC",
+   "lat": 28.013986,
+   "lon": -82.345258,
+   "elev": 21.0,
+   "magvar": -4.0,
+   "procs": 8
+  },
+  {
+   "id": "KVNC",
+   "name": "VENICE MUNI",
+   "lat": 27.071269,
+   "lon": -82.440031,
+   "elev": 18.0,
+   "magvar": -5.0,
+   "procs": 8
+  },
+  {
+   "id": "KVRB",
+   "name": "VERO BEACH RGNL",
+   "lat": 27.655556,
+   "lon": -80.417956,
+   "elev": 24.0,
+   "magvar": -7.0,
+   "procs": 4
+  },
+  {
+   "id": "KXMR",
+   "name": "CAPE CANAVERAL SPACE FORCE STA",
+   "lat": 28.467586,
+   "lon": -80.566617,
+   "elev": 10.0,
+   "magvar": -7.0,
+   "procs": 1
+  },
+  {
+   "id": "KZPH",
+   "name": "ZEPHYRHILLS MUNI",
+   "lat": 28.226669,
+   "lon": -82.155644,
+   "elev": 90.0,
+   "magvar": -6.0,
+   "procs": 4
+  },
+  {
+   "id": "X04",
+   "name": "ORLANDO APOPKA",
+   "lat": 28.706644,
+   "lon": -81.581397,
+   "elev": 150.0,
+   "magvar": -6.0,
+   "procs": 3
+  },
+  {
+   "id": "X06",
+   "name": "ARCADIA MUNI",
+   "lat": 27.195319,
+   "lon": -81.838228,
+   "elev": 63.0,
+   "magvar": -6.0,
+   "procs": 2
+  },
+  {
+   "id": "X07",
+   "name": "LAKE WALES MUNI",
+   "lat": 27.893211,
+   "lon": -81.621458,
+   "elev": 127.0,
+   "magvar": -7.0,
+   "procs": 2
+  },
+  {
+   "id": "X14",
+   "name": "LA BELLE MUNI",
+   "lat": 26.740583,
+   "lon": -81.428278,
+   "elev": 20.0,
+   "magvar": -5.0,
+   "procs": 2
+  },
+  {
+   "id": "X21",
+   "name": "ARTHUR DUNN AIR PARK",
+   "lat": 28.622506,
+   "lon": -80.835375,
+   "elev": 30.0,
+   "magvar": -5.0,
+   "procs": 1
+  },
+  {
+   "id": "X23",
+   "name": "UMATILLA MUNI",
+   "lat": 28.924736,
+   "lon": -81.651781,
+   "elev": 106.0,
+   "magvar": -6.0,
+   "procs": 2
+  },
+  {
+   "id": "X26",
+   "name": "SEBASTIAN MUNI",
+   "lat": 27.81325,
+   "lon": -80.495583,
+   "elev": 22.0,
+   "magvar": -6.0,
+   "procs": 1
+  },
+  {
+   "id": "X50",
+   "name": "MASSEY RANCH AIRPARK",
+   "lat": 28.978917,
+   "lon": -80.924778,
+   "elev": 11.0,
+   "magvar": -7.0,
+   "procs": 3
+  },
+  {
+   "id": "X51",
+   "name": "MIAMI HOMESTEAD GENERAL AVIATI",
+   "lat": 25.499228,
+   "lon": -80.554247,
+   "elev": 7.0,
+   "magvar": -6.0,
+   "procs": 19
+  },
+  {
+   "id": "X59",
+   "name": "VALKARIA",
+   "lat": 27.960867,
+   "lon": -80.558328,
+   "elev": 26.0,
+   "magvar": -7.0,
+   "procs": 2
+  }
+ ],
+ "licence": "FAA CIFP (ARINC 424-18): US Government work, public domain. Not for navigation."
+}

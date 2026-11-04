@@ -27,9 +27,12 @@ Manual (AFM). It is pure WebGL2 and ES modules with no build step.
 - **Four upset hypotheses.** Fly the combined convective-core case, a tailplane stall, Mach tuck with a failed Mach
   trim, or a runaway nose-down trim, each "as flown" or in a forgiving trainer mode.
 - **A reconstruction mode.** Watch the reported ADS-B track replayed with chase, cockpit and ground cameras.
-- **Free flight from Palm Beach.** Separate from the accident: take off, fly and land at KPBI on real runway geometry
-  with landing gear, tyres, brakes, nosewheel steering and ground effect, in calm air, the day's METAR wind or a
-  crosswind.
+- **Free flight sorties.** Separate from the accident: plan a flight at any of the 72 IFR airports within 160 nm of
+  Palm Beach, using runways, ILS and approach procedures from the FAA nav database (CIFP). An FMS flies the
+  procedure, including the missed approach and holds, through an autopilot and flight director whose modes follow
+  FAA AC 25.1329-1C. The ground model covers landing gear, tyres, brakes, nosewheel steering and ground effect.
+- **A Pro Line 4-style PFD.** Mode band (active modes green, armed modes white), single-cue flight director, speed
+  and altitude tapes, VSI, and an HSI with the course pointer for the localizer or the FMS leg.
 - **A debrief.** Compares your flight with the real one and exports a 4 Hz flight data recorder as CSV.
 - **A physically based renderer.** Atmosphere scattering, volumetric clouds, imagery-driven ground with 62,000 real
   buildings and 512,000 measured trees around the impact area.
@@ -54,27 +57,66 @@ Apple Silicon is recommended. Press `K` to trade quality for frame rate.
 Click **Fly it**, or press `N` to skip ahead to core entry. The autopilot flies the cruise and hands you the airplane
 when it can no longer cope.
 
-**Free flight** is a separate mode at the bottom of the briefing screen, with no storm and no accident script. Pick a
-start (runway 10L or 28R lined up, a 6 nm final to 10L, an ILS 10L intercept, or cruise at FL350), weather and weight,
-then **Free flight**.
-You can also arm an engine failure at V1 or after takeoff. On the runway the parking brake is set and takeoff trim
-is dialled in. The AFM V1, VR and V2 for your weight appear on the speed tape and are called out. Hold Shift to release
-the brake, add full thrust, and rotate at VR to about +9° (the tail strikes at 11°). On approach the bug shows VREF and
-radio altitude is called from 500 ft. Touch down below 600 ft/min; harder than that the gear is damaged, and near
-960 ft/min it collapses. On the ground the spoilers deploy themselves at idle above 60 kt, and pulling thrust back past
-idle (`−` or L2) deploys the thrust reversers. The log reports touchdown point, centreline offset and runway left.
+The page opens on the accident: real weather, autopilot on, 12:47:00 EST.
 
-The autopilot (X) holds heading and altitude. `{` `}` move the heading bug and `<` `>` preselect an altitude, which it
-climbs or descends to. `\` arms the approach: it captures the ILS localizer for 10L or 28R, then the glideslope, with
-deviation scales on the PFD. There is no autothrottle on the Learjet 60, so speed stays yours. The glidepath (3.00°,
-55 ft over the threshold) uses standard values; the FAA's open ILS dataset has no KPBI entries.
+**Free flight sortie** is a separate mode: **Plan a sortie →** on the briefing screen, or open `index.html#sortie`.
+There is no storm and no accident script. Choose:
 
-The flight director (`|`, on by default in free flight) draws the same guidance as magenta command bars, with or
-without the autopilot. On the runway it gives +9° for takeoff on the runway heading, then captures the preselected
-altitude (3,000 ft). `?` (or a bound TOGA button) goes around: the autopilot lets go, the FD commands 10° on the
-runway heading, and the missed-approach altitude of 2,000 ft is preselected; `X` re-engages the autopilot for the
-climb. Outer and middle marker beacons light on the PFD and sound their tones. The missed-approach altitude and the
-marker positions (4.5 nm and 3,500 ft) are standard values, not the published KPBI procedure.
+- **Airport and runway**, from the nav database.
+- **Approach and transition**, from the airport's published procedures (ILS, LOC, RNAV). The planner shows the legs,
+  including the missed approach.
+- **Start:** lined up on the runway, airborne at the start of the approach with the autopilot on, a 6 nm final, or
+  cruise at FL350.
+- **Weather, weight and failure:** calm air, the accident day's METAR wind or a crosswind; an engine failure at V1 or
+  after takeoff.
+
+On the runway the parking brake is set and takeoff trim is dialled in. The AFM V1, VR and V2 for your weight appear on
+the speed tape and are called out. Hold Shift to release the brake, add full thrust, and rotate at VR to about +9°
+(the tail strikes at 11°). On approach the bug shows VREF and radio altitude is called from 500 ft. Touch down below
+600 ft/min; harder than that the gear is damaged, and near 960 ft/min it collapses. On the ground the spoilers deploy
+themselves at idle above 60 kt, and pulling thrust back past idle (`−` or L2) deploys the thrust reversers. The log
+reports the touchdown point, centreline offset, runway left and landing distance available.
+
+### Flight guidance
+
+The flight management system (`js/fms.js`) flies any ARINC 424 leg sequence: track, course and direct to a fix,
+heading or course to an altitude, intercepts, DME arcs, radius-to-fix turns and holds. Holds use the standard direct,
+teardrop and parallel entries. Nothing is written for a particular airport; the legs come from the data.
+
+The autopilot and flight director modes follow FAA [AC 25.1329-1C](https://www.faa.gov/documentLibrary/media/Advisory_Circular/AC_25_1329-1C.pdf):
+
+- **Lateral:** HDG, LOC and LNAV. Spin the heading bug past 180° and the airplane turns the way you spun it.
+- **Vertical:** ALT, VS, VNAV, GS, GP (an RNAV approach's final path), TO and GA. Altitude capture is always armed.
+- **Armed modes** (white) engage when their capture criteria are met. LNAV engages within 2 nm of the path, and above
+  400 ft after takeoff or a go-around.
+- **VNAV** flies the plan's altitude constraints but never climbs or descends through the preselected altitude,
+  except on final.
+- **Go-around** (`?`) pitches 10°, arms LNAV for the published missed approach and climbs until the preselected
+  altitude is above you. Once you are established on the glideslope, the pilot monitoring sets the missed-approach
+  altitude.
+
+`X` engages the autopilot, `|` toggles the flight director, `(` arms LNAV, `)` arms VNAV and `\` arms the approach.
+`{` `}` move the heading bug and `<` `>` set the preselected altitude. There is no autothrottle on the Learjet 60, so
+speed stays yours.
+
+The minimums bug is set from the FAA plate, because CIFP carries the procedures but not their minimums. The plate
+fetcher reads the straight-in DA or MDA for each category from the chart's text layer. The Learjet 60 is Category C:
+its VREF at maximum landing weight is 139 kt. The line used depends on the approach:
+
+- ILS: S-ILS (ILS 10L: DA 216 ft).
+- LOC: S-LOC, flown LOC + GP (LOC 28R: MDA 460 ft).
+- RNAV (GPS): LNAV/VNAV, else LNAV. The airplane has baro-VNAV, not WAAS.
+- RNAV (RNP): RNP 0.30.
+
+Circling minimums aren't read: in the text layer they wrap across lines and can't be assigned to categories. With no
+plate, the bug falls back to 200 ft above touchdown on an ILS and 400 ft on other approaches. `~` (or **Approach
+plates** on the sortie screen) shows the loaded approach's chart: KDJT (the former KPBI) has all 12 approach plates
+and the airport diagram. The charts and the nav data are public domain and **not for navigation**. Refresh them with:
+
+```bash
+python3 tools/fetch_cifp.py            # FAA CIFP -> data/nav (airports, runways, ILS, procedures, airways)
+python3 tools/fetch_plates.py --cycle <cycle>
+```
 
 ## Controls
 
@@ -86,7 +128,9 @@ marker positions (4.5 nm and 3,500 ft) are standard values, not the published KP
 | Pitch trim | `,` nose-down, `.` nose-up | R1 / L1 |
 | Autopilot off or on | X | Cross |
 | Heading bug, altitude preselect, approach (APR) | `{` `}`, `<` `>`, `\` | |
+| LNAV, VNAV | `(`, `)` | |
 | Flight director, go-around (TOGA) | `\|`, `?` (or a bound button) | |
+| Approach plates | `~` | |
 | Spoilers, gear, flaps | B, G, F | Circle, D-pad |
 | Brakes (free flight) | Hold Shift; toe brakes bind in the controls panel | D-pad left |
 | Thrust reversers (on the ground) | `−` past idle, `=` to stow; or a bound button | L2 past idle |
@@ -230,7 +274,9 @@ on, the wing fails before the recovery takes hold.
 | `data/glm_flashes.json` | GOES-19 Geostationary Lightning Mapper, 17:44 to 17:52Z | Lightning times and positions |
 | `data/metar.json`, `data/sounding_kmfl.json` | KPBI METARs, KMFL 12Z radiosonde | Cumulus layer, deck base, freezing level |
 | `data/ground/` | USGS orthoimagery (NAIP), NASA Blue Marble, USGS NHD water | Terrain texture and water |
-| KPBI runways and boundary (in `js/ground.js`) | OpenStreetMap (ODbL) | Runway geometry, markings, ground friction |
+| `data/nav/` | FAA CIFP cycle 261029 (ARINC 424, public domain) | Airports, runways, ILS, SID / STAR / approach procedures, navaids, airways |
+| KPBI boundary (in `js/ground.js`) | OpenStreetMap (ODbL) | Keeps imagery-driven houses off the airport |
+| `data/plates/` | FAA d-TPP cycle 2611 (public domain) | Approach plates, airport diagram, straight-in minimums |
 | `data/ground/buildings.bin` | Overture Maps (OpenStreetMap + Microsoft) | 62,192 buildings with measured heights |
 | `data/ground/trees.bin` | Meta / WRI 1 m canopy height map | 511,964 trees with measured heights and crowns |
 | `audio/atc_liveatc.mp3` | LiveATC recording as publicly posted | Optional ATC audio, off by default |
@@ -263,9 +309,11 @@ node tools/bench.mjs 2560x1320 8080
 | `js/controls.js` | Column and wheel forces, pilot strength, autopilot clutches |
 | `js/input.js`, `js/hardware.js`, `js/hwui.js` | Keyboard and mouse, all connected flight hardware, the binding panel |
 | `js/ground.js`, `js/freeflight.js` | Landing gear and ground contact; free-flight starts, weather and trim solver |
-| `js/nav.js`, `js/afm.js` | ILS geometry and deviations; AFM takeoff speeds and VREF |
+| `js/navdb.js`, `js/fms.js` | Nav database (CIFP) and procedure assembly; the FMS leg engine (LNAV, VNAV, holds) |
+| `js/nav.js`, `js/afm.js` | ILS deviations for any ILS in the database; AFM takeoff speeds and VREF |
+| `js/pfd.js` | Pro Line 4-style primary flight display |
 | `js/ffb.js` | USB PID force-feedback driver over WebHID |
-| `js/scenario.js` | Storm environment, ADS-B reconstruction, ATC timeline, autopilot, hypotheses |
+| `js/scenario.js` | Storm environment, ADS-B reconstruction, ATC timeline, flight guidance (AP / FD modes), hypotheses |
 | `js/render.js`, `js/shaders.js` | WebGL2 renderer |
 | `js/hud.js`, `js/cockpit.js`, `js/vcgauges.js` | Instruments, 3D cockpit, standby gauges |
 | `test/` | Flight-test card, AFM table validation, upset, recovery, force, ground, performance, ILS, hardware and force-feedback checks |

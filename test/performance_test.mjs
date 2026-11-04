@@ -10,7 +10,7 @@
 // The pilot is a set of simple loops: rudder and nosewheel hold the centreline, ailerons hold the wings level.
 import { readFileSync } from 'node:fs';
 import { Learjet60, ELEV_K } from '../js/aircraft.js';
-import { placeOnRunway, trimFlight, tasFor, rwyByStart } from '../js/freeflight.js';
+import { placeOnRunway, trimFlight, tasFor, frameFor } from '../js/freeflight.js';
 import { groundAlt } from '../js/ground.js';
 import { takeoffSpeeds, vref } from '../js/afm.js';
 import { DEG, clamp } from '../js/util.js';
@@ -24,7 +24,7 @@ const dTof = (altFt, F) => (F - 32) / 1.8 + 273.15 - (288.15 - 0.0019812 * altFt
 
 function setup(lb, altFt, dT) {
   const ac = new Learjet60(); ac.m = lb * LB; ac.fuel = Math.min(3588, ac.m - 6700); ac.gnd.elev = altFt * FT;
-  const f = rwyByStart('rwy10L');
+  const f = frameFor('KDJT', '10L');
   placeOnRunway(ac, f, 0, { wind: [0, 0, 0], dT });
   return { ac, f, env: { wind: [0, 0, 0], dT } };
 }
@@ -76,7 +76,7 @@ function takeoff(lb, altFt, dT, mode) {
 
 function landing(lb, altFt, dT) {
   const ac = new Learjet60(); ac.m = lb * LB; ac.fuel = Math.min(3588, ac.m - 6700); ac.gnd.elev = altFt * FT;
-  const f = rwyByStart('rwy10L'), env = { wind: [0, 0, 0], dT };
+  const f = frameFor('KDJT', '10L'), env = { wind: [0, 0, 0], dT };
   Object.assign(ac.ctl, { gear: 1, flaps: 1, sb: 0, park: false, brakeL: 0, brakeR: 0 });
   // start 200 ft up on the 3° path so the approach is settled by 50 ft
   const h50 = 50 * FT + 1.6, start = 200 * FT, d0 = (start - 50 * FT) / Math.tan(3 * DEG);

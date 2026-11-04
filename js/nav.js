@@ -1,54 +1,44 @@
-// ILS for the KPBI runways (free flight): localizer on the runway centreline, glideslope from the touchdown zone.
-// Geometry from js/ground.js (OpenStreetMap thresholds). The glidepath angle (3.00 deg) and threshold crossing height
-// (55 ft) are the standard values, not published KPBI data (the FAA's open ILS dataset has no KPBI entries).
-// Indications follow the usual standards: localizer full scale (2 dots) = 105 m either side at the threshold, about
-// +/-2.5 deg at the far end; glideslope full scale (2 dots) = 0.7 deg; usable within 18 nm / +/-35 deg (LOC) and 10 nm /
-// +/-8 deg (G/S).
-import { RUNWAYS, runwayFrame, groundAlt } from './ground.js';
-
+// ILS deviations from the navigation database (js/navdb.js, FAA CIFP): localizer antenna position and course, the
+// runway's landing threshold and elevation, glideslope angle and threshold crossing height, DME antenna. Works for any
+// ILS in the database; nothing here is airport-specific.
+// Indications: localizer full scale (2 dots) is the published course width either side (half the CIFP localizer
+// width); glideslope full scale (2 dots) = 0.7 deg; usable within 18 nm / +/-35 deg (LOC), 10 nm / +/-8 deg (G/S).
 const NM = 1852, FT = 0.3048, DEG = Math.PI / 180;
-// Marker beacons at the standard positions (KPBI's actual markers are not in data available here): outer marker
-// 4.5 nm and middle marker 3,500 ft before the threshold. Each sends a cone up the approach: the receiver lights while
-// the aircraft is within about 0.8 x its height (along track) of the beacon and near the course.
-export const MARKERS = [{ id: 'OM', back: 4.5 * NM }, { id: 'MM', back: 3500 * FT }];
-export const ILS = [
-  { id: 'ILS 10L', rw: '10L/28R', fromB: false, gs: 3.0, tch: 55 },
-  { id: 'ILS 28R', rw: '10L/28R', fromB: true, gs: 3.0, tch: 55 },
-];
-export const ilsFrame = (ils) => runwayFrame(RUNWAYS.find((r) => r.id === ils.rw), ils.fromB);
 
-// deviations for an aircraft at (n, e, h): loc / gs in dots (+ = aircraft left of course / below the glidepath, i.e. fly
-// right / fly up), distance to the threshold (nm), and validity
-export function ilsDeviation(ils, n, e, h) {
-  const f = ilsFrame(ils);
-  const dn = n - f.thr[0], de = e - f.thr[1];
-  const along = dn * f.u[0] + de * f.u[1];                     // + past the threshold, - on final
-  const cross = -dn * f.u[1] + de * f.u[0];                    // + right of the centreline
-  const locAnt = f.L + 300;                                    // localizer antenna beyond the far end
-  const dLoc = locAnt - along;                                 // distance from the localizer antenna
-  const azLoc = Math.atan2(cross, dLoc);
-  const halfWidth = Math.atan2(105, locAnt);                   // full-scale half angle
+// il: an ILS from NavDB.airport(...).ils; n, e (m), h (m MSL)
+export function ilsDeviation(il, n, e, h) {
+  const crs = il.crsT * DEG, u = [Math.cos(crs), Math.sin(crs)];
+  const thr = il.thr || il.ne;
+  const dn = n - thr[0], de = e - thr[1];
+  const along = dn * u[0] + de * u[1];                          // + past the landing threshold, - on final
+  const cross = -dn * u[1] + de * u[0];                         // + right of the centreline
+  const ln = n - il.ne[0], le = e - il.ne[1];
+  const dLoc = -(ln * u[0] + le * u[1]);                        // distance before the localizer antenna
+  const azLoc = Math.atan2(-ln * u[1] + le * u[0], Math.max(1, dLoc));
+  const halfWidth = (il.width ? il.width / 2 : 2.5) * DEG;
   const loc = -azLoc / halfWidth * 2;
-  const gsX = Math.tan(ils.gs * DEG), gsOrigin = ils.tch * FT / gsX;   // glidepath meets the runway this far past the threshold
-  const dGs = gsOrigin - along, hRel = h - groundAlt(f.thr[0], f.thr[1]);
+  const gsX = Math.tan((il.gs || 3) * DEG), gsOrigin = (il.tch || 50) * FT / gsX;   // the glidepath meets the runway this far past the threshold
+  const dGs = gsOrigin - along, hRel = h - (il.thrElev || 0) * FT;
   const angle = Math.atan2(hRel, Math.max(1, dGs)) / DEG;
-  const gs = (ils.gs - angle) / 0.35;                          // dots: 0.35 deg per dot
-  const dme = Math.hypot(dn, de) / NM;
-  const locValid = dLoc > 0 && dLoc < 18 * NM + locAnt && Math.abs(azLoc) < 35 * DEG && along < f.L;
-  const gsValid = locValid && dGs > 0 && dGs < 10 * NM && Math.abs(azLoc) < 8 * DEG;
-  const gsErrM = hRel - Math.max(0, dGs) * gsX;               // height above (+) the glidepath, m
-  let marker = null;
-  for (const m of MARKERS) if (Math.abs(along + m.back) < 0.8 * Math.max(60, hRel) + 60 && Math.abs(cross) < 1500 && hRel > 30) marker = m.id;
-  return { marker, gsErrM, id: ils.id, loc: Math.max(-2.5, Math.min(2.5, loc)), gs: Math.max(-2.5, Math.min(2.5, gs)), locRaw: loc, gsRaw: gs, dme, locValid, gsValid, course: f.hdg, along, cross, hRel, gsAngle: ils.gs };
+  const gs = ((il.gs || 3) - angle) / 0.35;
+  const dmeAt = il.dmeNe || il.ne;
+  const dme = Math.hypot(n - dmeAt[0], e - dmeAt[1]) / NM;
+  const locValid = dLoc > 0 && dLoc < 18 * NM && Math.abs(azLoc) < 35 * DEG && along < 2000;
+  const gsValid = !!il.gs && locValid && dGs > 0 && dGs < 10 * NM && Math.abs(azLoc) < 8 * DEG;
+  const gsErrM = hRel - Math.max(0, dGs) * gsX;                 // height above (+) the glidepath, m
+  return { id: `ILS ${(il.runway || '').replace(/^RW/, '')}`, ident: il.id, freq: il.freq, apt: il.apt, il,
+    loc: Math.max(-2.5, Math.min(2.5, loc)), gs: Math.max(-2.5, Math.min(2.5, gs)), locRaw: loc, gsRaw: gs, dme, locValid, gsValid,
+    course: il.crsT * DEG, along, cross, hRel, gsAngle: il.gs || 3, gsErrM, marker: null };
 }
-// the ILS whose localizer the aircraft is most nearly lined up with (within its coverage)
-export function nearestIls(n, e, h, track) {
+// the ILS whose localizer the aircraft is most nearly lined up with, among `list` (e.g. NavDB.allIls())
+export function nearestIls(list, n, e, h, track) {
   let best = null;
-  for (const ils of ILS) {
-    const d = ilsDeviation(ils, n, e, h);
+  for (const il of list || []) {
+    if (Math.abs(il.ne[0] - n) > 40 * NM || Math.abs(il.ne[1] - e) > 40 * NM) continue;
+    const d = ilsDeviation(il, n, e, h);
     if (!d.locValid) continue;
     const score = Math.abs(Math.atan2(Math.sin(track - d.course), Math.cos(track - d.course)));
-    if (score < Math.PI / 2 && (!best || score < best.score)) best = { ...d, ils, score };
+    if (score < Math.PI / 2 && (!best || score < best.score)) best = { ...d, score };
   }
   return best;
 }

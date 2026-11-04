@@ -42,16 +42,54 @@
       </div>
     </div>
     <div class="freebox">
-      <h3>Free flight <span class="dim">(not the accident: no storm, no script)</span></h3>
-      <p class="sub2">Fly the Learjet 60 from Palm Beach International (KPBI): takeoffs, circuits, approaches and landings. The ground model
-        covers the landing gear, tyres, brakes and nosewheel steering. <b>Shift</b> = brakes (also toe brakes / a bound button / D-pad left);
-        rudder pedals or Q/E steer the nosewheel. On the ground, pulling thrust back past idle (− or L2) deploys the thrust reversers; spoilers deploy themselves at idle.</p>
-      <div class="ffrow"><label>Start <select id="ffstart"></select></label><label>Weather <select id="ffwx"></select></label><label>Weight <select id="ffwt"></select></label><label>Failure <select id="ffail"></select></label>
-        <button id="ffgo">Free flight</button></div>
+      <h3>Free flight sortie <span class="dim">(not the accident: no storm, no script)</span></h3>
+      <p class="sub2">Plan your own flight: airport, runway, approach and transition from the FAA nav database, weather, weight and failures. The FMS flies the procedure through the autopilot and flight director.</p>
+      <button id="tosortie" class="alt">Plan a sortie →</button>
     </div>
     <p class="keys"><b>Fly:</b> ↑↓←→ / WASD or mouse-drag · Q/E rudder · −/= throttle · 0 idle · B spoilers · , . trim · X autopilot (stays engaged and trims against you until disconnected) · C camera (right-drag orbits) · T ATC audio · U NEXRAD · O/J weather radar · N skip to core entry · / controls &amp; hardware (yoke, pedals, throttle, stick) · H all keys</p>
     <button id="begin">Fly it · 12:47:00 EST</button><button id="watch" class="alt">Watch the reconstruction (no flying)</button><button id="hwbtn" class="alt">Controls &amp; hardware</button>
     <p class="note">Built from public reporting (Flightradar24, ADS-B Exchange, NEXRAD KAMX via MyRadar/LiveStormChasers, LiveATC, NTSB briefing). The flight model and the storm are approximations; the hypotheses are not findings. Nine people died on this flight. The crew's final transmissions are not reproduced here.</p>
+  </div>
+</div>
+
+<div id="sortie" class="overlay hidden">
+  <div class="panel">
+    <h1>Free flight sortie · Learjet 60</h1>
+    <p class="sub">No storm and no accident script. Airports, runways, ILS and procedures come from the FAA CIFP (cycle <span id="cycle">…</span>); the flight plan is flown by the FMS through the autopilot (AP) and flight director (FD). NOT FOR NAVIGATION.</p>
+    <div class="cols">
+      <div>
+        <h3>Where</h3>
+        <label>Airport <select id="sapt"></select></label>
+        <label>Start <select id="sstart"></select></label>
+        <label>Departure runway <select id="srwy"></select></label>
+        <h3>Flight plan</h3>
+        <label>Approach <select id="sapp"></select></label>
+        <label>Transition <select id="strans"></select></label>
+        <p class="plan" id="splan"></p>
+      </div>
+      <div>
+        <h3>Conditions</h3>
+        <label>Weather <select id="swx"></select></label>
+        <label>Weight <select id="swt"></select></label>
+        <label>Failure <select id="sfail"></select></label>
+        <h3>Flight guidance</h3>
+        <ul>
+          <li><b>X</b> autopilot · <b>|</b> flight director · <b>?</b> TOGA (takeoff on the ground, go-around in the air)</li>
+          <li><b>(</b> LNAV · <b>)</b> VNAV · <b>\</b> APR (ILS: LOC + GS; RNAV: LNAV + GP) · <b>{ }</b> heading bug · <b>&lt; &gt;</b> altitude preselect</li>
+          <li>Armed modes show white on the PFD, active modes green. VNAV never climbs or descends through the preselected altitude except on final; a go-around climbs until the preselected altitude is above you.</li>
+          <li>The ground model covers gear, tyres, brakes and nosewheel steering. <b>Shift</b> = brakes; Q/E or pedals steer; thrust below idle on the ground (− or L2) = reversers; spoilers deploy themselves at idle.</li>
+        </ul>
+      </div>
+    </div>
+    <button id="ffgo">Fly the sortie</button><button id="platebtn" class="alt">Approach plates</button><button id="sback" class="alt">← The accident</button>
+  </div>
+</div>
+
+<div id="plates" class="overlay hidden">
+  <div class="panel plates">
+    <div class="ptop"><b class="ptitle">Approach plates</b><span class="ptabs"></span><button class="alt sm prot">Rotate</button><button class="alt sm pclose">Close</button></div>
+    <div class="pview"><img class="pimg" alt="FAA chart"></div>
+    <p class="note pnote"></p>
   </div>
 </div>
 
