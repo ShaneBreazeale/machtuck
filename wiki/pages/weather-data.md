@@ -86,7 +86,8 @@ Ice builds where there is cloud and faster in the core (`Environment.iceRates()`
 
 The cockpit weather radar samples the same blended volume. It shows the strongest echo in a height band around your
 altitude across a 120° sector ahead. `O` toggles the radar, and `J` cycles the range through 40, 80 and 20 nm. Its
-label reads `KAMX` when the real volume is on.
+label reads `KAMX` when the real volume is on. With real weather off it paints the modelled cell instead (about
+52 dBZ at the core) and reads `SYNTH`.
 
 The tablet map (`Tab`) draws a composite of each volume, the strongest echo in each column, in bands from 10 to
 50+ dBZ. It switches from the first volume to the second halfway between their times.
@@ -125,7 +126,8 @@ The storm environment replays them at their recorded times:
 - The brightness falls with distance, and the flash position lights the cloud from inside.
 - About a third of the flashes also draw a cloud-to-ground bolt.
 
-If the file doesn't load, the sim falls back to random flashes that are more frequent in the core.
+With real weather off, or if the file doesn't load, the sim uses modelled flashes instead: random, and more frequent
+in the core.
 
 ## METAR and sounding
 
@@ -153,8 +155,13 @@ before the event. It derives:
 | Tropopause | 15,880 m, −75.1 °C |
 | Surface | 26.0 °C |
 
-The sounding drives the GOES cloud-top heights and the snow/rain line. The accident's atmosphere is ISA+7 (the code
-attributes this to the sounding), which sets the temperature, the speed of sound and the Mach number at FL350.
+The sounding drives the GOES cloud-top heights and the snow/rain line. It also sets the accident day's air in
+`Environment` (`js/scenario.js`):
+
+- **Temperature:** ISA+11 (`Environment.dT = 11`), the mean deviation of the levels between 9.5 and 11.8 km (they
+  range from +9 to +13; the surface is +11 too). It sets the temperature, the speed of sound and the Mach number at
+  FL350.
+- **Mean wind:** 11 kt from 274°, the vector mean of the same levels, fading linearly to calm at the surface.
 
 ## The Real weather checkbox
 
@@ -165,14 +172,12 @@ The briefing's **Real weather** checkbox is on by default. `U` toggles it in fli
 | Clouds, core, updraft, icing | From the KAMX volumes plus the analytic cell | Analytic cell only ("synthetic cell") |
 | GOES-19 cloud tops | Used | Not used |
 | Precipitation | From the radar reflectivity | From the analytic core |
-| GLM lightning | Replayed | Replayed |
+| GLM lightning | Replayed | Modelled flashes, more frequent in the core |
+| Cockpit weather radar | The KAMX volume, labelled KAMX | The modelled cell, labelled SYNTH |
 | Cumulus layer and deck base | From the METAR | From the METAR |
 
-The mean wind is the same either way: about 20 kt from 230° at cruise altitude in the code's comment, fading to calm
-at the surface.
-
-> **Note:** The briefing's checkbox text says GOES-19, GLM and the METAR "shape the rest". In the code only the radar
-> volume and the GOES field switch off with it. The lightning and the METAR cloud layer stay.
+The KPBI METAR cloud layers stay either way, as the briefing's checkbox text says. The mean wind and the temperature
+come from the sounding either way.
 
 ## Real ATC audio
 
@@ -218,7 +223,8 @@ off, `L` turns on a synthesized voice that reads the timeline's radio lines alou
 
 ## Free-flight weather
 
-Free flight has no storm, no radar volume, no satellite deck and no lightning. `FreeEnv` in `js/freeflight.js` gives
+Free flight has no storm, no radar volume, no satellite deck and no lightning. The weather radar shows clear air,
+with no source label. `FreeEnv` in `js/freeflight.js` gives
 it the same interface as the storm environment, with one of three weather presets:
 
 | Preset | Wind | Temperature | Cloud |

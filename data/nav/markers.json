@@ -1,0 +1,52 @@
+{
+ "cycle": "Current",
+ "source": "https://enasr.faa.gov/eNASR/nasr/Current/ILS/",
+ "airports": {
+  "KTPA": {
+   "IAMP": [
+    {
+     "type": "IM",
+     "ident": "",
+     "name": "",
+     "lat": 27.961007,
+     "lon": -82.542435,
+     "elev": 6.8
+    }
+   ],
+   "ITPA": [
+    {
+     "type": "IM",
+     "ident": "",
+     "name": "",
+     "lat": 27.989912,
+     "lon": -82.528119,
+     "elev": 25.7
+    }
+   ]
+  },
+  "KFMY": {
+   "IFMY": [
+    {
+     "type": "OM",
+     "ident": "FM",
+     "name": "CALOO",
+     "lat": 26.516129,
+     "lon": -81.95027,
+     "elev": 18.0
+    }
+   ]
+  },
+  "KPIE": {
+   "IPIE": [
+    {
+     "type": "OM",
+     "ident": "PI",
+     "name": "CAPOK",
+     "lat": 27.995241,
+     "lon": -82.703833,
+     "elev": 22.6
+    }
+   ]
+  }
+ }
+}

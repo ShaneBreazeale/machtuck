@@ -144,8 +144,8 @@ plate is in the viewer, but the CIFP has no matching procedure, so it can't be f
 At every other airport the minimums bug falls back to a height above the touchdown zone elevation (the runway's
 elevation in the CIFP):
 
-- **200 ft** when the approach is flown on a localizer (ILS, and LOC approaches whose FAF references the localizer)
-- **400 ft** on other approaches
+- **200 ft** on an ILS approach with a glideslope
+- **400 ft** on LOC, RNAV and every other approach
 
 For example, the KMCO ILS 18R start logs:
 
@@ -176,8 +176,24 @@ radio altitude is also called at 500, 100, 50, 40, 30, 20 and 10 ft with the gea
 ### Marker beacons
 
 The PFD and HUD can show OM, MM and IM lights, the audio has the three marker tones (400 Hz dashes, 1,300 Hz
-dot-dash, 3,000 Hz dots), and the log announces each passage. However, `ilsDeviation` currently always reports no
-marker, so in practice no marker is ever received.
+dot-dash, 3,000 Hz dots), and the log announces each passage.
+
+The CIFP has no marker records, so the markers come from the FAA NASR (`data/nav/markers.json`, built by
+`tools/fetch_markers.py`; see [Data pipeline](data-pipeline.md#marker-beacons)). Only markers the NASR lists as
+operational are kept. `js/navdb.js` attaches them to their ILS, and `ilsDeviation` reports a marker while you are
+inside its beacon fan, which widens with height: about ±0.8 × your height above the beacon along the course and
+±1.5 × across it.
+
+Most US markers have been decommissioned. In the current data four are in range:
+
+| Airport | Approach | Marker |
+|---|---|---|
+| KFMY | ILS 05 | Outer marker CALOO |
+| KPIE | ILS 18 | Outer marker CAPOK |
+| KTPA | ILS 01L | Inner marker |
+| KTPA | ILS 19L | Inner marker |
+
+KDJT's markers were decommissioned in 2011, and KMCO's on 18R too, so those approaches have none.
 
 ## Go-around and missed approach
 
@@ -229,8 +245,9 @@ an inbound track of 339° true (published 340°) within a 77 ft altitude spread.
 - The airport diagram is printed sideways, so it opens rotated a quarter turn to put north up.
 - The footer gives the airport, the d-TPP cycle and validity, and "public domain · NOT FOR NAVIGATION".
 
-The viewer only holds the KDJT set: all 12 approach plates and the airport diagram. At other airports it still opens
-on a KDJT chart.
+The viewer only holds the KDJT set: all 12 approach plates and the airport diagram. In free flight at any other
+airport (the field you are on, or the one you are flying to), `~` doesn't open it and the log reads
+`No approach plates for <ID> in this build (plates ship for KDJT only)`.
 
 To refresh the charts for a new cycle (this needs `pdftoppm` and `pdftotext` from poppler):
 

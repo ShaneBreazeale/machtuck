@@ -132,7 +132,8 @@ flaps 8, gear down, for the weight. The AFM sets it from a CG and weight band. W
 The AFM speeds come from `js/afm.js`, transcribed from FM-123 Section V:
 
 - **Fig 5-42:** V1, VR and V2, flaps 8, for sea level at 60 °F and 5,000 ft at 40 °F, interpolated in weight and
-  altitude. V1 never exceeds VR.
+  altitude. V1 never exceeds VR. A runway start uses the departure runway's elevation from the CIFP (the airport's
+  elevation if the runway has none).
 - **Fig 5-66:** VREF, flaps 40, gear down, from 15,000 to 23,100 lb. The maximum landing weight is 19,500 lb.
 
 **Takeoff.** On the runway the V1, VR and V2 bugs appear on the speed tape and are called out.

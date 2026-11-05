@@ -104,8 +104,9 @@ For example, `MUNGI` at the end of a route is the fix MUNGI, not the MUNGI1 arri
 A bare `A045` is not a level: it would clash with airway names such as `A315`, so it is reported as an unknown
 token. The last cruise token in the route wins.
 
-In the planner, the parsed level is copied into **Cruise altitude** only if that list offers it (odd thousands from
-3,000 ft to FL410). See [Planning a sortie](sorties.md#route).
+In the planner, the parsed level is copied into **Cruise altitude**. The list offers the odd thousands from
+3,000 ft to FL410; any other level from 1,000 to 45,000 ft, such as a westbound even level, is added to it. See
+[Planning a sortie](sorties.md#route).
 
 ## How transitions are chosen
 
@@ -210,7 +211,7 @@ The planner fetches the latest flight plan for the username you type, from
 |---|---|
 | `origin.icao_code`, `destination.icao_code` | Airports |
 | `general.route` | The route string |
-| `general.initial_altitude` | Cruise altitude, rounded to the nearest level the planner offers |
+| `general.initial_altitude` | Cruise altitude, rounded to 100 ft and added to the planner's list if it isn't offered |
 | `origin.plan_rwy` | Departure runway |
 | `destination.plan_rwy` | Approach: the ILS to that runway if there is one, else any approach to it, transition **Auto** |
 

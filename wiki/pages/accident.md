@@ -109,7 +109,7 @@ first flight and [Controls](controls.md) for every key.
 `newGame()` in `js/main.js` sets up:
 
 - N722BD at the first ghost point, FL350, heading 058°, 1.95° nose up, 232 m/s (451 kt) true, about M 0.77,
-  trimmed for an ISA+7 day.
+  trimmed for the ISA+11 day of the KMFL sounding.
 - Thrust levers at the cruise setting (0.83), stabilizer trim near cruise, light ice on the wing and some on the T-tail.
 - The anti-ice systems on (the airplane's default).
 - The autopilot engaged in HDG and ALT at FL350. The heading bug follows the reported course change, turning from 058°
@@ -127,8 +127,8 @@ hypothesis's upset begins (see [Upset hypotheses](hypotheses.md#the-scripted-ups
 the log reads `AUTOPILOT DISCONNECT — <reason>. YOUR AIRPLANE.`
 
 If nobody flies it after that, the airplane is lost. In the repo's `test/recovery_test.mjs` "no pilot input" case,
-run as flown with three seeds, every hypothesis breaks up by about 12:48:30. In trainer mode the
-airplane can sometimes fly itself out of the combined case. See
+run as flown, every hypothesis breaks up by about 12:48:30. Trainer mode doesn't change that: no hands-off run
+recovers there either. See
 [Upset hypotheses](hypotheses.md#difficulty-as-flown-and-trainer).
 
 ### Recovery detection
@@ -202,8 +202,8 @@ volume, with no physics and no pilot. The header reads "RECONSTRUCTION OF THE RE
 Auto camera.
 
 `buildReconRows()` in `js/main.js` turns the ghost into recorder rows. Position, heading, vertical speed and true
-airspeed come from the ghost. KIAS and Mach are worked out for an ISA+7 day. Everything else is **inferred, not
-recorded**:
+airspeed come from the ghost. KIAS and Mach are worked out for the same ISA+11 day the flown sim uses (KMFL sounding). Everything
+else is **inferred, not recorded**:
 
 - the bank: about 12° in the course change, then a tightening right spiral through the reported 60° at 12:49:02,
 - the AOA, load factor, thrust and trim,

@@ -8,8 +8,8 @@
 // Effects used: one two-axis SPRING (condition effect: centre point, stiffness and saturation per axis), a DAMPER, and a
 // SINE (periodic) for the stick shaker, buffet and the iced-tail column pulsing. The stick runs the spring loop
 // itself at its own rate, so the browser only moves the centre and changes the stiffness (tens of Hz at most).
-// Safety: device gain defaults to 50 %, stiffness rises at a limited rate, and everything stops on pause, hidden tab,
-// page exit or disconnect.
+// Safety: device gain defaults to 50 %, stiffness rises at a limited rate; paused or in a menu the stick gets only a light
+// centring spring, and every force stops on a hidden tab, page exit, disconnect or error.
 //
 // Units of a "feel" (see PilotControls.feel in js/controls.js), per axis, in stick terms:
 //   centre -1..1 (+ = pull / right), k 0..1 (fraction of the device's strongest spring), sat 0..1 (force cap)

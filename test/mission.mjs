@@ -91,3 +91,6 @@ console.log(`taxi ${lb(taxi)} lb | climb to FL410: ${(climb.time / 60).toFixed(1
 console.log(`cruise: start FL${(first.h / FT / 100).toFixed(0)} M${first.M.toFixed(3)} ${lb(first.ff * 3600)} lb/h -> end FL${(last.h / FT / 100).toFixed(0)} M${last.M.toFixed(3)} ${lb(last.ff * 3600)} lb/h; ${(cruiseDist / NM).toFixed(0)} nm, ${(cruiseTime / 3600).toFixed(2)} h, ${lb(cruiseFuelAvail)} lb`);
 console.log(`descent: ${(descent.dist / NM).toFixed(0)} nm, ${lb(descent.fuel)} lb | NBAA reserves (100 nm alt + 30 min hold + 5 min appr): ${lb(res)} lb`);
 console.log(`\nNBAA IFR range, 4 pax: ${range.toFixed(0)} nm   (spec 2,405 nm: ${((range / 2405 - 1) * 100).toFixed(1)}%)`);
+const err = range / 2405 - 1;
+console.log(Math.abs(err) <= 0.05 ? 'PASS  NBAA range within 5 % of the spec' : `FAIL  NBAA range ${(err * 100).toFixed(1)} % from the spec (limit 5 %)`);
+process.exit(Math.abs(err) <= 0.05 ? 0 : 1);

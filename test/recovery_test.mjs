@@ -24,7 +24,7 @@ function run(hyp, pilot, takeoverT = null) {
   while (t < 220 && !ac.crashed && !ac.broken) {
     const wind = env.wind(ac.pos, t, dt);
     if (takeoverT !== null && t >= takeoverT && ap.on) ap.disconnect('PILOT');
-    const out = ac.step(dt, { wind });
+    const out = ac.step(dt, { wind, dT: env.dT });
     const ir = env.iceRates(env.L, ac);
     ac.ice = clamp(ac.ice + ir.wing * dt, 0, 1); ac.iceTail = clamp(ac.iceTail + ir.tail * dt, 0, 1); ac.engIce = clamp(ac.engIce + ir.eng * dt, 0, 1);
     ap.hdgTgt = t < 25 ? 58 : Math.min(100, 58 + (t - 25) * (42 / 45));

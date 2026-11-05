@@ -68,8 +68,9 @@ There is no storm and no accident script. Choose:
 - **Departure:** airport, runway, and a SID with its transition.
 - **Route:** fixes, airways and coordinates (`2630N08010W`), for example `TBIRD8 CHEFS MUNGI1`. A SID or STAR written in
   the route is selected for you, with or without its version digit and in FAA style (`TBIRD.MATLK MATLK.SLOAO1`).
-  `FL210` or `/F210` in the route sets the cruise altitude. **Import** reads an MSFS `.pln` file, or fetches the
-  latest SimBrief plan for a username you type (sent only to SimBrief, only when you click Fetch).
+  `FL210` or `/F210` in the route sets the cruise altitude, even levels included. **Import** reads an MSFS `.pln`
+  file, or fetches the latest SimBrief plan for a username you type (sent only to SimBrief, only when you click
+  Fetch).
 - **Arrival:** airport, STAR with its transition, approach with its transition. **Auto** joins the approach where the
   route ends; if the route ends elsewhere, ATC-style vectors put you on the final approach course at a 30° intercept.
 - **Start:** lined up on the departure runway, en route at the cruise altitude, airborne at the start of the
@@ -127,12 +128,14 @@ its VREF at maximum landing weight is 139 kt. The line used depends on the appro
 - RNAV (RNP): RNP 0.30.
 
 Circling minimums aren't read: in the text layer they wrap across lines and can't be assigned to categories. With no
-plate, the bug falls back to 200 ft above touchdown on an approach flown on a localizer (ILS or LOC) and 400 ft on others. `~` (or **Approach
-plates** on the sortie screen) shows the loaded approach's chart: KDJT (the former KPBI) has all 12 approach plates
-and the airport diagram. The charts and the nav data are public domain and **not for navigation**. Refresh them with:
+plate, the bug falls back to 200 ft above touchdown on an ILS approach with a glideslope and 400 ft on LOC, RNAV and
+others. `~` (or **Approach plates** on the sortie screen) shows the loaded approach's chart: KDJT (the former KPBI) has
+all 12 approach plates and the airport diagram. At other airports `~` logs that no plates ship for them. The charts
+and the nav data are public domain and **not for navigation**. Refresh them with:
 
 ```bash
 python3 tools/fetch_cifp.py            # FAA CIFP -> data/nav (airports, runways, ILS, procedures, airways)
+python3 tools/fetch_markers.py         # FAA NASR (eNASR) -> data/nav/markers.json (operational ILS marker beacons)
 python3 tools/fetch_plates.py --cycle <cycle>
 ```
 
@@ -268,6 +271,8 @@ In the sim's breakups the killer is negative g. When the iced tail stalls, the p
 ## Validation
 
 Run `node test/flight_test.mjs`, `node test/afm_validate.mjs`, `node test/aero_validate.mjs` and `node test/performance_test.mjs` to reproduce these.
+Each exits 1 on a failure. `flight_test.mjs` marks its rows PASS, FAIL or BIAS: a BIAS row is a known model bias,
+reported but failed only with `STRICT=1`.
 The performance test flies the AFM procedures: accelerate-go with an engine failure at V1, accelerate-stop, 115 % of
 the all-engine distance, and the landing from 50 ft at VREF.
 
@@ -302,9 +307,8 @@ the trainer's autopilot.
 
 `node test/force_test.mjs` flies the upset with a force-limited pilot following the AFM procedure. Starting the
 recovery 2 seconds after the autopilot lets go saves the airplane in three of the four hypotheses (the trim runaway
-breaks up). At 5 seconds it is marginal: the tail-stall case loses about 8,000 ft and the combined case, already
-near its structural limit, can break the tail as the iced stabilizer stalls and re-attaches. From 8 to 12 seconds
-on, the wing fails before the recovery takes hold.
+breaks up). At 5 seconds it is marginal: the tail-stall case loses about 11,000 ft and the combined case about
+10,000 ft. From 8 seconds on, the wing fails before the recovery takes hold (the Mach-tuck case from 12 seconds).
 
 ## Real data
 
@@ -313,9 +317,10 @@ on, the wing fails before the recovery takes hold.
 | `data/kamx_*` | KAMX NEXRAD Level II at 17:45 and 17:51Z, gridded to 500 m (a 17:40Z volume is included but not loaded) | Clouds, cores, icing, updrafts, weather radar |
 | `data/goes/` | GOES-19 ABI visible and infrared, parallax-corrected | Cloud-top height and deck thickness |
 | `data/glm_flashes.json` | GOES-19 Geostationary Lightning Mapper, 17:44 to 17:52Z | Lightning times and positions |
-| `data/metar.json`, `data/sounding_kmfl.json` | KPBI METARs, KMFL 12Z radiosonde | Cumulus layer, deck base, freezing level |
+| `data/metar.json`, `data/sounding_kmfl.json` | KPBI METARs, KMFL 12Z radiosonde | Cumulus layer, deck base, freezing level, the day's temperature (ISA+11) and wind aloft |
 | `data/ground/` | USGS orthoimagery (NAIP), NASA Blue Marble, USGS NHD water | Terrain texture and water |
 | `data/nav/` | FAA CIFP cycle 261029 (ARINC 424, public domain) | Airports, runways, ILS, SID / STAR / approach procedures, navaids, airways |
+| `data/nav/markers.json` | FAA NASR via eNASR (public domain) | The operational ILS marker beacons (the CIFP has none) |
 | KPBI boundary (in `js/ground.js`) | OpenStreetMap (ODbL) | Keeps imagery-driven houses off the airport |
 | `data/plates/` | FAA d-TPP cycle 2611 (public domain) | Approach plates, airport diagram, straight-in minimums |
 | `data/ground/buildings.bin` | Overture Maps (OpenStreetMap + Microsoft) | 62,192 buildings with measured heights |

@@ -77,7 +77,7 @@ console.log('');
     ac.ctl.trim = 0.37; ac.ctl.thr = 0.83; ac.n1 = 0.83; ac.ice = 0.3; ac.iceTail = 0.5;
     let o; for (let t = 0; t < 120; t += 1 / 200) {
       ac.ctl.elev = t > 60 ? -0.4 * Math.sin(t) : 0; ac.ctl.ail = 0.3 * Math.sin(0.7 * t);
-      o = ac.step(1 / 200, { wind: env.wind(ac.pos, t, 1 / 200) });
+      o = ac.step(1 / 200, { wind: env.wind(ac.pos, t, 1 / 200), dT: env.dT });
     }
     return [o.h, o.M, o.theta, o.phi, ac.damage];
   };

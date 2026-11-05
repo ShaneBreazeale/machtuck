@@ -138,10 +138,25 @@ when active. Its readout gives the targets, for example `ALT 35000  HDG 058°`, 
 It is cyan with the autopilot engaged, amber with only the flight director, and reads **AP OFF** with the reason when
 both are off.
 
-In the 3D cockpit the same lights and strip are drawn over the painted annunciator grid. Below them, the glareshield
-buttons (HDG, NAV, APR, ALT, VS, AP, YD, FD, IAS, MACH) light green bars, but these are a simplified display; the PFD
-mode band and the FGC strip are the reference. Clicking YD toggles the yaw damper, and clicking any other button
-toggles the autopilot.
+In the 3D cockpit the same lights and strip are drawn over the painted annunciator grid. Below them are the
+glareshield buttons. Each one is its own button, and its green bar lights from the real mode, with the autopilot or
+the flight director on:
+
+| Button | Lit when | Click |
+|---|---|---|
+| HDG | Lateral mode HDG | HDG on the current heading |
+| NAV | LNAV or LOC engaged or armed | Arm LNAV, like `(` |
+| APR | The approach armed or captured | Arm the approach, like `\` |
+| ALT | ALT hold or altitude capture | Hold the current altitude |
+| VS | Vertical mode VS | VS at the current vertical speed, to the preselected altitude |
+| AP | Autopilot engaged | Engage or disconnect, like `X` |
+| YD | Yaw damper on | Yaw damper on or off, like `Y` |
+| FD | Flight director on | Flight director on or off, like `\|` |
+| IAS | VNAV climbing by speed on elevator, on an IAS target | Logs that speed modes come with VNAV |
+| MACH | The same, above 10,000 ft when the Mach limit governs | Logs that speed modes come with VNAV |
+
+HDG, ALT and VS need the autopilot or the flight director on; otherwise the log says to engage one first. There is no
+autothrottle, so IAS and MACH have no mode of their own: press `)` for VNAV.
 
 ## MFD and weather radar
 
@@ -157,17 +172,17 @@ reflectivity in a height band around your altitude. Tilt is fixed at 0.
 | Red | 40 to 50 dBZ |
 | Magenta | 50 dBZ and above |
 
-The header gives the range, `TILT 0`, the source (**KAMX** for the real radar volume, **SYNTH** with real weather
-off), your heading, and **HERE** with the reflectivity at the airplane (red above 30 dBZ). Range rings are labelled
-at quarters of the range.
+The header gives the range, `TILT 0`, the source (**KAMX** for the real radar volume, **SYNTH** for the modelled
+cell with real weather off), your heading, and **HERE** with the reflectivity at the airplane (red above 30 dBZ).
+Range rings are labelled at quarters of the range.
 
 | Key | Radar action |
 |---|---|
 | `O` | Radar on or off. Off shows WX RADAR OFF (O). |
 | `J` | Range 40, 80, 20 nm, then back to 40. The EFB map uses the same range. |
-| `U` | Real NEXRAD volume or a synthetic storm cell |
+| `U` | Real NEXRAD volume or the modelled storm cell |
 
-In free flight there is no storm volume, so the radar shows WX RADAR OFF.
+In free flight there is no storm, so the radar shows clear air and the header has no source label.
 
 The data block lists **OAT / SAT**, **IN CLOUD** (VMC, IMC or CONVECTIVE CORE in red), **VERT AIR** (the updraft or
 downdraft in ft/min, amber when strong), **CLOCK EST** and **SIM RATE** (rate, quality setting and frame rate).
@@ -180,8 +195,8 @@ Under them, bars for pitch trim (stabilizer degrees and the trim selector), spoi
 
 ## Switch panel and pedestal
 
-The switch panel is labelled ANTI-ICE · STALL · TRIM · FLT CTL. Every row is a clickable switch with its key:
-wing heat (shows ON·LOW in amber when N1 is too low to heat the wing), stab heat, nacelle heat, pitot/windshield heat,
+The switch panel is labelled ANTI-ICE · STALL · TRIM · FLT CTL. Every row is a clickable switch with its key
+(STALL WARN, which has none, reads `click`): wing heat (shows ON·LOW in amber when N1 is too low to heat the wing), stab heat, nacelle heat, pitot/windshield heat,
 stall warning, Mach trim, pitch trim selector, autopilot, yaw damper, spoilers, landing gear (red when down above
 260 KIAS), flaps, ATC audio and EFB. See [Controls](controls.md#mouse-and-touch).
 
@@ -231,7 +246,8 @@ The force model is described on [Hardware and force feedback](hardware.md#column
 
 ## 3D cockpit details
 
-The 3D cockpit is the FS2004 virtual cockpit of the Premier Aircraft Design Learjet 60, converted by `tools/fs9_vc.py`.
+The 3D cockpit is the virtual cockpit of the Premier Aircraft Design FSX Learjet 60 (FS2004 MDL8 format), converted by
+`tools/fs9_vc.py`.
 The yokes, rudder pedals, thrust levers (which lift into reverse), flap lever and spoiler lever move with your
 controls. Right-drag to look around and use the mouse wheel to zoom.
 

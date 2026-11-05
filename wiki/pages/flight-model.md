@@ -33,8 +33,9 @@ then uses the new velocity (semi-implicit Euler). Fuel flow burns off mass every
 
 The browser splits each frame into substeps of at most 1/240 s. The headless tests use 1/200 s.
 
-The atmosphere is ISA with a temperature offset. The accident uses ISA+7, from the KMFL sounding (OAT −47 °C at
-FL350). Free flight takes the offset from the chosen weather.
+The atmosphere is ISA with a temperature offset. The accident uses ISA+11 (`Environment.dT`), the mean of the 12Z
+KMFL sounding between 9.5 and 11.8 km; see [Real weather and ATC data](weather-data.md#metar-and-sounding). Free
+flight takes the offset from the chosen weather.
 
 ## Aerodynamics
 

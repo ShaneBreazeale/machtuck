@@ -12,10 +12,12 @@ const browserLoad = (base) => (p) => fetch(base + p).then((r) => { if (!r.ok) th
 export class NavDB {
   constructor({ base = 'data/nav/', load = null } = {}) { this.load = load || browserLoad(base); this.apts = new Map(); this.index = null; this.enroute = null; }
   async init() {
-    [this.index, this.enroute] = await Promise.all([this.load('index.json'), this.load('enroute.json')]);
+    [this.index, this.enroute, this.markers] = await Promise.all([this.load('index.json'), this.load('enroute.json'),
+      this.load('markers.json').catch(() => null)]);   // operational ILS markers from the FAA NASR (tools/fetch_markers.py), optional
     this.byId = new Map();
     for (const w of this.enroute.waypoints) this.byId.set(w.id, { ...w, ne: toNE(w.lat, w.lon), kind: 'WPT' });
-    for (const v of [...this.enroute.vhf, ...this.enroute.ndb]) this.byId.set(v.id, { ...v, ne: toNE(v.lat, v.lon), kind: v.freq > 190 ? 'VOR' : 'NDB' });
+    for (const v of this.enroute.vhf) this.byId.set(v.id, { ...v, ne: toNE(v.lat, v.lon), kind: 'VOR' });   // VHF (MHz)
+    for (const v of this.enroute.ndb) this.byId.set(v.id, { ...v, ne: toNE(v.lat, v.lon), kind: 'NDB' });   // NDB (kHz)
     for (const a of this.index.airports) this.byId.set(a.id, { ...a, ne: toNE(a.lat, a.lon), kind: 'APT' });
     return this;
   }
@@ -28,7 +30,8 @@ export class NavDB {
     for (const [iid, l] of Object.entries(raw.ils)) {
       const rw = apt.runways[l.runway];
       apt.ils[iid] = { ...l, ne: toNE(l.lat, l.lon), crsT: wrap360(l.brgMag + (l.decl ?? apt.magvar)), dmeNe: l.dmeLat ? toNE(l.dmeLat, l.dmeLon) : null,
-        thr: rw ? rw.ne : null, thrElev: rw ? rw.elev : apt.elev, apt: id };
+        thr: rw ? rw.ne : null, thrElev: rw ? rw.elev : apt.elev, apt: id,
+        markers: ((this.markers && this.markers.airports[id] || {})[iid] || []).map((m) => ({ type: m.type, ne: toNE(m.lat, m.lon), elev: m.elev ?? apt.elev })) };
     }
     this.apts.set(id, apt);
     return apt;

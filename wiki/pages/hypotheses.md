@@ -106,8 +106,8 @@ The mode changes only the autopilot:
 | Nose-down trim at the 12:48:16 handover (tail-ice cases) | yes, to about 3.4° | no |
 | Briefing text | "the autopilot trims hard against the balloon and hands over trimmed nose-down" | "a gentler autopilot trim and no nose-down handover; same airplane, same storm" |
 
-With the trainer's autopilot the airplane inherits less mis-trim. In `test/recovery_test.mjs` it can occasionally fly
-itself out of the combined case with no pilot input, which never happens as flown.
+With the trainer's autopilot the airplane inherits less mis-trim, but on the ISA+11 day of the KMFL sounding it still
+doesn't fly itself out: in `test/recovery_test.mjs` no hands-off run recovers in either mode (5 seeds per hypothesis).
 
 > **Note:** Two hand-overs are not affected by the mode. In the Mach tuck case the `apFail` disconnect sets the trim
 > nose-down in both modes, and the trim runaway runs in both modes. So "no nose-down handover" in the trainer strictly
@@ -120,7 +120,7 @@ itself out of the combined case with no pilot input, which never happens as flow
 | Pilot starts the recovery | Result |
 |---|---|
 | 2 seconds after the autopilot lets go | Saved in three of the four hypotheses. The trim runaway still breaks up. |
-| 5 seconds after | Marginal. The tailplane-stall case loses about 8,000 ft. The combined case, already near its structural limit, can break the tail as the iced stabilizer stalls and re-attaches. |
+| 5 seconds after | Marginal. The tailplane-stall case loses about 11,000 ft and the combined case about 10,000 ft (seed 1). |
 | 8 to 12 seconds after | The wing fails before the recovery takes hold. |
 
 In the sim's breakups the killer is negative g. When the iced tail stalls, the pitch-down loads the wing to about

@@ -5,6 +5,9 @@ import { FT, KT } from '../js/atmo.js';
 
 const ghost = buildGhost();
 const last = ghost[ghost.length - 1];
+const failed = [];
+// the reconstructed track meets the ground at the reported 12:49:32 (t = 152 s, 76 s after the descent began)
+if (!(Math.abs(last.t - 152) < 3)) failed.push(`ghost impact at t ${last.t.toFixed(1)} s (152 reported)`);
 console.log('ghost pts', ghost.length, 'impact t', last.t, 'at n,e (km)', (last.n / 1000).toFixed(1), (last.e / 1000).toFixed(1), 'start', (ghost[0].n/1000).toFixed(1), (ghost[0].e/1000).toFixed(1));
 console.log('ghost @142 alt ft', (-ghostAt(ghost,142).d/FT).toFixed(0), '@108', (-ghostAt(ghost,108).d/FT).toFixed(0));
 
@@ -13,12 +16,12 @@ function run(hyp, pilot, label, hard = true) {
   ac.failures.tailIce = env.hyp.tailIce; ac.failures.tuck = env.hyp.tuck;
   const g0 = ghost[0];
   ac.setState({ n: g0.n, e: g0.e, d: g0.d, psi: g0.hdg, theta: 1.95 * DEG, phi: 0, V: 232 });
-  ac.ctl.trim = 0.37; ac.ctl.thr = 0.83; ac.n1 = 0.83;   // trimmed M0.77 at FL350, ISA+7 (test/flight_test.mjs model) ac.ice = 0.15; ac.iceTail = 0.25; ac.sys.machTrimFail = !!env.hyp.machTrimFail;
+  ac.ctl.trim = 0.37; ac.ctl.thr = 0.83; ac.n1 = 0.83;   // trimmed M0.77 at FL350 (test/flight_test.mjs model) ac.ice = 0.15; ac.iceTail = 0.25; ac.sys.machTrimFail = !!env.hyp.machTrimFail;
   const dt = 1 / 200; let t = 0, lastLog = -1, recoveredAt = null, apOffAt = null;
   const rows = [];
   while (t < 200 && !ac.crashed && !ac.broken) {
     const wind = env.wind(ac.pos, t, dt);
-    const out = ac.step(dt, { wind });
+    const out = ac.step(dt, { wind, dT: env.dT });
     const ir = env.iceRates(env.L, ac); ac.ice = Math.max(0, Math.min(1, ac.ice + ir.wing * dt)); ac.iceTail = Math.max(0, Math.min(1, ac.iceTail + ir.tail * dt)); ac.engIce = Math.max(0, Math.min(1, ac.engIce + ir.eng * dt));
     if (env.hyp.trimRunaway && t > 76) ac.ctl.trim = Math.max(STAB.min, ac.ctl.trim - 0.35 * dt);
     ap.step(ac, dt, out);
@@ -31,6 +34,7 @@ function run(hyp, pilot, label, hard = true) {
     t += dt;
   }
   console.log(`\n== ${label} (${hyp}) end t=${t.toFixed(1)} crashed=${ac.crashed} broken=${ac.broken}(${ac.brokenWhat}) apOff=${apOffAt?.toFixed(1)} (${ap.why}) recovered=${recoveredAt?.toFixed(1)} maxG=${ac.maxG.toFixed(2)} minG=${ac.minG.toFixed(2)} maxM=${ac.maxM.toFixed(3)} maxKEAS=${ac.maxKEAS.toFixed(0)} minAlt=${(-ac.pos[2]/FT).toFixed(0)}`);
+  if (!ac.pos.every(Number.isFinite) || !ac.vel.every(Number.isFinite)) failed.push(`${label} (${hyp}): non-finite state`);
   console.log('t alt M KIAS VS pitch roll alpha nz ice TS ST AP core wZ trim dmg');
   for (const r of rows) console.log(r.join('\t'));
 }
@@ -55,3 +59,5 @@ run('combined', wingsLevelIdle, 'HARD wings level + idle + spoilers');
 run('combined', goodPilot, 'HARD textbook');
 run('combined', wingsLevel, 'TRAINER wings level only', false);
 run('tail', goodPilot, 'HARD textbook'); run('tuck', goodPilot, 'HARD textbook'); run('trim', goodPilot, 'HARD textbook');
+console.log(failed.length ? `\nFAILED: ${failed.join('; ')}` : '\nPASS  ghost impact time and every run finite');
+process.exit(failed.length ? 1 : 0);

@@ -319,7 +319,7 @@ vec3 procAlbedo(vec2 en, float t, out float water){
 // imagery texel (rgb, alpha = water mask) and its blend weight (fades out at the image edge)
 vec4 sampleG(sampler2D s, vec4 B, vec2 en, out float w){ vec2 uv=vec2((en.x-B.x)/(B.y-B.x),(B.w-en.y)/(B.w-B.z));
   vec2 ed=min(uv,1.-uv); w=sat(min(ed.x,ed.y)*40.); return texture(s,clamp(uv,0.,1.)); }
-// KPBI runways painted over the imagery (FAA AC 150/5340-1 precision markings): asphalt, edge stripes, 36 m / 24 m
+// The 3 runways nearest the camera (js/render.js, from the CIFP), painted from the pavement start (FAA AC 150/5340-1 precision markings): asphalt, edge stripes, 36 m / 24 m
 // centreline, threshold bars, touchdown-zone bars and aiming points. uRwy[i] = threshold (east, north), unit vector;
 // uRwyD[i] = length, width. Blur grows with distance and with grazing angle (uRwyCamH = camera height above ground).
 uniform vec4 uRwy[3]; uniform vec2 uRwyD[3]; uniform float uRwyCamH;
@@ -734,7 +734,7 @@ void main(){ vec3 n=normalize(vNor); if(dot(n,vRel)>0.) n=-n;
   o=vec4(mix(bg,col,exp(-tau)),1.); }`;
 
 
-// Real building footprints (OpenStreetMap, tools/fetch_osm_buildings.py), extruded in js/render.js: walls + hip or flat
+// Real building footprints (Overture Maps: OpenStreetMap + Microsoft, tools/fetch_buildings.py), extruded in js/render.js: walls + hip or flat
 // roofs. Drawn in the same full-resolution MSAA pass as the aircraft; roof colour from the aerial photo at the roof,
 // hidden behind nearer ray-traced trees via the scene distance buffer; lit, hazed and fogged like the rest of the scene.
 export const VS_BLD = `#version 300 es

@@ -52,7 +52,7 @@ in a specific way, the definition says how. The leg types of ARINC 424 have thei
 | **HDG** | Heading select. Spin the bug past 180° and the airplane turns the way you spun it |
 | **HSI** | Horizontal situation indicator: the compass rose on the PFD with the heading bug, course pointer and deviation bar |
 | **ILS** | Instrument landing system: localizer plus glideslope. `js/nav.js` computes deviations for any ILS in the database |
-| **ISA** | International Standard Atmosphere. The accident day was ISA+7 at FL350 |
+| **ISA** | International Standard Atmosphere. The accident day was ISA+11 at cruise altitude (KMFL 12Z sounding) |
 | **ITT** | Interstage turbine temperature, the engine limit behind the thrust rating |
 | **KAMX** | The Miami NEXRAD radar whose Level II volumes build the storm |
 | **KCAS** | Calibrated airspeed in knots |

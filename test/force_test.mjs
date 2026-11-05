@@ -64,7 +64,7 @@ function run(hyp, limited, sd, delay = 2.0) {
         ac.ctl.elev = s.elev; ac.ctl.ail = s.ail; maxLb = Math.max(maxLb, Math.abs(pc.pitchLb));
       } else { ac.ctl.elev = want.elev; ac.ctl.ail = want.ail; }
     }
-    out = ac.step(dt, { wind });
+    out = ac.step(dt, { wind, dT: env.dT });
     const ir = env.iceRates(env.L, ac);
     ac.ice = clamp(ac.ice + ir.wing * dt, 0, 1); ac.iceTail = clamp(ac.iceTail + ir.tail * dt, 0, 1); ac.engIce = clamp(ac.engIce + ir.eng * dt, 0, 1);
     ap.hdgTgt = t < 25 ? 58 : Math.min(100, 58 + (t - 25) * (42 / 45));
