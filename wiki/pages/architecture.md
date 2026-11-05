@@ -38,7 +38,8 @@ The README's Development table, extended to every file in `js/`:
 | `js/hud.js` | `HUD`: the 2D panel overlay, EFB tablet, profile chart, comm log |
 | `js/pfd.js` | `drawPfd`: the Pro Line 4-style primary flight display, drawn into any box |
 | `js/cockpit.js` | `Cockpit`: the 3D virtual cockpit, with live instruments mapped onto its panel |
-| `js/vcgauges.js` | Standby and secondary gauges of the virtual cockpit |
+| `js/vcgauges.js` | Standby and secondary gauges of the virtual cockpit, and the flight guidance panel |
+| `js/panel.js` | The cockpit control layer: one registry for every clickable control, hover outline and tooltip, click sound and press flash, knobs |
 | `js/audio.js` | WebAudio: wind, engines, warnings, thunder, rain, voice callouts |
 | `js/util.js` | Math: quaternions, matrices, `nedToWorld`, `clamp`, `lerp`, angle wrapping |
 

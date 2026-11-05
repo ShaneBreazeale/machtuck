@@ -151,10 +151,12 @@ export class Cockpit {
   update(S) {
     const f = ++this.frame, I = this.inst, blink = Math.floor(performance.now() / 280) % 2 === 0;
     const draw = (k, every, fn, bg = '#050607') => {
-      const it = I[k]; if (f % every !== 0 && it.frame) return;
+      const it = I[k], live = this.controls && (this.controls.hover && this.controls.hover.key === k || this.controls.busy());
+      if (f % every !== 0 && it.frame && !live) return;
       const ctx = it.hud.ctx; ctx.setTransform(1, 0, 0, 1, 0, 0);
       if (bg) { ctx.fillStyle = bg; ctx.fillRect(0, 0, it.c.width, it.c.height); } else ctx.clearRect(0, 0, it.c.width, it.c.height);
       it.hud.hits = []; fn(it.hud, ctx); it.frame = f;
+      if (this.controls) { ctx.setTransform(1, 0, 0, 1, 0, 0); this.controls.decorate(it.hud, ctx, k); }   // hover outline, press flash
       const gl = this.gl; gl.bindTexture(gl.TEXTURE_2D, it.tex); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, it.c); gl.generateMipmap(gl.TEXTURE_2D);
     };

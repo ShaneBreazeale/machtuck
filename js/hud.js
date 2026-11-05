@@ -7,6 +7,7 @@ import { RUNWAYS } from './ground.js';
 import { FT, KT } from './atmo.js';
 import { clockStr, TIMELINE } from './scenario.js';
 import { drawPfd } from './pfd.js';
+import { GAUGES } from './vcgauges.js';
 
 const FONT = '"SF Mono", Menlo, Consolas, monospace';
 const COL = { bezel: '#23262c', panel: '#15171b', face: '#0b0c0f', text: '#dfe6ee', dim: '#8a94a0', green: '#6cff6c', amber: '#ffb000', red: '#ff3b3b', cyan: '#7fd7ff', magenta: '#ff40c0' };
@@ -19,7 +20,8 @@ export class HUD {
     if (this.c.width !== Math.floor(W * dpr) || this.c.height !== Math.floor(H * dpr)) { this.c.width = Math.floor(W * dpr); this.c.height = Math.floor(H * dpr); }
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0); this.W = W; this.H = H;
   }
-  hit(x, y) { return this.hits.find(h => x >= h.x && x <= h.x + h.w && y >= h.y && y <= h.y + h.h); }
+  // the control at canvas x, y, with where in its box (fx, fy: 0..1) for knobs
+  hit(x, y) { const h = this.hits.find(h => x >= h.x && x <= h.x + h.w && y >= h.y && y <= h.y + h.h); return h ? { ...h, fx: (x - h.x) / h.w, fy: (y - h.y) / h.h } : null; }
   text(s, x, y, size, color, align = 'left', weight = '') { const ctx = this.ctx; ctx.font = `${weight} ${size}px ${FONT}`; ctx.fillStyle = color; ctx.textAlign = align; ctx.textBaseline = 'middle'; ctx.fillText(s, x, y); }
   box(x, y, w, h, fill = COL.panel, stroke = '#2d313a', r = 5) { const ctx = this.ctx; ctx.fillStyle = fill; ctx.strokeStyle = stroke; ctx.lineWidth = 1; ctx.beginPath(); ctx.roundRect(x, y, w, h, r); ctx.fill(); ctx.stroke(); }
 
@@ -40,6 +42,7 @@ export class HUD {
     if (S.force && !S.replay) this.columnForce(S, blink);
     if (S.help) this.help();
     if (S.paused) { ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fillRect(0, 0, W, H); this.text('PAUSED', W / 2, H / 2, 42, '#fff', 'center'); }
+    if (this.controls) this.controls.decorate(this, ctx, 'hud');   // hover outline and press flash (js/panel.js)
   }
 
   // ---------------- Cockpit panel layout ----------------
@@ -360,6 +363,14 @@ export class HUD {
     this.text(`THRUST ${Math.round(ac.ctl.thr * 100)}%   N1 ${Math.round(lerp(28, 98, ac.n1))}%`, cx - 60, y + h / 2, 10, '#dfe6ee', 'right');
     this.text(`TRIM ${stabDeg(ac.ctl.trim).toFixed(1)}°  [, .]   ${ac.sys.trimMode}`, cx + 60, y + h / 2, 10, ac.ctl.trim < -0.4 ? COL.red : '#dfe6ee', 'left');
     this.text(`−/= thrust · 0 idle · B spoilers · F flaps · G gear`, x + w - 10, y + h / 2, 9, COL.dim, 'right');
+    // the glareshield's flight guidance panel (js/vcgauges.js fgp), scaled into the bar's left end, its controls live
+    const F = GAUGES.fgp, sc = (h - 8) / F.h, x0 = x + 8, y0 = y + 4;
+    if (x0 + F.w * sc < cx - 250) {
+      const ctx = this.ctx, hits = this.hits;
+      ctx.save(); ctx.translate(x0, y0); ctx.scale(sc, sc);
+      F.draw(ctx, S, { hits: { push: (b) => hits.push({ x: x0 + b.x * sc, y: y0 + b.y * sc, w: b.w * sc, h: b.h * sc, id: b.id }) } });
+      ctx.restore();
+    }
   }
 
   // ---------------- EFB tablet: map / procedures ----------------

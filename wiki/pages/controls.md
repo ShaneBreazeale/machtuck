@@ -120,19 +120,29 @@ instead (see [Mouse and touch](#mouse-and-touch)).
 |---|---|
 | Left-drag | Flies the airplane like a stick: drag down to pull, sideways to roll. Release to centre. |
 | Right-drag | Look around in the cockpit; orbit the chase camera |
-| Mouse wheel | Zoom the 3D cockpit view (narrows or widens the field of view) |
-| Left-click | Operates switches and buttons (below) |
+| Mouse wheel | Turns the knob under the mouse; elsewhere zooms the 3D cockpit view |
+| Left-click | Operates switches, buttons and knobs (below) |
+| Hover | Outlines the control under the mouse and shows its name, state and how to use it |
 | Touch drag | Flies the airplane, like a left-drag |
+
+### Cockpit controls
+
+Every control you can operate with the mouse works the same way (`js/panel.js`). Hovering it outlines it in cyan,
+turns the pointer into a hand (or an up-down arrow on a knob) and shows a tooltip with its name, its state and how to
+use it. A click gives a click sound and the button presses in. Knobs turn with the wheel (Shift: bigger steps); a
+click on a knob's left or right third steps it, a click in its middle pushes it. The mouse actions are the same as the
+keys, so a button and its key never disagree.
 
 What you can click:
 
+- **Flight guidance panel** (the glareshield in the 3D cockpit, the bottom bar of the 2D panel): HDG knob, HDG, NAV
+  (`(`), APR (`\`), AP (`X`), YD (`Y`), FD (`|`), VNAV (`)`), ALT, VS, the VS wheel and the ALT knob. See
+  [Cockpit and instruments](instruments.md#flight-guidance-strip).
 - **Switch panel** (outboard of the pilot's PFD in the 3D cockpit, on the right of the 2D panel): wing heat, stab heat,
   nacelle heat, pitot/windshield heat, stall warning, Mach trim, pitch trim selector, autopilot, yaw damper, spoilers,
   landing gear, flaps, ATC audio and EFB mode. Each switch shows its key next to it; STALL WARN, which has no key,
   reads `click`.
 - **EFB tablet**: the header bar cycles the mode, the procedure titles open their cards, and **‹ list** goes back.
-- **3D cockpit glareshield**: the flight guidance buttons, each its own mode: HDG, NAV (`(`), APR (`\`), ALT, VS, AP
-  (`X`), YD (`Y`) and FD (`|`). See [Cockpit and instruments](instruments.md#flight-guidance-strip).
 - **3D cockpit gear lever**: raises or lowers the gear.
 
 In the 3D cockpit a click is ray-cast onto the panel, so it works from any head position. If you click empty space,

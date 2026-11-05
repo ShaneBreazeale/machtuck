@@ -138,25 +138,31 @@ when active. Its readout gives the targets, for example `ALT 35000  HDG 058°`, 
 It is cyan with the autopilot engaged, amber with only the flight director, and reads **AP OFF** with the reason when
 both are off.
 
-In the 3D cockpit the same lights and strip are drawn over the painted annunciator grid. Below them are the
-glareshield buttons. Each one is its own button, and its green bar lights from the real mode, with the autopilot or
-the flight director on:
+In the 3D cockpit the same lights and strip are drawn over the painted annunciator grid. Below them is the flight
+guidance panel (`fgp` in `js/vcgauges.js`), in two parts either side of the model's trim indicator. The same panel
+sits at the left end of the 2D panel's bottom bar. Every part is a live control (see
+[Controls](controls.md#cockpit-controls)); each button's green bar lights from the real mode, with the autopilot or
+the flight director on.
 
-| Button | Lit when | Click |
+| Control | Shows / lit when | Use |
 |---|---|---|
+| HDG knob | Its pointer turns with the bug | Scroll: 1° (Shift 10°). Click its left / right third: 1°. Click the centre: sync the bug to the heading |
+| HDG window | The selected heading, green in HDG mode | |
 | HDG | Lateral mode HDG | HDG on the current heading |
 | NAV | LNAV or LOC engaged or armed | Arm LNAV, like `(` |
 | APR | The approach armed or captured | Arm the approach, like `\` |
-| ALT | ALT hold or altitude capture | Hold the current altitude |
-| VS | Vertical mode VS | VS at the current vertical speed, to the preselected altitude |
 | AP | Autopilot engaged | Engage or disconnect, like `X` |
 | YD | Yaw damper on | Yaw damper on or off, like `Y` |
 | FD | Flight director on | Flight director on or off, like `\|` |
-| IAS | VNAV climbing by speed on elevator, on an IAS target | Logs that speed modes come with VNAV |
-| MACH | The same, above 10,000 ft when the Mach limit governs | Logs that speed modes come with VNAV |
+| VNAV | VNAV engaged or armed | Arm VNAV, like `)` |
+| ALT | ALT hold or altitude capture | Hold the current altitude |
+| VS | Vertical mode VS | VS at the current vertical speed, to the preselected altitude |
+| VS wheel | The VS window shows the target in VS mode | Scroll or click its top / bottom: 100 ft/min (Shift 500); from another mode it enters VS at the current rate |
+| ALT / VS window | The preselected altitude (cyan) and the VS target | |
+| ALT knob | Its pointer turns with the preselected altitude | Scroll: 100 ft (Shift 1,000). Click its left / right third: 100 ft. Click the centre: hold the current altitude. Like `<` `>`, a new altitude away from yours starts a VS climb or descent toward it |
 
-HDG, ALT and VS need the autopilot or the flight director on; otherwise the log says to engage one first. There is no
-autothrottle, so IAS and MACH have no mode of their own: press `)` for VNAV.
+HDG, ALT, VS and the VS wheel need the autopilot or the flight director on; otherwise the log says to engage one
+first. In the accident the heading bug follows the crew's reported turn until you set it yourself (HDG knob, `{` `}`).
 
 ## MFD and weather radar
 

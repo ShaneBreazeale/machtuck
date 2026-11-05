@@ -47,6 +47,11 @@ export class Audio {
     if (!this.ctx || this.muted) return; const C = this.ctx; const s = C.createBufferSource(); s.buffer = this.noiseBuf; const f = C.createBiquadFilter(); f.type = type; f.frequency.value = freq; const g = C.createGain();
     g.gain.setValueAtTime(gain, C.currentTime); g.gain.exponentialRampToValueAtTime(0.001, C.currentTime + dur); s.connect(f); f.connect(g); g.connect(this.master); s.start(); s.stop(C.currentTime + dur);
   }
+  // cockpit controls (js/panel.js): a short mechanical click; knob detents are softer and higher
+  click(kind = 'button') {
+    if (!this.ctx || this.muted) return;
+    if (kind === 'detent') this.burst(5200, 0.025, 0.18, 'highpass'); else { this.burst(2600, 0.04, 0.45, 'bandpass'); setTimeout(() => this.burst(1400, 0.03, 0.25, 'bandpass'), 45); }
+  }
   thunder(dist = 3000) { this.burst(140, 2.5 + Math.random() * 2, Math.max(0.1, 1.2 - dist / 8000)); }
   bang() { this.burst(300, 1.2, 1.5); setTimeout(() => this.burst(90, 2.5, 0.8), 150); }
   apDisconnect() {

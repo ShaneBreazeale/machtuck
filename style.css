@@ -97,3 +97,8 @@ button.sm { font-size: 12px; padding: 4px 10px; margin-right: 4px; }
 #dto .dnote { margin: 6px 0 0; color: #ffb347; font-size: 12px; min-height: 0; }
 #dto .dnote:empty { display: none; }
 .doclink { color: #ffe34d; margin-left: 10px; font-size: 0.9em; white-space: nowrap; }
+/* cockpit control tooltip (js/panel.js) */
+.ctltip { position: fixed; z-index: 30; pointer-events: none; max-width: 290px; background: rgba(8,12,18,0.92); border: 1px solid #3a4a5c; border-radius: 5px; padding: 5px 8px; font: 12px ui-monospace, Menlo, monospace; color: #dfe7ef; line-height: 1.4; }
+.ctltip.hidden { display: none; }
+.ctltip b { color: #7fd7ff; }
+.ctltip span { display: block; color: #8fa3b5; font-size: 11px; }
