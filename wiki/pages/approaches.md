@@ -141,13 +141,30 @@ plate is in the viewer, but the CIFP has no matching procedure, so it can't be f
 
 ### Without a plate
 
-At every other airport the minimums bug falls back to a height above the touchdown zone elevation (the runway's
-elevation in the CIFP):
+At other airports, an RNAV (GPS) approach takes its minimums from the FAA's
+[All Approaches - Master RNAVs](https://www.faa.gov/about/officeorg/headquartersoffices/ato/all-approaches-master-rnavs)
+spreadsheet (`data/nav/rnav_minimums.json`, built by `tools/fetch_rnav_minimums.py`): the LNAV/VNAV DA if there is one
+(the airplane has baro-VNAV), else the LNAV MDA, straight-in. It covers 154 of the 193 RNAV (GPS) approaches in the
+data directly, and more where an approach has been renamed since (a Y or Z suffix added) and the list has exactly one
+RNAV (GPS) approach to that runway; the log then says "listed as" the list's name.
 
-- **200 ft** when the approach is flown on a localizer (ILS, and LOC approaches whose FAF references the localizer)
-- **400 ft** on other approaches
+> **Warning:** The list is old. Its LNAV and LNAV/VNAV sheets say "Published Effective 01/31/2019". Against the current
+> KDJT plates (the airport was KPBI in the list) it is off by up to 260 ft, mostly higher (RNAV Y 14: LNAV 720 vs 460
+> today, LNAV/VNAV 475 vs 338), once 20 ft lower (RNAV X 28R LNAV 560 vs 580). The log always names the source and date.
 
-For example, the KMCO ILS 18R start logs:
+Everything else falls back to a height above the touchdown zone elevation (the runway's elevation in the CIFP):
+
+- **200 ft** on an ILS approach with a glideslope
+- **400 ft** on LOC, RNP, VOR and every other approach, and on an RNAV approach the list doesn't have
+
+For example, a KMCO RNAV (GPS) Y RWY 18R start logs:
+
+```
+Minimums: LNAV/VNAV DA 390 ft (298 above touchdown, straight-in; listed as RNAV (GPS) RWY 18R, FAA master RNAV list
+effective 2019-01-31: older than the current chart).
+```
+
+And the KMCO ILS 18R start logs:
 
 ```
 I-TFE 111.90, course 186°, glideslope 3.0°. Minimums: 292 ft (no plate minimums for this approach:
@@ -176,8 +193,24 @@ radio altitude is also called at 500, 100, 50, 40, 30, 20 and 10 ft with the gea
 ### Marker beacons
 
 The PFD and HUD can show OM, MM and IM lights, the audio has the three marker tones (400 Hz dashes, 1,300 Hz
-dot-dash, 3,000 Hz dots), and the log announces each passage. However, `ilsDeviation` currently always reports no
-marker, so in practice no marker is ever received.
+dot-dash, 3,000 Hz dots), and the log announces each passage.
+
+The CIFP has no marker records, so the markers come from the FAA NASR (`data/nav/markers.json`, built by
+`tools/fetch_markers.py`; see [Data pipeline](data-pipeline.md#marker-beacons)). Only markers the NASR lists as
+operational are kept. `js/navdb.js` attaches them to their ILS, and `ilsDeviation` reports a marker while you are
+inside its beacon fan, which widens with height: about ±0.8 × your height above the beacon along the course and
+±1.5 × across it.
+
+Most US markers have been decommissioned. In the current data four are in range:
+
+| Airport | Approach | Marker |
+|---|---|---|
+| KFMY | ILS 05 | Outer marker CALOO |
+| KPIE | ILS 18 | Outer marker CAPOK |
+| KTPA | ILS 01L | Inner marker |
+| KTPA | ILS 19L | Inner marker |
+
+KDJT's markers were decommissioned in 2011, and KMCO's on 18R too, so those approaches have none.
 
 ## Go-around and missed approach
 
@@ -229,8 +262,9 @@ an inbound track of 339° true (published 340°) within a 77 ft altitude spread.
 - The airport diagram is printed sideways, so it opens rotated a quarter turn to put north up.
 - The footer gives the airport, the d-TPP cycle and validity, and "public domain · NOT FOR NAVIGATION".
 
-The viewer only holds the KDJT set: all 12 approach plates and the airport diagram. At other airports it still opens
-on a KDJT chart.
+The viewer only holds the KDJT set: all 12 approach plates and the airport diagram. In free flight at any other
+airport (the field you are on, or the one you are flying to), `~` doesn't open it and the log reads
+`No approach plates for <ID> in this build (plates ship for KDJT only)`.
 
 To refresh the charts for a new cycle (this needs `pdftoppm` and `pdftotext` from poppler):
 

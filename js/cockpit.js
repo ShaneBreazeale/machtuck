@@ -1,5 +1,5 @@
 // 3D Learjet 60 cockpit from the left seat. The geometry is the virtual cockpit of the Premier Aircraft Design
-// Learjet 60 (FS2004 model, converted by tools/fs9_vc.py into data/vc/): textured panel, glareshield, yokes, pedestal,
+// Learjet 60 (FSX model by Premier Aircraft Design, FS2004 MDL8 format, converted by tools/fs9_vc.py into data/vc/): textured panel, glareshield, yokes, pedestal,
 // seats, side consoles and window glass, with its animated parts (yokes, rudder pedals, thrust, flap and spoiler
 // levers) driven by our controls. Frame: x right, y up, z forward, metres; drawn with the pilot's eye at the origin.
 // The live instruments are the HUD's instrument code drawn into canvases and mapped onto the panel at the gauge

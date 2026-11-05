@@ -13,6 +13,7 @@ Each check is a plain Node script with no dependencies:
 
 ```bash
 node test/flight_test.mjs
+STRICT=1 node test/flight_test.mjs           # makes the five known-bias rows fail
 node test/afm_validate.mjs
 node test/aero_validate.mjs
 AERO_STRICT=1 node test/aero_validate.mjs   # makes the known buffet bias fail
@@ -25,10 +26,11 @@ node test/stab_test.mjs
 node test/mission.mjs                       # NBAA range
 ```
 
-Run in parallel, the whole set took about 10 seconds here. `aero_validate.mjs`,
-`performance_test.mjs`, `force_test.mjs` and `recovery_test.mjs` exit non-zero on a failure. `flight_test.mjs`,
-`afm_validate.mjs`, `stab_test.mjs` and `mission.mjs` print their measurements and always exit 0, so read their
-output. See [Testing](testing.md) for the rest of the suite.
+Run in parallel, the whole set took about 10 seconds here. Every script exits 1 on a failure. The pass limits of the
+report-style scripts are a margin above the figures on this page: `afm_validate.mjs` fails on an MCT N1 rms above
+2.0 %N1 or any cell above 5.0, or a climb-gradient rms above 1.0 %; `mission.mjs` on an NBAA range more than 5 % from
+2,405 nm; `stab_test.mjs` on a departure (bank of 30° within 40 s). See [Testing](testing.md) for the rest of the
+suite.
 
 ## Summary
 
@@ -53,6 +55,9 @@ output. See [Testing](testing.md) for the rest of the suite.
 `test/flight_test.mjs` measures the model against published Learjet 60 figures and textbook handling qualities, in
 calm air with no ice and no failures. It is deterministic.
 
+Each row prints PASS, FAIL or BIAS. BIAS marks a known model bias: it is reported but doesn't fail the run unless
+`STRICT=1` is set.
+
 | Check | Model | Target |
 |---|---|---|
 | Stall KCAS flaps 0°, 14,000 / 23,500 lb | 100 / 131 | 102 / 129 (AFM Fig 5-22) |
@@ -72,15 +77,18 @@ calm air with no ice and no failures. It is deterministic.
 | Short period: period / damping | 2.19 s / 0.35 | damping 0.35 to 1.3 (MIL-F-8785C level 1) |
 | Phugoid: period / damping | 104 s / 0.386 | damping above 0.04 |
 | Dutch roll, yaw damper off | 3.18 s / 0.06 | damping 0.08 or more |
-| Dutch roll, yaw damper on | NaN / NaN | damping above 0.2 |
+| Dutch roll, yaw damper on | damped within a cycle | damping above 0.2 |
 | Roll: time to 30° / peak rate | 1.20 s / 42°/s | 2.0 s or less; 30 to 60°/s for business jets |
 | Spiral: bank after 30 s from 10° | 0.0° | time to double above 20 s |
 | Elevator step: steady g | 1.18 | 1.2 to 1.4 |
 
-Three rows miss their targets. Max level Mach at FL410 is 0.798, short of 0.81, though the 458 KTAS is inside the
-published range. The yaw-damper-off Dutch roll damping is 0.06, below the level 1 minimum of 0.08. The elevator step
-gives 1.18 g, just below its band. The yaw-damper-on Dutch roll prints NaN because the oscillation dies out before the
-card finds three peaks to measure, which means it is damped well beyond the target.
+Five rows read BIAS. The two FL400 buffet rows are the SAE 932534 boundary sitting above the AFM Fig 5-24 one (see
+[Aerodynamics against the AFM](#aerodynamics-against-the-afm)). Max level Mach at FL410 is 0.798, short of 0.81,
+though the 458 KTAS is inside the published range; the 0.81 is an expectation, not an AFM figure. The
+yaw-damper-off Dutch roll damping is 0.06, below the level 1 minimum of 0.08; MIL-F-8785C is a design guide, not a
+certification figure. The elevator step gives 1.18 g, just below a band that is itself an estimate scaled from the
+full-stick g. With the yaw damper on, the Dutch roll dies out before the card finds three peaks to measure, so it
+reads "damped within a cycle": damped well beyond the target.
 
 The maximum-lift curve the VA check tests is described in [Flight model](flight-model.md#lift).
 
@@ -221,17 +229,18 @@ recovery easier.
 
 | Hypothesis | 2 s | 5 s | 8 s | 12 s and later |
 |---|---|---|---|---|
-| Combined | recovered | stabilizer breakup | wing breakup | wing breakup |
-| Tail stall | recovered | lowest 26,809 ft | wing breakup | wing breakup |
-| Mach tuck | recovered | lowest 32,703 ft | lowest 25,715 ft | wing breakup |
-| Trim runaway | wing breakup | stabilizer breakup | stabilizer breakup | wing breakup |
+| Combined | recovered | lowest 25,320 ft | wing breakup | wing breakup |
+| Tail stall | recovered | lowest 23,621 ft | wing breakup | wing breakup |
+| Mach tuck | recovered | lowest 32,838 ft | lowest 25,977 ft | wing breakup |
+| Trim runaway | wing breakup | wing breakup | wing breakup | wing breakup |
 
-At 5 s the tail-stall case loses about 8,000 ft, and the combined case, already near its structural limit, breaks the
-tail as the iced stabilizer stalls and reattaches. From 8 to 12 s on, the wing fails before the recovery takes hold;
-the Mach-tuck case holds on until 12 s. The breakups in the sweep happen at −1.9 to −2.3 g.
+At 5 s it is marginal: the tail-stall case loses about 11,000 ft and the combined case about 10,000 ft. From 8 s on,
+the wing fails before the recovery takes hold; the Mach-tuck case holds on until 12 s. The breakups in the sweep happen
+at −2.2 to −2.3 g. These figures are for the ISA+11 day of the KMFL sounding (measured 2026-11-04 after the switch from
+ISA+7); seed 1 only, so other seeds differ by a few thousand feet.
 
-With `MODE=trainer` the same checks pass, and the combined case survives the 5 s delay (lowest 32,409 ft). The tail
-stall at 5 s loses less (lowest 29,231 ft). The outcomes at 8 s and later are unchanged.
+With `MODE=trainer` the same checks pass and the 5 s delay loses less: lowest 30,275 ft in the combined case and
+28,392 ft in the tail stall. The outcomes at 8 s and later are unchanged.
 
 ## Recovery test
 
@@ -248,13 +257,15 @@ compares it with the old rule (autopilot off 3 s, then 3 s stable). Five seeds p
   scripted pilot stays at idle after the pull-up and ends up riding the shaker or mushing past the stall angle.
 
 With `MODE=trainer` all checks pass. Hands-off is reported instead of asserted, because the trainer's autopilot does
-not hand over a nose-down trim and the airplane can fly itself out: 2 of 5 combined runs recover on their own. The
-textbook pilot is credited 2 of 5 in the combined case.
+not hand over a nose-down trim. On the ISA+11 day none of the hands-off runs recovers (0 of 5 in every case; on the
+older ISA+7 day 2 of 5 combined runs did). The textbook pilot is credited 0 of 5 combined, 5 of 5 Mach tuck and 1 of 5
+trim runaway.
 
 ## Stability test
 
 `test/stab_test.mjs` is open-loop: trimmed cruise at FL350 and M 0.77, a 5° roll perturbation, no wind and no
-autopilot. It prints a time history and expects slow spiral and Dutch roll modes with no departure.
+autopilot. It prints a time history and expects slow spiral and Dutch roll modes with no departure: it fails if the
+bank reaches 30° within 40 s or the state goes non-finite. The peak bank is the initial 5°.
 
 | Yaw damper | Bank after 20 s | Bank after 36 s |
 |---|---|---|
@@ -267,6 +278,7 @@ autopilot. It prints a time history and expects slow spiral and Dutch roll modes
 climb on the AFM schedule, long-range cruise with the altitude re-chosen as weight burns off, and an idle descent.
 Reserves are a 100 nm alternate, a 30 min hold at 5,000 ft and a 5 min approach. With 4 passengers it climbs to
 FL410 in 16.6 min, cruises from FL410 to FL490, and reaches **2,455 nm**, 2.1 % over the 2,405 nm specification.
+The test fails beyond 5 %.
 
 ## Known gaps
 

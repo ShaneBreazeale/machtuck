@@ -78,14 +78,11 @@ the flight guidance strip on the glareshield show what is engaged and armed; see
 Pitot and windshield heat and the stall warning (shaker) cutout have no key. Click their switches on the switch panel
 instead (see [Mouse and touch](#mouse-and-touch)).
 
-> **Note:** The switch panel and the help screen label STALL WARN with `6`, but the `6` key opens procedure card 6.
-> Click the switch to silence the shaker.
-
 ## Navigation and charts
 
 | Key | Action |
 |---|---|
-| `~` | Approach plates: opens on the loaded approach's chart, or on the airport diagram when you are on the ground. Esc closes. |
+| `~` | Approach plates: opens on the loaded approach's chart, or on the airport diagram when you are on the ground. Esc closes. Plates ship for KDJT only: elsewhere the log says so. |
 | `Tab` | EFB tablet: map, then procedures, then off |
 | `1` to `6` | Open procedure card 1 to 6 on the EFB |
 | backtick key | Back to the procedure list |
@@ -100,7 +97,7 @@ instead (see [Mouse and touch](#mouse-and-touch)).
 | `Z` | Hide or show the HUD overlays |
 | `V` | Show or hide the magenta ghost of the reported track (accident) |
 | `K` | Render quality: Q1.0 (default), Q1.4, Q0.6, then back |
-| `U` | Real weather (NEXRAD volume) or a synthetic storm cell |
+| `U` | Real weather (NEXRAD volume and GLM lightning) or the modelled storm cell and lightning |
 
 ## Sim and audio
 
@@ -131,9 +128,11 @@ What you can click:
 
 - **Switch panel** (outboard of the pilot's PFD in the 3D cockpit, on the right of the 2D panel): wing heat, stab heat,
   nacelle heat, pitot/windshield heat, stall warning, Mach trim, pitch trim selector, autopilot, yaw damper, spoilers,
-  landing gear, flaps, ATC audio and EFB mode. Each switch shows its key next to it.
+  landing gear, flaps, ATC audio and EFB mode. Each switch shows its key next to it; STALL WARN, which has no key,
+  reads `click`.
 - **EFB tablet**: the header bar cycles the mode, the procedure titles open their cards, and **‹ list** goes back.
-- **3D cockpit glareshield**: the flight guidance buttons. YD toggles the yaw damper; the others toggle the autopilot.
+- **3D cockpit glareshield**: the flight guidance buttons, each its own mode: HDG, NAV (`(`), APR (`\`), ALT, VS, AP
+  (`X`), YD (`Y`) and FD (`|`). See [Cockpit and instruments](instruments.md#flight-guidance-strip).
 - **3D cockpit gear lever**: raises or lowers the gear.
 
 In the 3D cockpit a click is ray-cast onto the panel, so it works from any head position. If you click empty space,

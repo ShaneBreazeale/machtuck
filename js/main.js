@@ -1,5 +1,5 @@
 import { Learjet60, hiBuffetMach, STAB } from './aircraft.js';
-import { Environment, Autopilot, buildGhost, ghostAt, STORM, TIMELINE, HYPOTHESES, clockStr, NexradField, NEXRAD_VOLUMES, RecoveryJudge, UPSET_T } from './scenario.js';
+import { Environment, Autopilot, buildGhost, ghostAt, STORM, TIMELINE, HYPOTHESES, clockStr, NexradField, NEXRAD_VOLUMES, RecoveryJudge, UPSET_T, ACCIDENT_DT } from './scenario.js';
 import { Renderer } from './render.js';
 import { scenarioSun } from './sun.js';
 import { PilotControls } from './controls.js';
@@ -12,7 +12,7 @@ import { FreeEnv, setupStart, setWeight, configureGuidance, frameFor, approachRu
 import { takeoffSpeeds, vref, MAX_LANDING_LB } from './afm.js';
 import { runwayAt } from './ground.js';
 import { nearestIls } from './nav.js';
-import { NavDB, procedureLegs, procedureList } from './navdb.js';
+import { NavDB, procedureLegs, procedureList, rnavListMinimums } from './navdb.js';
 import { parseRoute, buildPlan, parsePln } from './route.js';
 import { FMS } from './fms.js';
 import { Audio } from './audio.js';
@@ -56,7 +56,7 @@ NexradField.load(NEXRAD_VOLUMES[0].base).then(async (a) => {
 }).catch(e => console.warn('[NEXRAD] not available', e));
 // Real-world environment beyond the radar: GOES-19 cloud tops, GLM lightning, USGS imagery (see tools/fetch_*.py)
 let GLM = null;
-fetch('data/glm_flashes.json').then(r => r.json()).then(j => { GLM = j.flashes; if (G) { G.env.glm = GLM; } console.log('[GLM]', GLM.length, 'flashes'); }).catch(e => console.warn('[GLM] not available', e));
+fetch('data/glm_flashes.json').then(r => r.json()).then(j => { GLM = j.flashes; if (G && G.env && SETTINGS.nexrad && G.mode !== 'free') { G.env.glm = GLM; } console.log('[GLM]', GLM.length, 'flashes'); }).catch(e => console.warn('[GLM] not available', e));
 R.loadExterior().then(() => console.log('[EXT] exterior model loaded')).catch(e => console.warn('[EXT] exterior model not available, SDF airframe', e));
 R.loadGround().then(() => { console.log('[GROUND] USGS imagery loaded'); return Promise.all([R.loadBuildings().then(r => console.log('[BUILDINGS]', r)).catch(e => console.warn('[BUILDINGS] footprints not available', e)), R.loadTrees().then(r => console.log('[TREES]', r)).catch(e => console.warn('[TREES] canopy trees not available', e))]); }).catch(e => console.warn('[GROUND] imagery not available, procedural ground', e));
 R.loadGoes().then(m => console.log('[GOES] loaded', m.scans.map(s => s.time_utc).join(', '))).catch(e => console.warn('[GOES] not available', e));
@@ -78,9 +78,9 @@ function newGame(hypKey, hard = true) {
   ac.failures.tailIce = env.hyp.tailIce; ac.failures.tuck = env.hyp.tuck;
   const g0 = ghost[0];
   ac.setState({ n: g0.n, e: g0.e, d: g0.d, psi: g0.hdg, theta: 1.95 * DEG, phi: 0, V: 232 });
-  // trimmed M0.77 at FL350, ISA+7 (see test/flight_test.mjs)
+  // trimmed M0.77 at FL350 (see test/flight_test.mjs)
   ac.ctl.thr = 0.83; ac.n1 = 0.83; ac.ctl.trim = 0.37; ac.ice = 0.12; ac.iceTail = 0.25; ac.sys.machTrimFail = !!env.hyp.machTrimFail;
-  env.nex = NEX; env.useNex = SETTINGS.nexrad; env.glm = GLM;
+  env.nex = NEX; env.useNex = SETTINGS.nexrad; env.glm = SETTINGS.nexrad ? GLM : null;   // real weather off: modelled lightning too
   env.wind(ac.pos, 0, 0); ac.step(0, { wind: [0, 0, 0] });   // prime telemetry for the first frame
   ATC.el.pause();
   G = { mode: 'accident', ac, env, ap, t: 0, phase: 'run', hypKey, hard, hypName: HYPOTHESES[hypKey].name + (hard ? ' · AS FLOWN' : ' · TRAINER'), fdr: [], lastFdr: -1, lastSave: 0, log: [], logIdx: 0, hist: [], trail: [], lastHist: -1, lastTrail: -1,
@@ -128,6 +128,8 @@ function approachSummary(apt, legs) {
 // Line of minimums by procedure: ILS -> S-ILS, LOC -> S-LOC, LDA -> S-LDA, RNAV (GPS) -> LNAV/VNAV (baro-VNAV, no
 // WAAS), else LNAV; RNAV (RNP) -> RNP 0.30. Returns { alt (ft MSL), type, chart } or null.
 const APPROACH_CAT = 'C';
+// RNAV straight-in minimums from the FAA master RNAV list where no plate is loaded (js/navdb.js rnavListMinimums)
+function rnavMinimums(app, aptId) { return app && app[0] === 'R' ? rnavListMinimums(DB.rnavMins, aptId, procName(app)) : null; }
 function plateMinimums(app, rwy, aptId) {
   if (!PL.meta || !app || !rwy || (aptId && PL.meta.icao !== aptId)) return null;   // plates are fetched for one airport
   const k = app[0], want = { I: ['S-ILS'], L: ['S-LOC'], X: ['S-LDA'], R: ['LNAV/VNAV', 'LNAV'], H: ['RNP 0.30', 'RNP 0.11'] }[k] || [];
@@ -164,23 +166,25 @@ function newFreeFlight(o) {
   configureGuidance(ap, fms, r, { ...o, cruise }, legs, ac.out);
   ATC.el.pause(); ATC.on = false;
   newGame('combined', true);   // builds the shared state; then swap in the free-flight pieces
-  const lb = ac.m / 0.45359237, V = takeoffSpeeds(lb, 19), hasApp = legs.some((l) => l.kind === 'APP');
+  const dr = dep.runways[(o.rwy || '').startsWith('RW') ? o.rwy : 'RW' + o.rwy], fieldFt = dr && dr.elev != null ? dr.elev : dep.elev || 0;   // the departure field's elevation
+  const lb = ac.m / 0.45359237, V = takeoffSpeeds(lb, fieldFt), hasApp = legs.some((l) => l.kind === 'APP');
   const rwy = hasApp ? approachRunway(legs, o.app) : null, il = hasApp && fms.approachNav() ? arr.ils[fms.approachNav()] : null;
   const tdze = rwy && arr.runways['RW' + rwy] ? arr.runways['RW' + rwy].elev : arr.elev;
   const routeTxt = dep.id !== arr.id || legs.some((l) => l.kind !== 'APP') ? `${dep.id}${o.sid ? ' ' + o.sid : ''} → ${arr.id}` : `${arr.id}`;
   Object.assign(G, { mode: 'free', free: o, ac, env, ap, fms, apt: o.start === 'rwy' ? dep : arr, legs, hypKey: 'free', vsp: { ...V, ref: vref(Math.min(lb, 23100)) }, co: {}, failAt: o.fail === 'climb' ? 400 + Math.random() * 1100 : null, autoSb: true,
     mins: null, minsFrom: null, legI: -1,
     hypName: `SORTIE · ${routeTxt}${o.app ? ' · ' + o.app + (o.trans && o.trans !== 'auto' ? '.' + o.trans : '') : ''}${cruise ? ' · ' + (cruise >= 18000 ? 'FL' + cruise / 100 : cruise.toLocaleString() + ' ft') : ''} · ${STARTS[o.start].name.split(',')[0]} · ${WEATHER[o.wx].name.split(':')[0]} · ${WEIGHTS[o.weight].name.split(' (')[0]}` });
-  const pm = hasApp ? plateMinimums(o.app, rwy, arr.id) : null;
-  G.mins = pm ? pm.alt : hasApp ? tdze + (il ? 200 : 400) : null; G.minsFrom = pm;
+  const pm = hasApp ? plateMinimums(o.app, rwy, arr.id) || rnavMinimums(o.app, arr.id) : null;
+  const precision = !!(il && il.gs && /^I/.test(o.app || ''));   // an ILS with a glideslope: DA 200 ft above touchdown; LOC, RNAV and the rest 400
+  G.mins = pm ? pm.alt : hasApp ? tdze + (precision ? 200 : 400) : null; G.minsFrom = pm;
   log('SYS', r.msg);
   if (legs.length) {
     log('SYS', `FLIGHT PLAN (FAA CIFP ${DB.index.cycle}${P.dist ? `, ${Math.round(P.dist)} nm` : ''}): ${planSummary(apt, legs)}`);
     if (P.errors.length) log('SYS', `Not in the plan: ${P.errors.join('; ')}`);
   }
   if (hasApp) {
-    const minTxt = pm ? `${pm.type} ${/MDA|LOC|LNAV$|LDA/.test(pm.type) && !/VNAV/.test(pm.type) ? 'MDA' : 'DA'} ${pm.alt} ft (${Math.round(pm.alt - tdze)} above touchdown, Cat ${APPROACH_CAT}${pm.rvr ? `, RVR ${pm.rvr}` : ''}; ${pm.chart})`
-      : `${Math.round(G.mins)} ft (no plate minimums for this approach: ${il ? 200 : 400} ft above touchdown)`;
+    const minTxt = pm ? `${pm.type} ${/MDA|LOC|LNAV$|LDA/.test(pm.type) && !/VNAV/.test(pm.type) ? 'MDA' : 'DA'} ${pm.alt} ft (${Math.round(pm.alt - tdze)} above touchdown, ${pm.straightIn ? 'straight-in' : `Cat ${APPROACH_CAT}`}${pm.rvr ? `, RVR ${pm.rvr}` : ''}; ${pm.chart})`
+      : `${Math.round(G.mins)} ft (no plate minimums for this approach: ${precision ? 200 : 400} ft above touchdown)`;
     if (il) log('SYS', `${il.id.replace(/^I/, 'I-')} ${il.freq.toFixed(2)}, course ${magOf(arr, il.crsT)}°, ${o.app[0] === 'I' ? `glideslope ${il.gs.toFixed(1)}°` : 'localizer only: no glideslope (GP flies the FMS path)'}. Minimums: ${minTxt}.${PL.meta && PL.meta.icao === arr.id ? ' Press ~ for the plates.' : ''}`);
     else log('SYS', `Minimums: ${minTxt}.`);
   }
@@ -270,17 +274,17 @@ function failEngine() {
 function stepSim(h, held) {
   const { ac, env, ap } = G; const t = G.t;
   const wind = env.wind(ac.pos, t, h);
-  const wasOn = ap.on;
+  const wasOn = G.apWas ?? ap.on;   // as of the last step: X, manual trim or TOGA disconnect between steps
   // Pilot forces on unboosted controls (js/controls.js): input = force; the autopilot's clutched servos can be
   // overpowered but it stays engaged, and keeps trimming, until disconnected (X / yoke button, or manual trim)
   const pc = G.pc, st = ac.out || {};
   const surf = pc.step(h, IN.axes, { qbar: st.qbar, M: st.M, tailStalled: ac.tailStalled, iceTail: ac.iceTail, n1: ac.n1 },
     ap.on ? { on: true, elev: ap.cmdElev ?? ac.ctl.elev, ail: ap.cmdAil ?? ac.ctl.ail } : null);
   if (ap.on && pc.slipping && !G.slipLogged) { G.slipLogged = true; log('SYS', 'AP SERVO SLIPPING — the autopilot is still engaged and trimming against you. Disconnect: X.'); }
-  ac.ctl.elev = surf.elev; ac.ctl.ail = surf.ail; if (!ap.on) ac.ctl.rud = surf.rud;
+  ac.ctl.elev = surf.elev; ac.ctl.ail = surf.ail; ac.ctl.rud = surf.rud;   // the autopilot has no rudder channel (the yaw damper is separate)
   G.trimRunaway = env.hyp.trimRunaway && t > UPSET_T && t < UPSET_T + 12 && ac.sys.trimMode === 'PRI';
   if (G.trimRunaway) ac.ctl.trim = Math.max(STAB.min, ac.ctl.trim - 0.3 * h);   // runs to the nose-down stop
-  const out = ac.step(h, { wind, dT: env.dT ?? 7 });   // the accident day is ISA+7 (KMFL sounding); free flight per weather
+  const out = ac.step(h, { wind, dT: env.dT });   // the accident day from the KMFL sounding (js/scenario.js Environment); free flight per weather
   const ir = env.iceRates(env.L, ac);
   ac.ice = clamp(ac.ice + ir.wing * h, 0, 1); ac.iceTail = clamp(ac.iceTail + ir.tail * h, 0, 1); ac.engIce = clamp(ac.engIce + ir.eng * h, 0, 1);
   if (G.mode === 'accident') ap.hdgTgt = t < 25 ? 58 : Math.min(100, 58 + (t - 25) * (42 / 45));
@@ -292,6 +296,7 @@ function stepSim(h, held) {
   if (ac.tailStalled && ap.on) ap.disconnect('PITCH');
   if (ap.on && env.hyp.trimRunaway && ac.ctl.trim < -0.5) ap.disconnect('TRIM');
   if (wasOn && !ap.on) { G.apOffAt = t; G.apOffWall = performance.now() / 1000; AU.apDisconnect(); log('SYS', `AUTOPILOT DISCONNECT — ${ap.why}. YOUR AIRPLANE.`); }
+  G.apWas = ap.on;
   G.t += h;
   while (G.mode === 'accident' && G.logIdx < TIMELINE.length && TIMELINE[G.logIdx].t <= G.t) { const e = TIMELINE[G.logIdx++]; G.log.push({ t: e.t, who: e.who, txt: e.txt }); if (SETTINGS.comms && !ATC.on && (e.who === 'FO' || e.who === 'MIA')) AU.say(e.txt, 0); }
   if (G.t - G.lastHist >= 0.25) { G.lastHist = G.t; G.hist.push({ t: G.t, h: out.h, M: out.M, nz: out.nz, KIAS: out.KIAS }); }
@@ -340,6 +345,14 @@ function toggleSwitch(id) {
     case 'nacelleHeat': sys.nacelleHeat = !sys.nacelleHeat; log('SYS', `NAC HEAT L/R ${sys.nacelleHeat ? 'ON' : 'OFF'}`); break;
     case 'pitotHeat': sys.pitotHeat = !sys.pitotHeat; sys.wshldHeat = sys.pitotHeat; break;
     case 'stallWarn': sys.stallWarn = !sys.stallWarn; log('SYS', `STALL WARN L/R ${sys.stallWarn ? 'ON' : 'OFF — shaker silenced'}`); break;
+    // glareshield flight-guidance caps (js/vcgauges.js): the same actions as their keys
+    case 'fgc_nav': IN.events.push('lnav'); break;
+    case 'fgc_apr': IN.events.push('appr'); break;
+    case 'fgc_fd': IN.events.push('fd'); break;
+    case 'fgc_hdg': if (ap.on || ap.fd) { ap.lat = 'HDG'; ap.latArm = null; ap.setHdg(wrap360(ac.out.psi * RAD)); log('SYS', `HDG ${String(Math.round(ap.hdgTgt)).padStart(3, '0')}°`); } else log('SYS', 'HDG: engage the autopilot (X) or flight director (|) first'); break;
+    case 'fgc_alt': if (ap.on || ap.fd) { ap.vert = 'ALT'; ap.vertArm = null; ap.altTgt = ac.out.h; log('SYS', `ALT hold ${Math.round(ac.out.h / FT).toLocaleString()} ft`); } else log('SYS', 'ALT: engage the autopilot (X) or flight director (|) first'); break;
+    case 'fgc_vs': if (ap.on || ap.fd) { ap.vert = 'VS'; ap.vertArm = null; ap.vsTgt = clamp(Math.round(ac.out.vs / 0.508) * 0.508, -20, 20); log('SYS', `VS ${Math.round(ap.vsTgt * 196.85)} ft/min, to the preselected altitude`); } else log('SYS', 'VS: engage the autopilot (X) or flight director (|) first'); break;
+    case 'fgc_ias': case 'fgc_mach': log('SYS', `${id === 'fgc_ias' ? 'IAS' : 'MACH'}: speed modes come with VNAV's climb (no autothrottle); press ) for VNAV`); break;
     case 'machTrim': if (!sys.machTrimFail) { sys.machTrim = !sys.machTrim; log('SYS', `MACH TRIM ${sys.machTrim ? 'ON' : 'OFF'}`); } else log('SYS', 'MACH TRIM — FAIL (inop this scenario)'); break;
     case 'trimMode': sys.trimMode = sys.trimMode === 'PRI' ? 'SEC' : sys.trimMode === 'SEC' ? 'OFF' : 'PRI'; log('SYS', `PITCH TRIM selector — ${sys.trimMode}`); break;
     case 'ap': if (ap.on) ap.disconnect('PILOT'); else if (ac.wow) log('SYS', 'AP will not engage on the ground'); else if (ap.engage(ac.out)) log('SYS', 'AUTOPILOT ENGAGED — ALT/HDG hold'); else log('SYS', 'AP will not engage: attitude out of limits'); break;
@@ -423,7 +436,7 @@ function buildNexImages() {
 function buildReconRows() {
   const rows = []; const last = ghost[ghost.length - 1];
   for (let t = 0; t <= last.t; t += 0.25) {
-    const g = ghostAt(ghost, t); const h = -g.d; const atm = isa(Math.max(0, h), 7);
+    const g = ghostAt(ghost, t); const h = -g.d; const atm = isa(Math.max(0, h), ACCIDENT_DT);
     const kias = g.V * Math.sqrt(atm.rho / RHO0) / KT, mach = g.V / atm.a;
     const gam = g.gamma * RAD;
     // bank: 12° in the course change, then a tightening right spiral (reported 60° at 12:49:02)
@@ -463,7 +476,7 @@ function replayStep(dt) {
   if (!G.lastTrailR || G.t - G.lastTrailR > 0.5) { G.lastTrailR = G.t; (G.trailNE = G.trailNE || []).push([ac.pos[0], ac.pos[1]]); G.trail.push(...nedToWorld(ac.pos)); }
   ac.ctl.elev = L('elev'); ac.ctl.ail = L('ail'); ac.ctl.thr = L('thr'); ac.ctl.sb = Math.round(L('spoiler')); ac.ctl.trim = L('trim'); ac.ice = L('ice'); ac.iceTail = L('ice'); ac.n1 = L('n1'); ac.damage = L('damage');
   ac.tailStalled = a[C.tailStall] > 0.5; const dmg = ac.damage >= 1; ac.broken = dmg; ac.brokenWhat = dmg ? 'stab' : '';
-  const atm = isa(Math.max(0, h), 7); const V = L('kias') * KT / Math.sqrt(atm.rho / RHO0);
+  const atm = isa(Math.max(0, h), ACCIDENT_DT); const V = L('kias') * KT / Math.sqrt(atm.rho / RHO0);
   const vs = L('vs_fpm') * FT / 60;
   ac.vel = [V * Math.cos(hdg), V * Math.sin(hdg), -vs];
   const out = { ...ac.out, h, KIAS: L('kias'), KEAS: L('kias'), M: L('mach'), vs, theta, phi, psi: hdg, track: hdg, alpha: L('alpha') * DEG, beta: 0, nz: L('nz'), V, qbar: 0.5 * atm.rho * V * V,
@@ -536,7 +549,7 @@ function handleEvents() {
     else if (e === 'atc') toggleSwitch('atc');
     else if (e === 'atc_earlier' || e === 'atc_later') { ATC.shift += e === 'atc_earlier' ? 1 : -1; localStorage.setItem('n722bd_atc_shift', ATC.shift); log('SYS', `ATC tape shift ${ATC.shift >= 0 ? '+' : ''}${ATC.shift} s (${ATC.shift > 0 ? 'tape earlier' : ATC.shift < 0 ? 'tape later' : 'as aligned'})`); }
     else if (e === 'comms') { SETTINGS.comms = !SETTINGS.comms; log('SYS', `Synthesized comms voice ${SETTINGS.comms ? 'ON' : 'OFF'}`); }
-    else if (e === 'nexrad') { SETTINGS.nexrad = !SETTINGS.nexrad; G.env.useNex = SETTINGS.nexrad; log('SYS', `NEXRAD volume ${SETTINGS.nexrad ? 'ON (KAMX 17:45:48Z→17:51:04Z)' : 'OFF (synthetic cell)'}`); }
+    else if (e === 'nexrad') { SETTINGS.nexrad = !SETTINGS.nexrad; G.env.useNex = SETTINGS.nexrad; if (G.mode !== 'free') G.env.glm = SETTINGS.nexrad ? GLM : null; log('SYS', `NEXRAD volume ${SETTINGS.nexrad ? 'ON (KAMX 17:45:48Z→17:51:04Z)' : 'OFF (synthetic cell)'}`); }
     else if (e === 'wxr') SETTINGS.wxr = !SETTINGS.wxr;
     else if (e === 'wxr_range') { SETTINGS.wxrRange = SETTINGS.wxrRange === 40 ? 80 : SETTINGS.wxrRange === 80 ? 20 : 40; }
     else if (e === 'sb' || e === 'gear' || e === 'flaps') toggleSwitch(e);
@@ -676,10 +689,10 @@ function frame(now) {
   R.render(S); G.lastFov = S.fov;
   const HS = { out, ac, ap, t: G.t, magvar: G.apt ? G.apt.magvar : (DB.loaded('KDJT') || { magvar: -6 }).magvar, log: G.log, inCloud: env.L.cloud, core: env.L.core, updraft: env.L.updraft, ext: G.ext, hist: G.hist, ghostProfile, ghostAlt, recovered: G.recovered, recoveredAlt: G.recoveredAlt, upsetT: UPSET_T,
     apOffAt: G.apOffAt, apOffWall: G.apOffWall, timeScale: G.timeScale, quality: R.quality, help: G.help, paused: G.paused, hypName: G.hypName, endMsg: G.endMsg, antiice: G.antiice, flash: env.flash, fps,
-    wxr: SETTINGS.wxr && NEX ? { range: SETTINGS.wxrRange, sample: (n, e, h0, h1) => { h0 -= 1500; const w = clamp((G.t - NEX[0].t) / (NEX[1].t - NEX[0].t), 0, 1); return lerp(NEX[0].f.dbzBand(n, e, h0, h1), NEX[1].f.dbzBand(n, e, h0, h1), w); } } : null,
+    wxr: wxrSource(env),
     efb: { mode: SETTINGS.efb, range: SETTINGS.wxrRange }, checklist: evalProcedures(), trimRunaway: G.trimRunaway,
     map: { n: ac.pos[0], e: ac.pos[1], hdg: out.psi || 0, coastX, ghost: ghostNE, trail: G.trailNE || [], nexImg: nexImgs ? nexImgs[(NEX && G.t > (NEX[0].t + NEX[1].t) / 2) ? 1 : 0] : null, nexN0: NEX ? NEX[0].f.z0 : 0, nexN1: NEX ? NEX[0].f.z0 + NEX[0].f.nz * NEX[0].f.d : 0, nexE0: NEX ? NEX[0].f.x0 : 0, nexE1: NEX ? NEX[0].f.x0 + NEX[0].f.nx * NEX[0].f.d : 0 },
-    atcOn: ATC.on, atcShift: ATC.shift, hideHud: G.hideHud, replay: G.phase === 'replay', camMode: G.camEff, camAuto: G.camMode === 3, recon: !!G.recon, nexOn: SETTINGS.nexrad && !!NEX, dbz: env.L.dbz,
+    atcOn: ATC.on, atcShift: ATC.shift, hideHud: G.hideHud, replay: G.phase === 'replay', camMode: G.camEff, camAuto: G.camMode === 3, recon: !!G.recon, nexOn: SETTINGS.nexrad && !!NEX && G.mode !== 'free', freeFlight: G.mode === 'free', dbz: env.L.dbz,
     cockpit3d: !!CK && CK.ready && !G.ext,
     force: G.phase === 'run' ? { pitchLb: G.pc.pitchLb, rollLb: G.pc.rollLb, availP: G.pc.avail('pitch'), availR: G.pc.avail('roll'), stamina: G.pc.stamina, slipping: ap.on && G.pc.slipping } : null };
   if (G.mode === 'free') {
@@ -724,15 +737,29 @@ const $ = (id) => document.getElementById(id);
 const SORTIE = $('sortie');
 const PROC_KIND = { I: 'ILS', L: 'LOC', R: 'RNAV (GPS)', H: 'RNAV (RNP)', V: 'VOR', S: 'VOR', D: 'VOR/DME', N: 'NDB', Q: 'NDB/DME', B: 'LOC BC', X: 'LDA', U: 'SDF', P: 'GPS', J: 'GLS' };
 // procedure ident -> chart-style name: I10L -> ILS RWY 10L, R10LY -> RNAV (GPS) Y RWY 10L, H14-Z -> RNAV (RNP) Z RWY 14
-const procName = (id) => { const m = id.slice(1).match(/^(\d\d[LRC]?)-?([A-Z]?)$/); return m ? `${PROC_KIND[id[0]] || id[0]} ${m[2] ? m[2] + ' ' : ''}RWY ${m[1]}` : `${PROC_KIND[id[0]] || ''} ${id.slice(1)}`.trim(); };
+const procName = (id) => { const c = id.slice(1).match(/^[A-Z]{2}-([A-Z])$/); if (c) return `${PROC_KIND[id[0]] || id[0]}-${c[1]}`;   // circling: RNV-A -> RNAV (GPS)-A
+  const m = id.slice(1).match(/^(\d\d[LRC]?)-?([A-Z]?)$/); return m ? `${PROC_KIND[id[0]] || id[0]} ${m[2] ? m[2] + ' ' : ''}RWY ${m[1]}` : `${PROC_KIND[id[0]] || ''} ${id.slice(1)}`.trim(); };
 const setOpts = (el, list, want) => { el.innerHTML = ''; for (const [v, t] of list) { const o = document.createElement('option'); o.value = v; o.textContent = t; el.appendChild(o); } el.value = list.some((x) => x[0] === want) ? want : list.length ? list[0][0] : ''; };
 const SK = (() => { try { return JSON.parse(localStorage.getItem(FREE_KEY) || '{}'); } catch { return {}; } })();
 setOpts($('sstart'), Object.entries(STARTS).map(([k, v]) => [k, v.name]), SK.start || 'rwy');
 setOpts($('swx'), Object.entries(WEATHER).map(([k, v]) => [k, v.name]), SK.wx || 'calm');
 setOpts($('swt'), Object.entries(WEIGHTS).map(([k, v]) => [k, v.name]), SK.weight || 'typical');
 setOpts($('sfail'), Object.entries(FAILURES).map(([k, v]) => [k, v.name]), SK.fail || 'none');
+function cruiseLabel(a) { return a >= 18000 ? `FL${a / 100}` : `${a.toLocaleString()} ft`; }
 setOpts($('scruise'), [['', 'None (local flight)'], ...[3000, 5000, 7000, 9000, 11000, 13000, 15000, 17000, 19000, 21000, 23000, 25000, 27000, 29000, 31000, 33000, 35000, 37000, 39000, 41000]
-  .map((a) => [String(a), a >= 18000 ? `FL${a / 100}` : `${a.toLocaleString()} ft`])], SK.cruise ?? '');
+  .map((a) => [String(a), cruiseLabel(a)])], SK.cruise ?? '');
+// a cruise altitude from a route (FL240), a .pln or the saved settings: added to the list, in order, if it isn't one of
+// the offered odd thousands (IFR eastbound levels); westbound even levels and others come in this way
+function setCruise(v) {
+  v = Math.round(+v / 100) * 100; if (!(v >= 1000 && v <= 45000)) return false;
+  const sel = $('scruise');
+  if (![...sel.options].some((x) => +x.value === v)) {
+    const o = new Option(cruiseLabel(v), String(v)), after = [...sel.options].find((x) => +x.value > v);
+    sel.insertBefore(o, after || null);
+  }
+  sel.value = String(v); return true;
+}
+if (SK.cruise) setCruise(SK.cruise);
 $('sroute').value = SK.route || '';
 const sortieSel = () => ({ apt: $('sapt').value, rwy: $('srwy').value, sid: $('ssid').value, sidTrans: $('ssidt').value, route: $('sroute').value.trim(), cruise: $('scruise').value,
   arr: $('sarr').value, star: $('sstar').value, starTrans: $('sstart2').value, app: $('sapp').value, trans: $('strans').value,
@@ -760,7 +787,7 @@ function sortieRoute() {
   const r = parseRoute(DB, $('sroute').value, dep, arr);
   if (r.sid) { $('ssid').value = r.sid; fillTrans($('ssidt'), dep, 'SID', r.sid, r.sidTrans || '', [['', 'None']]); }
   if (r.star) { $('sstar').value = r.star; fillTrans($('sstart2'), arr, 'STAR', r.star, r.starTrans || '', [['', 'None']]); }
-  if (r.cruise && [...$('scruise').options].some((x) => x.value === String(r.cruise))) $('scruise').value = String(r.cruise);
+  if (r.cruise) setCruise(r.cruise);
   sortiePreview();
 }
 async function sortieDep(id, keep = {}) {
@@ -802,7 +829,7 @@ async function importPlan({ dep, arr, route, cruise, depRwy, arrRwy }) {
   if (ok(dep)) { $('sapt').value = dep; await sortieDep(dep, { rwy: depRwy }); }
   if (ok(arr)) { $('sarr').value = arr; await sortieArr(arr, {}); if (arrRwy) { const a = procOpts(DB.loaded(arr), 'APP').find((p) => p.id === 'I' + arrRwy) || procOpts(DB.loaded(arr), 'APP').find((p) => runwayOfApp(p.id) === arrRwy); if (a) { $('sapp').value = a.id; fillTrans($('strans'), DB.loaded(arr), 'APP', a.id, 'auto', [['auto', 'Auto (route / vectors)'], ['', 'None (from the intermediate fix)']]); } } }
   $('sroute').value = route || '';
-  if (cruise) { const v = [...$('scruise').options].map((x) => +x.value).filter(Boolean).reduce((b, x) => (Math.abs(x - cruise) < Math.abs(b - cruise) ? x : b), 35000); $('scruise').value = String(v); }   // the nearest offered level
+  if (cruise) setCruise(cruise);
   sortieRoute();
   if (miss.length) { $('splan').textContent = `${miss.join(', ')} not in the nav database (airports within 160 nm of Palm Beach). ` + $('splan').textContent; $('splan').classList.add('err'); }
 }
@@ -857,6 +884,15 @@ function applyRot() {
   const x = c.getContext('2d'); x.translate(c.width / 2, c.height / 2); x.rotate(PL.rot * Math.PI / 180); x.drawImage(im, -im.naturalWidth / 2, -im.naturalHeight / 2);
   img.src = c.toDataURL('image/png');
 }
+// the weather radar's reflectivity source: the KAMX volume (real weather), the modelled cell (real weather off), or clear
+// air in free flight (no storm there)
+function wxrSource(env) {
+  if (!SETTINGS.wxr) return null;
+  const range = SETTINGS.wxrRange;
+  if (G.mode === 'free') return { range, sample: () => -30 };
+  if (SETTINGS.nexrad && NEX) return { range, sample: (n, e, h0, h1) => { h0 -= 1500; const w = clamp((G.t - NEX[0].t) / (NEX[1].t - NEX[0].t), 0, 1); return lerp(NEX[0].f.dbzBand(n, e, h0, h1), NEX[1].f.dbzBand(n, e, h0, h1), w); } };
+  return { range, sample: (n, e, h0, h1) => env.local([n, e, -(h0 + h1) / 2], G.t).dbz };
+}
 // ---- direct to (the FMS DIR key, @): a fix of the plan ahead, or any fix by ident ----
 const DTO = { el: document.getElementById('dto') };
 DTO.inp = document.getElementById('dtofix'); DTO.list = DTO.el.querySelector('.dlist'); DTO.note = DTO.el.querySelector('.dnote');
@@ -895,6 +931,8 @@ function togglePlates() {
   if (PL.el.classList.contains('hidden')) {
     let i = 0;   // open on the approach ahead, or the airport diagram on the ground
     if (G && G.mode === 'free') {
+      const here = G.ac.wow ? G.free.apt : (G.apt ? G.apt.id : G.free.apt);   // the field you're at, or the one you're going to
+      if (PL.meta.icao && here !== PL.meta.icao) { log('SYS', `No approach plates for ${here} in this build (plates ship for ${PL.meta.icao} only)`); return; }
       const rw = G.legs && G.legs.length ? approachRunway(G.legs, G.free.app) : null;
       const app = G.free.app || '', mine = (c) => c.code === 'IAP' && c.title.endsWith('RWY ' + rw) && (app[0] === 'I' ? /^ILS/.test(c.title) : app[0] === 'L' ? /LOC/.test(c.title) : c.title === procName(app));
       const k = G.ac.wow || !rw ? PL.meta.charts.findIndex((c) => c.code === 'APD') : PL.meta.charts.findIndex(mine);
@@ -918,7 +956,7 @@ IN.onClick = (x, y) => {
   else h = H.hit(x, y);
   if (!h) return false; toggleSwitch(h.id); return true;
 };
-window.SIM = { get G() { return G; }, R, ATC, SETTINGS, IN, FF, CK, H, get NEX() { return NEX; } };   // debug / flight-data access from the console
+window.SIM = { get G() { return G; }, R, ATC, SETTINGS, IN, FF, CK, H, toggle: toggleSwitch, get NEX() { return NEX; } };   // debug / flight-data access from the console
 // debug inspection shots: #shot=x,y,z,yaw,pitch,fov[,nex 0/1[,t]]  (starts the reconstruction paused at t with a free camera)
 if (location.hash.startsWith('#shot=')) {
   const v = location.hash.slice(6).split(',').map(Number);

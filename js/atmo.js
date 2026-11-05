@@ -5,7 +5,7 @@ export function isa(h, dT = 0) {
   let T, p;
   if (h < 11000) { T = T0 - L * h; p = p0 * Math.pow(T / T0, G0 / (L * R)); }
   else { T = 216.65; p = 22632.06 * Math.exp(-G0 * (h - 11000) / (R * T)); }
-  T += dT;                       // scenario day was ISA+7 (OAT -47C at FL350)
+  T += dT;                       // temperature deviation from ISA, K (the accident day: ISA+11, KMFL sounding)
   const rho = p / (R * T), a = Math.sqrt(1.4 * R * T);
   return { T, p, rho, a };
 }

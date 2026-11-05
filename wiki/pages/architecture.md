@@ -25,16 +25,16 @@ The README's Development table, extended to every file in `js/`:
 | `js/ffb.js` | `ForceFeedback`: USB PID force-feedback driver over WebHID |
 | `js/ground.js` | Landing gear, tyres, brakes, steering, ground effect, airframe contact; runway list; `groundAlt` |
 | `js/freeflight.js` | Free-flight starts, weather and weight presets, `FreeEnv`, the trim solver, `configureGuidance` |
-| `js/navdb.js` | `NavDB`: the FAA CIFP database in `data/nav`, the local projection (`LAT0`, `LON0`, `toNE`), procedure assembly |
+| `js/navdb.js` | `NavDB`: the FAA CIFP database in `data/nav` with the NASR marker beacons attached to each ILS, the local projection (`LAT0`, `LON0`, `toNE`), procedure assembly |
 | `js/fms.js` | `FMS`: the ARINC 424 leg engine (LNAV, VNAV, holds, direct to) |
 | `js/route.js` | Route strings, MSFS `.pln` import, whole-plan assembly (SID, airways, STAR, approach, vectors to final) |
-| `js/nav.js` | ILS deviations for any ILS in the database |
+| `js/nav.js` | ILS deviations and marker beacon reception for any ILS in the database |
 | `js/afm.js` | AFM takeoff speeds (Fig 5-42) and VREF (Fig 5-66) |
 | `js/scenario.js` | The accident: storm, `NexradField`, ADS-B ghost track, ATC timeline, hypotheses, `Environment`, `Autopilot` (AP and FD modes), `RecoveryJudge` |
 | `js/render.js` | `Renderer`: the WebGL2 HDR pipeline |
 | `js/shaders.js` | GLSL for the renderer: atmosphere, clouds, ground, post-processing |
 | `js/sun.js` | Solar position (NOAA low-precision ephemeris) for the scenario clock |
-| `js/anim.js` | Keyframe helpers for the converted FS2004 models |
+| `js/anim.js` | Keyframe helpers for the converted models (FS2004 MDL8 format) |
 | `js/hud.js` | `HUD`: the 2D panel overlay, EFB tablet, profile chart, comm log |
 | `js/pfd.js` | `drawPfd`: the Pro Line 4-style primary flight display, drawn into any box |
 | `js/cockpit.js` | `Cockpit`: the 3D virtual cockpit, with live instruments mapped onto its panel |

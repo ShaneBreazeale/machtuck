@@ -48,7 +48,8 @@ box, `sortieRoute` parses it. Any SID, STAR or cruise level it finds is copied i
 
 - A SID in the route sets **SID** and, if the next token is one of its transitions, the SID **Transition**.
 - A STAR at the end sets **STAR** and, if the fix before it is one of its transitions, the STAR **Transition**.
-- A cruise token (`FL210`, `/F210`, `N0450F210`) sets **Cruise altitude**, but only if the list has that level.
+- A cruise token (`FL210`, `/F210`, `N0450F210`) sets **Cruise altitude**. A level the list doesn't offer is added
+  to it, in order.
 
 The selectors win after that. If you change the SID dropdown by hand, the plan uses the dropdown, and only the
 route's fixes and airways go in between. The full syntax is on [IFR routes](routes.md#route-syntax).
@@ -57,8 +58,9 @@ route's fixes and airways go in between. The full syntax is on [IFR routes](rout
 17,000 ft, FL190, FL210 … FL410). With a cruise altitude, VNAV climbs to it after takeoff and holds it to the top of
 descent. See [FMS and navigation](fms.md#vnav).
 
-> **Note:** Because the list holds only odd thousands, an even level in the route (`/F240`) is parsed but doesn't
-> change the **Cruise altitude** selector.
+The odd thousands are the IFR eastbound levels. Any other level from 1,000 to 45,000 ft, such as a westbound even
+level (`/F240`), comes in from the route, an imported plan or your saved settings: it is rounded to 100 ft and added
+to the list.
 
 ### Importing a plan
 
@@ -76,7 +78,7 @@ descent. See [FMS and navigation](fms.md#vnav).
 2. Selects SimBrief's planned departure runway, and an approach to its planned arrival runway (the ILS if there is
    one, otherwise any approach to that runway), with the approach transition set to **Auto**.
 3. Copies the route string into the **Route** box.
-4. Sets **Cruise altitude** to the offered level nearest the plan's cruise altitude.
+4. Sets **Cruise altitude** to the plan's cruise altitude, adding it to the list if it isn't offered.
 5. Runs `sortieRoute`, so a SID or STAR in the route is selected.
 
 The field mapping is listed on [IFR routes](routes.md#importing-plans).
@@ -188,10 +190,11 @@ departure that is no longer in the database falls back to KDJT, and a missing ar
 4. **The localizer**, if the approach is flown on one: ident, frequency, magnetic course, and either the glideslope
    angle or "localizer only: no glideslope (GP flies the FMS path)". The minimums follow, with "Press ~ for the
    plates." when plates are loaded for that airport.
-5. **Minimums**: the plate's DA or MDA, or the fallback height above touchdown. See
+5. **Minimums**: the plate's DA or MDA; for an RNAV (GPS) approach without a plate, the FAA master RNAV list's (dated
+   2019); otherwise the fallback height above touchdown (200 ft on an ILS with a glideslope, 400 ft on the rest). See
    [Approaches and minimums](approaches.md#minimums).
-6. **Speeds**: the AFM V1, VR and V2 for your weight on a runway start, or VREF flaps 40 on a final start (with a
-   warning above the 19,500 lb maximum landing weight).
+6. **Speeds**: the AFM V1, VR and V2 for your weight and the departure runway's elevation on a runway start, or
+   VREF flaps 40 on a final start (with a warning above the 19,500 lb maximum landing weight).
 7. **Failure armed**, if you chose one.
 
 For flying the airplane after that, see [Autopilot and flight director](flight-guidance.md) and

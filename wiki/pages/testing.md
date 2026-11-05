@@ -18,9 +18,21 @@ The whole suite takes about 20 seconds. The slowest files are `recovery_test.mjs
 `force_test.mjs` (about 4 s), `flight_test.mjs` (about 3 s) and `performance_test.mjs` (about 2 s); the rest finish
 in a second or less.
 
-> **Note:** Not every file can fail. The checks print what they measured, and the ones with pass/fail expectations
-> exit non-zero when one is missed. `afm_validate.mjs`, `flight_test.mjs`, `mission.mjs`, `sim_test.mjs` and
-> `stab_test.mjs` are reports: read their output against the reference values they print.
+Every file prints what it measured and exits 1 when a check fails. The report-style files have pass limits too:
+
+| File | Fails when |
+|---|---|
+| `afm_validate.mjs` | Max-continuous N1 rms above 2.0 %N1 or any point above 5.0 %N1; single-engine climb gradient rms above 1.0 % |
+| `flight_test.mjs` | A row marked FAIL (see below) |
+| `mission.mjs` | The NBAA range is more than 5 % from the published 2,405 nm |
+| `sim_test.mjs` | The ghost track meets the ground outside t = 152 ± 3 s, or any run goes non-finite |
+| `stab_test.mjs` | A departure: bank reaches 30° within 40 s, or the state goes non-finite |
+
+`flight_test.mjs` marks each row of its card PASS, FAIL or BIAS; rows without a pass test are left blank. BIAS is a
+known model bias, reported but not failed. Five rows are BIAS today: the FL400 low-speed buffet Mach and the
+buffet-onset g at M 0.70 (the SAE 932534 boundary sits above AFM Fig 5-24), the FL410 max level Mach (0.798 against
+≥ 0.81), Dutch roll damping with the yaw damper off (0.06 against ≥ 0.08), and the elevator step (1.18 g against
+1.2 to 1.4). `STRICT=1` fails them. See [Validation](validation.md).
 
 Run the suite before you open a pull request. See [Contributing](contributing.md).
 
@@ -29,20 +41,20 @@ Run the suite before you open a pull request. See [Contributing](contributing.md
 | File | Checks | Fails on error |
 |---|---|---|
 | `test/aero_validate.mjs` | Aerodynamics against what the AFM publishes: the Fig 5-24 buffet-boundary worked example, the FL350 buffet envelope and its sensitivity, Mach-tuck trim gradient against the Mach limits, and that both difficulty modes fly identical trajectories | Yes |
-| `test/afm_validate.mjs` | Max-continuous N1 against Fig 5-31, and the single-engine final-segment climb gradient against Fig 5-62, from the tables in `test/afm_tables.json` | Report |
+| `test/afm_validate.mjs` | Max-continuous N1 against Fig 5-31, and the single-engine final-segment climb gradient against Fig 5-62, from the tables in `test/afm_tables.json` | Yes |
 | `test/ffb_test.mjs` | The WebHID force-feedback driver (`js/ffb.js`) against two simulated USB PID sticks, parsed the way Chromium does, plus the force-feedback side of `js/controls.js` | Yes |
-| `test/flight_test.mjs` | The flight-test card, in calm air: stall speeds (Fig 5-22), buffet onset (Fig 5-24 and SAE 932534), max g at the 20 VA points (EASA TCDS), cruise thrust and fuel flow, max level speed, time to climb, and the handling modes (short period, phugoid, Dutch roll, roll, spiral) | Report |
+| `test/flight_test.mjs` | The flight-test card, in calm air: stall speeds (Fig 5-22), buffet onset (Fig 5-24 and SAE 932534), max g at the 20 VA points (EASA TCDS), cruise thrust and fuel flow, max level speed, time to climb, and the handling modes (short period, phugoid, Dutch roll, roll, spiral) | Yes (known biases only with `STRICT=1`) |
 | `test/fms_test.mjs` | The FMS on the FAA CIFP: KDJT ILS 10L via GULLO, LNAV and VNAV to the localizer and glideslope, a go-around at 200 ft, the published missed approach and the MORGA hold, hold entries, VNAV against the preselected altitude | Yes |
 | `test/force_test.mjs` | Control forces (`js/controls.js`): calibration against the AFM figure, normal handling, pilot fatigue, the autopilot's clutched servos, and the as-flown upset recovered by an AFM-procedure pilot with and without force limits | Yes |
 | `test/ground_test.mjs` | Ground model and free-flight setup: struts at rest, takeoff and rotation, tail strike, braking, nosewheel steering, Part 25 touchdown limits, gear-up landing, ground effect, the trim solver | Yes |
 | `test/hardware_test.mjs` | Flight hardware input (`js/hardware.js`) with simulated devices: hat decoding, calibration, binding by moving or pressing, several devices at once, absolute throttle, defaults, persistence | Yes |
-| `test/mission.mjs` | The NBAA IFR range mission flown on the model's drag and engine, against the published 2,405 nm | Report |
-| `test/nav_test.mjs` | ILS deviations (`js/nav.js`) and the flight-guidance modes: signs and scaling, altitude capture, a coupled ILS 10L to 200 ft, the heading knob, FD go-around and missed approach, FD takeoff mode, an early go-around, the 28R missed approach | Yes |
+| `test/mission.mjs` | The NBAA IFR range mission flown on the model's drag and engine, against the published 2,405 nm | Yes |
+| `test/nav_test.mjs` | ILS deviations (`js/nav.js`) and the flight-guidance modes: signs and scaling, altitude capture, a coupled ILS 10L to 200 ft, the heading knob, FD go-around and missed approach, FD takeoff mode, an early go-around, the 28R missed approach, the marker beacons (the KFMY ILS 05 outer marker heard overhead and not 2 nm before it; none on KDJT 10L and 28R) | Yes |
 | `test/performance_test.mjs` | Takeoff field length (Fig 5-38) and landing distance (Fig 5-74), flown the way the AFM measured them: accelerate-go, accelerate-stop, 115 % of all-engine, landing from 50 ft at VREF | Yes |
 | `test/recovery_test.mjs` | The pass/fail judge: an early takeover that only holds level flight must not count as a recovery. Flies the as-flown scenario with three pilots and compares the old rule with `RecoveryJudge` | Yes |
 | `test/route_test.mjs` | IFR routes (`js/route.js`): route-string parsing, MSFS `.pln` import, plan assembly, and a whole flight from KDJT 10L via TBIRD8, CHEFS and MUNGI1 to the ILS 18R at KMCO | Yes |
-| `test/sim_test.mjs` | The ADS-B ghost track, and the combined hypothesis flown with several simple pilots in both difficulty modes | Report |
-| `test/stab_test.mjs` | Open-loop stability: trimmed cruise with a 5° roll perturbation and no autopilot; expects slow spiral and Dutch roll, no departure | Report |
+| `test/sim_test.mjs` | The ADS-B ghost track, and the combined hypothesis flown with several simple pilots in both difficulty modes | Yes |
+| `test/stab_test.mjs` | Open-loop stability: trimmed cruise with a 5° roll perturbation and no autopilot; expects slow spiral and Dutch roll, no departure | Yes |
 
 `test/afm_tables.json` is data, not a test: AFM FM-123 (Change 37) Section V tables transcribed from the scan on
 archive.org, used by `afm_validate.mjs` and `performance_test.mjs`.
@@ -57,6 +69,7 @@ The navigation tests (`fms_test.mjs`, `nav_test.mjs`, `route_test.mjs`) read the
 |---|---|---|
 | `MODE=trainer` | `force_test.mjs`, `recovery_test.mjs` | Fly the trainer's autopilot (slower auto-trim, no nose-down handover trim). The airplane is the same |
 | `AERO_STRICT=1` | `aero_validate.mjs` | Make the known buffet-boundary bias fail the suite instead of only being reported |
+| `STRICT=1` | `flight_test.mjs` | Make the five known-bias rows fail instead of reading BIAS |
 | `HYP=combined,tail,tuck,trim` | `recovery_test.mjs` | Run only the listed hypotheses |
 | `SEEDS=1,2,3,4,5` | `recovery_test.mjs` | Random seeds for turbulence, gusts and lightning, one run per seed |
 | `DBG` | `recovery_test.mjs`, `fms_test.mjs` | Print a trace while flying (`recovery_test.mjs` takes an interval in seconds) |
@@ -70,6 +83,7 @@ For example:
 ```bash
 MODE=trainer node test/force_test.mjs
 AERO_STRICT=1 node test/aero_validate.mjs
+STRICT=1 node test/flight_test.mjs
 HYP=tail SEEDS=1 node test/recovery_test.mjs
 ```
 

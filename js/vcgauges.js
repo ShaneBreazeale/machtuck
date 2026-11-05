@@ -93,11 +93,12 @@ export const GAUGES = {
     txt(ctx, h.fgcText(S), 734, 52, 15, S.ap.on ? '#7fd7ff' : '#ffb000', 'center', '');
   } },
   // flight-guidance push-buttons on the glareshield face either side of the trim display (4x the 512 panel
-  // space from x 100, y 466): labelled caps, green bar lit for the engaged modes; AP and YD are clickable
+  // space from x 100, y 466): labelled caps, the green bar lit for the selected or armed mode; each cap is its own button
   apLights: { w: 1168, h: 92, every: 3, bg: null, at: [['$panup', 100, 466, 292, 23]], draw(ctx, S, h) {
-    const ap = S.ap.on, yd = S.ac.ctl.yd;
-    const groups = [[8, 84, [['HDG', ap, 'ap'], ['NAV', false, 'ap'], ['APR', false, 'ap'], ['ALT', ap, 'ap'], ['VS', false, 'ap']]],
-      [670, 97, [['AP', ap, 'ap'], ['YD', yd, 'yd'], ['FD', ap, 'ap'], ['IAS', false, 'ap'], ['MACH', ap, 'ap']]]];
+    const a = S.ap, g = a.on || a.fd, cs = a.climbSpd && a.vert === 'VNAV';
+    const groups = [[8, 84, [['HDG', g && a.lat === 'HDG', 'fgc_hdg'], ['NAV', g && (a.lat === 'LNAV' || a.lat === 'LOC' || a.latArm === 'LNAV' || a.latArm === 'LOC'), 'fgc_nav'],
+      ['APR', g && a.appr, 'fgc_apr'], ['ALT', g && (a.vert === 'ALT' || a.vert === 'ALTS'), 'fgc_alt'], ['VS', g && a.vert === 'VS', 'fgc_vs']]],
+      [670, 97, [['AP', a.on, 'ap'], ['YD', S.ac.ctl.yd, 'yd'], ['FD', !!a.fd, 'fgc_fd'], ['IAS', g && cs && !a.climbMach, 'fgc_ias'], ['MACH', g && cs && a.climbMach, 'fgc_mach']]]];
     for (const [x0, bw, btns] of groups) {
       const gw = btns.length * bw + 12;
       ctx.fillStyle = '#1b1d21'; ctx.strokeStyle = '#4a4e56'; ctx.lineWidth = 3; ctx.beginPath(); ctx.roundRect(x0, 2, gw, 88, 8); ctx.fill(); ctx.stroke();
@@ -154,7 +155,7 @@ export const GAUGES = {
     needle(ctx, cx, cy, ((t / 3600) % 12) / 12 * 2 * Math.PI, r * 0.5, 7); needle(ctx, cx, cy, ((t / 60) % 60) / 60 * 2 * Math.PI, r * 0.8, 5);
     needle(ctx, cx, cy, (t % 60) / 60 * 2 * Math.PI, r * 0.85, 2, '#e33'); glassShine(ctx, 240, 240, r);
   } },
-  // landing gear: three greens / red in transit, and the lever (click to cycle)
+  // landing gear: three greens when down, red when down above VLE (260 KIAS), and the lever (click to cycle)
   gear: { w: 180, h: 135, every: 4, at: [['$panL', 924, 376, 60, 45]], draw(ctx, S) {
     const dn = S.ac.ctl.gear > 0, unsafe = S.out.KIAS > 260 && dn;
     for (const [x, y, l] of [[90, 30, 'NOSE'], [40, 95, 'LH'], [140, 95, 'RH']]) flagLight(ctx, x - 34, y - 22, 68, 44, l, dn, unsafe ? '#ff3030' : '#3cff50', 16);

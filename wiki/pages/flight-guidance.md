@@ -213,16 +213,17 @@ The autopilot disconnects when:
 | Mach above 0.845 | `OVERSPEED` |
 | Bank above 50°, or descending faster than 45 m/s (about 8,900 ft/min) | `ATTITUDE` |
 
-The automatic disconnects (on the ground, pitch, overspeed, attitude) sound the disconnect tone, flash **AP** on the
-mode band and log `AUTOPILOT DISCONNECT — <reason>. YOUR AIRPLANE.`. The ones you cause (`X`, trim, TOGA) happen
-between simulation steps and don't produce that log line. A go-around logs its own `GO AROUND — …` message, and with
-the FD off the mode band shows `AP OFF` and the reason.
+Every disconnect, automatic or yours, sounds the disconnect tone, flashes **AP** on the mode band and logs
+`AUTOPILOT DISCONNECT — <reason>. YOUR AIRPLANE.`. The ones you cause (`X`, trim, TOGA) happen between simulation
+steps; the next step picks them up. A go-around also logs its own `GO AROUND — …` message, and with the FD off the
+mode band shows `AP OFF` and the reason.
 
 If the FD is off at the moment of disconnect, the approach and armed modes are cleared too. With the FD on, its modes
 carry on and the bars keep guiding you.
 
 The servos are clutched and have limited authority. You can overpower them, but the AP stays engaged and keeps
-trimming against you until you disconnect it. The log then warns `AP SERVO SLIPPING`. See
+trimming against you until you disconnect it. The autopilot has no rudder channel, so the pedals always move the
+rudder; the yaw damper is separate. The log then warns `AP SERVO SLIPPING`. See
 [Flight model](flight-model.md) for the control forces.
 
 ## The flight director without the autopilot

@@ -212,7 +212,7 @@ export class Renderer {
     path([x + (R() - 0.5) * 2000, base, z + (R() - 0.5) * 2000], [x, 0, z], 9, 1400);
     this.bolt = { x, z, v: new Float32Array(seg) };
   }
-  // Real building footprints (data/ground/buildings.bin, OpenStreetMap, ODbL): walls + hip roofs (houses) or ear-clipped
+  // Real building footprints (data/ground/buildings.bin, Overture Maps: OpenStreetMap + Microsoft, ODbL): walls + hip roofs (houses) or ear-clipped
   // flat roofs, one static mesh in metres relative to the area's south-west corner
   async loadBuildings(base = 'data/ground/') {
     const gl = this.gl;

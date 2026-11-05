@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import { Learjet60 } from '../js/aircraft.js';
 import { Autopilot } from '../js/scenario.js';
 import { setupStart, setWeight, FreeEnv, configureGuidance } from '../js/freeflight.js';
-import { NavDB, procedureLegs } from '../js/navdb.js';
+import { NavDB, procedureLegs, rnavListMinimums } from '../js/navdb.js';
 import { FMS } from '../js/fms.js';
 import { nearestIls } from '../js/nav.js';
 import { vref } from '../js/afm.js';
@@ -40,6 +40,13 @@ const speedHold = (ac, o, kias) => { ac.ctl.thr = clamp(ac.ctl.thr + (kias - o.K
   const got = [min('ILS OR LOC RWY 10L', 'S-ILS'), min('ILS OR LOC RWY 10L', 'S-LOC'), min('ILS OR LOC RWY 28R', 'S-ILS'), min('ILS OR LOC RWY 28R', 'S-LOC'), min('RNAV (GPS) Y RWY 14', 'LNAV/VNAV'), min('RNAV (GPS) Y RWY 10L', 'LNAV')];
   expect(got.join(' ') === '216 380 218 460 338 440', `plate minimums (Cat C): ILS 10L DA ${got[0]}, LOC 10L MDA ${got[1]}, ILS 28R DA ${got[2]}, LOC 28R MDA ${got[3]}, RNAV Y 14 LNAV/VNAV DA ${got[4]}, RNAV Y 10L LNAV MDA ${got[5]}`);
 }
+// ---- RNAV minimums where no plate is loaded: the FAA master RNAV list (tools/fetch_rnav_minimums.py) ----
+{
+  const L = db.rnavMins, exact = rnavListMinimums(L, 'KMCO', 'RNAV (GPS) RWY 17R'), renamed = rnavListMinimums(L, 'KMCO', 'RNAV (GPS) Y RWY 18R');
+  expect(exact && exact.type === 'LNAV/VNAV' && exact.alt === 526, `KMCO RNAV (GPS) RWY 17R: ${exact && exact.type} ${exact && exact.alt} ft (list, effective ${L && L.effective['LNAV/VNAV']})`);
+  expect(renamed && /listed as RNAV \(GPS\) RWY 18R/.test(renamed.chart) && !rnavListMinimums(L, 'KMCO', 'RNAV (GPS) RWY 99'), `renamed since the list (Y RWY 18R): ${renamed && renamed.chart.split(',')[0]}; an unknown runway gives none`);
+}
+
 // ---- approach arming by procedure type ----
 {
   const arm = (app) => { const ap = new Autopilot(true), fms = new FMS(); fms.load(procedureLegs(apt, 'APP', app)); ap.fms = fms; ap.fd = true; ap.on = false; ap.appr = true;

@@ -31,6 +31,8 @@ it. For what the sim does with the data, see [Real weather and ATC data](weather
 | `data/ground/buildings.bin`, `buildings.json` | 62,192 buildings with measured heights around the impact area | `tools/fetch_buildings.py` |
 | `data/ground/trees.bin`, `trees.json` | 511,964 trees with heights and crown radii | `tools/fetch_canopy_trees.py` |
 | `data/nav/index.json`, `enroute.json`, `runways.json`, `apt/<ICAO>.json` | FAA CIFP nav database: 72 airports | `tools/fetch_cifp.py` |
+| `data/nav/markers.json` | Operational ILS marker beacons from the FAA NASR | `tools/fetch_markers.py` |
+| `data/nav/rnav_minimums.json` | RNAV straight-in minimums from the FAA master RNAV list | `tools/fetch_rnav_minimums.py` |
 | `data/plates/*.png`, `plates.json` | KDJT approach plates, airport diagram and straight-in minimums | `tools/fetch_plates.py` |
 | `data/ext/` | Exterior model (`ext.json`, `ext.bin`, textures) and the N722BD livery textures | `tools/fs9_ext.py`, `tools/livery.py` |
 | `data/vc/` | Virtual cockpit model (`vc.json`, `vc.bin`, textures) | `tools/fs9_vc.py` |
@@ -191,6 +193,42 @@ python3 tools/fetch_cifp.py --url <URL of the new CIFP_xxxxxx.zip>
 
 The sim logs the cycle from `index.json` when it loads (`[NAVDB] cycle ...`) and shows it in the flight-plan log line.
 
+### Marker beacons
+
+```bash
+python3 tools/fetch_markers.py [--nav data/nav] [--cycle Current] [--delay 1.0]
+```
+
+The CIFP has no marker records, so the outer, middle and inner markers come from the FAA's National Airspace System
+Resource database (NASR), read through eNASR (`https://enasr.faa.gov/eNASR/nasr/`). Standard library only. Run it
+after `fetch_cifp.py`: it reads the ILS already in `data/nav` and looks up only those.
+
+1. Fetches the eNASR list of every US ILS and matches each one to an ILS in `data/nav` by airport, localizer and
+   runway.
+2. Fetches the detail page of each matched ILS, one request at a time, `--delay` seconds apart (1 s by default).
+3. Keeps only the markers whose status is OPERATIONAL. Most US markers are decommissioned, and a decommissioned
+   marker must stay silent in the cockpit.
+4. Writes `data/nav/markers.json`: the cycle, the source URL, and per airport and ILS each marker's type (OM, MM or
+   IM), ident, name, position and elevation.
+
+A failed lookup leaves that ILS without markers. The file is optional: without it the sim simply has no markers.
+The shipped file holds four markers, at KFMY, KPIE and KTPA; see
+[Approaches and minimums](approaches.md#marker-beacons).
+
+### RNAV minimums list
+
+`tools/fetch_rnav_minimums.py` downloads the FAA's "All Approaches - Master RNAVs" spreadsheet
+(`MasterRNAVs-20211222.xlsx`, linked from
+https://www.faa.gov/about/officeorg/headquartersoffices/ato/all-approaches-master-rnavs), reads its `LNAVs` and
+`LNAV-VNAVs` sheets with the standard library (it refuses any XML part with a DOCTYPE), keeps the airports in
+`data/nav/index.json` (FAA id = the ICAO id without its K) and writes `data/nav/rnav_minimums.json`: per airport and
+chart name, the LNAV MDA and LNAV/VNAV DA with HAT and visibility, plus each sheet's effective date (31 Jan 2019 in this
+file). `--xlsx FILE` uses a copy you already have. The LPV sheet isn't used: the airplane has no WAAS.
+
+```bash
+python3 tools/fetch_rnav_minimums.py
+```
+
 ### Plates and minimums
 
 ```bash
@@ -244,7 +282,7 @@ model's own cheat line recoloured, so the livery is an approximation, not a copy
 |---|---|
 | NOAA NEXRAD, GOES, GLM; NWS METARs and soundings | US Government data, public domain |
 | USGS imagery and NHD; NASA Blue Marble; Natural Earth | Public domain |
-| FAA CIFP and d-TPP | US Government work, public domain. Not for navigation |
+| FAA CIFP, NASR and d-TPP | US Government work, public domain. Not for navigation |
 | Overture buildings (`buildings.bin`) | © OpenStreetMap contributors and Microsoft, ODbL 1.0 |
 | Canopy height (`trees.bin`) | Meta and the World Resources Institute, CC BY 4.0 |
 | KPBI boundary in `js/ground.js` | OpenStreetMap, ODbL |

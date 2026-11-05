@@ -12,10 +12,13 @@ const browserLoad = (base) => (p) => fetch(base + p).then((r) => { if (!r.ok) th
 export class NavDB {
   constructor({ base = 'data/nav/', load = null } = {}) { this.load = load || browserLoad(base); this.apts = new Map(); this.index = null; this.enroute = null; }
   async init() {
-    [this.index, this.enroute] = await Promise.all([this.load('index.json'), this.load('enroute.json')]);
+    [this.index, this.enroute, this.markers] = await Promise.all([this.load('index.json'), this.load('enroute.json'),
+      this.load('markers.json').catch(() => null)]);   // operational ILS markers from the FAA NASR (tools/fetch_markers.py), optional
+    this.rnavMins = await this.load('rnav_minimums.json').catch(() => null);   // FAA master RNAV list (tools/fetch_rnav_minimums.py), optional
     this.byId = new Map();
     for (const w of this.enroute.waypoints) this.byId.set(w.id, { ...w, ne: toNE(w.lat, w.lon), kind: 'WPT' });
-    for (const v of [...this.enroute.vhf, ...this.enroute.ndb]) this.byId.set(v.id, { ...v, ne: toNE(v.lat, v.lon), kind: v.freq > 190 ? 'VOR' : 'NDB' });
+    for (const v of this.enroute.vhf) this.byId.set(v.id, { ...v, ne: toNE(v.lat, v.lon), kind: 'VOR' });   // VHF (MHz)
+    for (const v of this.enroute.ndb) this.byId.set(v.id, { ...v, ne: toNE(v.lat, v.lon), kind: 'NDB' });   // NDB (kHz)
     for (const a of this.index.airports) this.byId.set(a.id, { ...a, ne: toNE(a.lat, a.lon), kind: 'APT' });
     return this;
   }
@@ -28,7 +31,8 @@ export class NavDB {
     for (const [iid, l] of Object.entries(raw.ils)) {
       const rw = apt.runways[l.runway];
       apt.ils[iid] = { ...l, ne: toNE(l.lat, l.lon), crsT: wrap360(l.brgMag + (l.decl ?? apt.magvar)), dmeNe: l.dmeLat ? toNE(l.dmeLat, l.dmeLon) : null,
-        thr: rw ? rw.ne : null, thrElev: rw ? rw.elev : apt.elev, apt: id };
+        thr: rw ? rw.ne : null, thrElev: rw ? rw.elev : apt.elev, apt: id,
+        markers: ((this.markers && this.markers.airports[id] || {})[iid] || []).map((m) => ({ type: m.type, ne: toNE(m.lat, m.lon), elev: m.elev ?? apt.elev })) };
     }
     this.apts.set(id, apt);
     return apt;
@@ -115,4 +119,24 @@ export function airwayLegs(db, awy, from, to) {
   if (i < 0 || j < 0) throw new Error(`${awy} does not join ${from} and ${to}`);
   const seg = i < j ? pts.slice(i + 1, j + 1) : pts.slice(j, i).reverse();
   return seg.map((p) => ({ pt: 'TF', fix: { id: p.id, ne: toNE(p.lat, p.lon) }, alt: null, kind: 'ENR', proc: awy, turn: null }));
+}
+
+// RNAV straight-in minimums from the FAA master RNAV list (data/nav/rnav_minimums.json, tools/fetch_rnav_minimums.py),
+// for an approach chart title such as "RNAV (GPS) Y RWY 18R". The list is older than the charts (its LNAV and LNAV/VNAV
+// sheets are effective 2019-01-31), so the result says where it came from. An approach renamed since (a Y / Z suffix
+// added) falls back to the one RNAV (GPS) approach the list has for that runway, if there is exactly one. LNAV/VNAV
+// first (the Learjet 60 has baro-VNAV, not WAAS), else LNAV. Returns { alt, type, straightIn, chart } or null.
+export function rnavListMinimums(L, aptId, title) {
+  if (!L || !title) return null;
+  const list = L.airports[aptId] || {};
+  let name = list[title] ? title : null;
+  if (!name) {
+    const rw = (title.match(/RWY (\w+)$/) || [])[1];
+    const same = rw ? Object.keys(list).filter((k) => /^RNAV \(GPS\) ([A-Z] )?RWY /.test(k) && k.endsWith('RWY ' + rw)) : [];
+    if (same.length === 1) name = same[0];
+  }
+  const a = name && list[name]; if (!a) return null;
+  for (const t of ['LNAV/VNAV', 'LNAV']) if (a[t]) return { alt: a[t].alt, type: t, straightIn: true,
+    chart: `${name === title ? title : `listed as ${name}`}, FAA master RNAV list effective ${L.effective[t]}: older than the current chart` };
+  return null;
 }

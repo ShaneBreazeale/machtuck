@@ -18,6 +18,8 @@ const stats = (errs) => { const a = errs.filter(Number.isFinite); const mean = a
 
 // ---- 1. MCT N1, anti-ice off. All engines: 250 KIAS to FL320, M0.70 above.
 //      Single engine: 200 KIAS to 21k, M0.45 to 29k, 170 KIAS to 49k, M0.70 above.
+// pass limits, a margin above the README figures (MCT N1 rms ~1.5 %N1, climb gradient rms ~0.7 %)
+const LIM = { n1Rms: 2.0, n1Max: 5.0, gradRms: 1.0 }, failed = [];
 const allEngSpeed = (h, p) => (h > 32000 ? 0.70 : machAtKias(250, p));
 const seSpeed = (h, p) => (h > 49000 ? 0.70 : h > 29000 ? machAtKias(170, p) : h > 21000 ? 0.45 : machAtKias(200, p));
 for (const [key, spd] of [['mct_n1_all', allEngSpeed], ['mct_n1_single', seSpeed]]) {
@@ -30,6 +32,7 @@ for (const [key, spd] of [['mct_n1_all', allEngSpeed], ['mct_n1_single', seSpeed
   }
   const s = stats(errs);
   console.log(`MCT N1 ${key} (Fig ${T[key].figure}, ${s.n} cells): mean ${s.mean.toFixed(2)}  rms ${s.rms.toFixed(2)}  max ${s.max.toFixed(2)} %N1`);
+  if (!(s.rms <= LIM.n1Rms && s.max <= LIM.n1Max)) failed.push(`${key}: rms ${s.rms.toFixed(2)} (<= ${LIM.n1Rms}), max ${s.max.toFixed(2)} (<= ${LIM.n1Max})`);
   worst.sort((x, y) => y[0] - x[0]); for (const w of worst.slice(0, 3)) console.log('   worst:', w[1]);
 }
 
@@ -58,6 +61,9 @@ for (const [key, speed] of [['final_segment', 'final'], ['enroute_climb_se', 'en
   }
   const s = stats(errs);
   console.log(`\n${key} net gradient (Fig ${T[key].figure}, ${s.n} unshaded cells): mean ${s.mean.toFixed(2)}  rms ${s.rms.toFixed(2)}  max ${s.max.toFixed(2)} % gradient`);
+  if (!(s.rms <= LIM.gradRms)) failed.push(`${key}: rms ${s.rms.toFixed(2)} (<= ${LIM.gradRms})`);
   console.log('   by altitude (mean):', [...byAlt].map(([k, v]) => `${k / 1000}k ${stats(v).mean.toFixed(1)}`).join('  '));
   worst.sort((x, y) => y[0] - x[0]); for (const w of worst.slice(0, 3)) console.log('   worst:', w[1]);
 }
+console.log(failed.length ? `\nFAILED: ${failed.join('; ')}` : '\nall AFM table checks within limits');
+process.exit(failed.length ? 1 : 0);

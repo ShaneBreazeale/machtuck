@@ -46,7 +46,7 @@ paused.
 | Option | What it does |
 |---|---|
 | **Upset hypothesis** | Picks one of four hypotheses for what happened in the storm. All four are speculation. See [Upset hypotheses and difficulty](hypotheses.md). |
-| **Real weather** | On by default. The KAMX NEXRAD volume drives the clouds, icing and the cockpit weather radar; GOES-19, GLM lightning and the KPBI METAR shape the rest. Off gives a synthetic storm cell. `U` switches it in flight. |
+| **Real weather** | On by default. The KAMX NEXRAD volume drives the clouds, icing and the cockpit weather radar; GOES-19 cloud tops and GLM lightning shape the rest. Off gives a modelled storm cell and lightning, and the radar shows the modelled cell (SYNTH). The KPBI METAR cloud layers stay either way. `U` switches it in flight. |
 | **Real ATC audio** | Off by default. Plays the posted LiveATC recording, synced to the sim clock. The briefing marks it for listener discretion. `T` switches it in flight. |
 | **Difficulty** | **As flown**: the autopilot trims hard against the climb and hands over the airplane trimmed nose-down. **Trainer**: a gentler autopilot trim and no nose-down handover. The airplane and the storm are the same in both. |
 

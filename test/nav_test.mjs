@@ -180,5 +180,16 @@ const withPlan = (ap, app, from = 0) => { const fms = new FMS(), legs = procedur
   expect(turnH > 480 && turnH < 600 && firstBank > 0 && trk !== null && Math.abs(trk - 340) < 15, `ILS 28R missed approach: CA to 500 (turn at ${turnH && Math.round(turnH)} ft), ${firstBank > 0 ? 'right' : 'left'} turn, tracking ${trk !== null ? trk.toFixed(0) : '?'}° true to MORGA (course 340° true)`);
 }
 
+// ---- marker beacons: operational ones from the FAA NASR (tools/fetch_markers.py); decommissioned ones stay silent ----
+{
+  const fmy = await db.airport('KFMY'), il = fmy.ils.IFMY, om = il && il.markers.find((m) => m.type === 'OM');
+  const u = il && [Math.cos(il.crsT * DEG), Math.sin(il.crsT * DEG)], h = (om ? om.elev : 0) * FT + 1500 * FT;
+  const over = om && ilsDeviation(il, om.ne[0], om.ne[1], h).marker;
+  const before = om && ilsDeviation(il, om.ne[0] - u[0] * 2 * 1852, om.ne[1] - u[1] * 2 * 1852, h).marker;
+  expect(over === 'OM' && before === null, `KFMY ILS 05 outer marker (CALOO): ${over} overhead at 1,500 ft, ${before} 2 nm before it`);
+  const djt = [I10L, I28R].map((x) => x.markers.length);
+  expect(djt[0] === 0 && djt[1] === 0, `KDJT markers decommissioned (NASR): ${djt.join(', ')} operational on 10L, 28R`);
+}
+
 console.log(fail ? `\n${fail} FAILED` : '\nall nav tests passed');
 process.exit(fail ? 1 : 0);

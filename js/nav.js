@@ -1,6 +1,7 @@
 // ILS deviations from the navigation database (js/navdb.js, FAA CIFP): localizer antenna position and course, the
 // runway's landing threshold and elevation, glideslope angle and threshold crossing height, DME antenna. Works for any
 // ILS in the database; nothing here is airport-specific.
+// Marker beacons come from the FAA NASR (data/nav/markers.json); the CIFP has none.
 // Indications: localizer full scale (2 dots) is the published course width either side (half the CIFP localizer
 // width); glideslope full scale (2 dots) = 0.7 deg; usable within 18 nm / +/-35 deg (LOC), 10 nm / +/-8 deg (G/S).
 const NM = 1852, FT = 0.3048, DEG = Math.PI / 180;
@@ -26,9 +27,16 @@ export function ilsDeviation(il, n, e, h) {
   const locValid = dLoc > 0 && dLoc < 18 * NM && Math.abs(azLoc) < 35 * DEG && along < 2000;
   const gsValid = !!il.gs && locValid && dGs > 0 && dGs < 10 * NM && Math.abs(azLoc) < 8 * DEG;
   const gsErrM = hRel - Math.max(0, dGs) * gsX;                 // height above (+) the glidepath, m
+  // marker beacons (operational ones only, from the FAA NASR): received inside the beacon's vertical fan, which widens
+  // with height: about +/-0.8 x the height above the beacon along the course, +/-1.5 x across it
+  let marker = null;
+  for (const m of il.markers || []) {
+    const mn = n - m.ne[0], me = e - m.ne[1], hm = h - (m.elev || 0) * FT;
+    if (hm > 0 && Math.abs(mn * u[0] + me * u[1]) < Math.max(60, 0.8 * hm) && Math.abs(-mn * u[1] + me * u[0]) < Math.max(120, 1.5 * hm)) { marker = m.type; break; }
+  }
   return { id: `ILS ${(il.runway || '').replace(/^RW/, '')}`, ident: il.id, freq: il.freq, apt: il.apt, il,
     loc: Math.max(-2.5, Math.min(2.5, loc)), gs: Math.max(-2.5, Math.min(2.5, gs)), locRaw: loc, gsRaw: gs, dme, locValid, gsValid,
-    course: il.crsT * DEG, along, cross, hRel, gsAngle: il.gs || 3, gsErrM, marker: null };
+    course: il.crsT * DEG, along, cross, hRel, gsAngle: il.gs || 3, gsErrM, marker };
 }
 // the ILS whose localizer the aircraft is most nearly lined up with, among `list` (e.g. NavDB.allIls())
 export function nearestIls(list, n, e, h, track) {

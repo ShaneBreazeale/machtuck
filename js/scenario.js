@@ -94,9 +94,14 @@ export class NexradField {
 export const NEXRAD_VOLUMES = [{ base: 'data/kamx_174548', t: -72 }, { base: 'data/kamx_175104', t: 244 }];
 
 // ---------------- Storm environment ----------------
+// The accident day's temperature deviation from ISA, K: the 12Z KMFL radiosonde (data/sounding_kmfl.json; 100 km south,
+// ~6 h before the event), mean of the levels between 9.5 and 11.8 km (range +9 to +13; +11 at the surface too)
+export const ACCIDENT_DT = 11;
+
 export class Environment {
   constructor(hyp = 'combined', hard = true) {
     this.hyp = HYPOTHESES[hyp]; this.hypKey = hyp; this.hard = hard;
+    this.dT = ACCIDENT_DT;
     this.seed = Math.random() * 1000;
     this.flash = 0; this.nextFlash = 3;
     this.phases = Array.from({ length: 12 }, () => Math.random() * 6.28);
@@ -133,6 +138,9 @@ export class Environment {
       const cloudR = smoothstep(3, 16, dbz), coreR = smoothstep(22, 42, dbz);
       cloud = clamp(Math.max(cloud, cloudR), 0, 1);
       coreN = clamp(Math.max(0.5 * core, coreR + 0.3 * smoothstep(5, 20, growth) * cloudR), 0, 1);
+    } else if (cloudT > 0.05 || deck > 0.5) {
+      // synthetic storm (real weather off): a reflectivity for the radar from the modelled cell, ~52 dBZ at the core
+      dbz = cloudT > 0.05 ? 12 + 40 * core : 8;
     }
     // updraft: strong in core, compensating downdraft ring just outside (exit shear)
     const ring = Math.exp(-(((r - STORM.rCore * 1.5) / (STORM.rCore * 0.5)) ** 2));
@@ -148,12 +156,13 @@ export class Environment {
     const turb = clamp(0.25 * (cloud > 0 ? 1 : 0.3) + 1.2 * coreN + 0.6 * ring * vert + 0.9 * under, 0, 1.6);
     return { core: coreN, cloud, updraft, turb, r, hf, top, dbz, growth };
   }
-  // Wind in NED at aircraft position. Mean wind 20 kt from 230 at altitude.
+  // Wind in NED at aircraft position. Mean wind from the KMFL sounding: 11 kt from 274 (vector mean, 9.5 to 11.8 km),
+  // fading to calm at the surface.
   wind(pos, t, dt) {
     const L = this.local(pos, t);
     const h = -pos[2];
     const alt = clamp(h / 10668, 0, 1);
-    const meanSpd = 10 * alt, meanDir = (230 + 180) * DEG;   // blowing toward 050
+    const meanSpd = 5.7 * alt, meanDir = (274 + 180) * DEG;   // 11.1 kt, blowing toward 094
     const mean = [meanSpd * Math.cos(meanDir), meanSpd * Math.sin(meanDir), 0];
     // turbulence: sum of sines + random walk, scaled by local intensity (moderate outside, severe in core)
     const A = 3.5 * L.turb;
@@ -358,7 +367,7 @@ export class Autopilot {
   // the final approach (GP) the preselected altitude bounds it: no climb unless it is above, no descent unless it is
   // below, never through it (AC 25.1329-1C 64i(2)).
   vnavRate(h, vs, out) {
-    const v = this.vnav, final = this.vert === 'GP'; this.climbSpd = null; if (!v) return 0;
+    const v = this.vnav, final = this.vert === 'GP'; this.climbSpd = null; this.climbMach = false; if (!v) return 0;
     let tgt = v.alt * FT, path = v.path != null ? v.path * FT : null;
     if (!final) {
       const msp = this.altTgt;
@@ -371,7 +380,7 @@ export class Autopilot {
     // then 280 kt / M 0.70), as the flight-level-change climb (AC 25.1329-1C 64f); then capture as ALTS does
     if (tgt - h > Math.max(60, (out.vs || 0) * 8)) {
       const vc = h < 10000 * FT ? 250 : Math.min(280, out.M > 0.05 ? 0.70 * (out.KIAS || 250) / out.M : 280);
-      this.climbSpd = vc;
+      this.climbSpd = vc; this.climbMach = h >= 10000 * FT && vc < 279.5;   // the IAS or MACH target of the climb
       return clamp((out.vs || 0) + ((out.KIAS || vc) - vc) * 0.3, 1, 25);
     }
     return clamp((tgt - h) * 0.10, -7.6, 7.6);

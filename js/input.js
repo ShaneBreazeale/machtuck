@@ -58,7 +58,8 @@ export class Input {
     this.pad.rumbleAt = now + 100;
     act.playEffect('dual-rumble', { duration: 140, strongMagnitude: strong, weakMagnitude: weak }).catch(() => {});
   }
-  // Returns true if the pilot is actively deflecting the stick (used for AP auto-disconnect)
+  // Returns true if the pilot is actively deflecting the stick (informational: stick input never disconnects the autopilot,
+  // the pilot overpowers its clutch; js/controls.js)
   update(dt) {
     let eT = 0, aT = 0, rT = 0;
     if (this.pressed('arrowdown', 's')) eT += 1; if (this.pressed('arrowup', 'w')) eT -= 1;

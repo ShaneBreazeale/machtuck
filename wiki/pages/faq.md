@@ -105,7 +105,8 @@ diagram, from d-TPP cycle 2611. `tools/fetch_plates.py` downloads one airport pe
 describes that airport only.
 
 The plates also carry the minimums, because CIFP has the procedures but not their minimums. At other airports the
-minimums bug falls back to 200 ft above touchdown on an ILS and 400 ft on other approaches. See
+minimums come from the FAA master RNAV list for RNAV (GPS) approaches (dated 2019, so possibly off by a few hundred
+feet), and otherwise fall back to 200 ft above touchdown on an ILS with a glideslope and 400 ft on other approaches. See
 [Approaches and minimums](approaches.md) and [Data pipeline](data-pipeline.md#plates-and-minimums).
 
 ### Why KDJT and not KPBI?

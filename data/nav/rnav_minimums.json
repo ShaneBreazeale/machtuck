@@ -1,0 +1,2092 @@
+{
+ "airports": {
+  "2IS": {
+   "RNAV (GPS) RWY 13": {
+    "LNAV": {
+     "alt": 620,
+     "hat": 600,
+     "vis": "1"
+    }
+   },
+   "RNAV (GPS) RWY 31": {
+    "LNAV": {
+     "alt": 440,
+     "hat": 421,
+     "vis": "1"
+    }
+   }
+  },
+  "F45": {
+   "RNAV (GPS) RWY 09R": {
+    "LNAV": {
+     "alt": 420,
+     "hat": 398,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 288,
+     "hat": 266,
+     "vis": "0.875"
+    }
+   },
+   "RNAV (GPS) RWY 14": {
+    "LNAV": {
+     "alt": 380,
+     "hat": 359,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 384,
+     "hat": 363,
+     "vis": "1"
+    }
+   },
+   "RNAV (GPS) RWY 27L": {
+    "LNAV": {
+     "alt": 380,
+     "hat": 358,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 395,
+     "hat": 373,
+     "vis": "1"
+    }
+   }
+  },
+  "KAPF": {
+   "RNAV (GPS) RWY 05": {
+    "LNAV": {
+     "alt": 460,
+     "hat": 452,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 446,
+     "hat": 438,
+     "vis": "1.5"
+    }
+   },
+   "RNAV (GPS) RWY 23": {
+    "LNAV": {
+     "alt": 440,
+     "hat": 432,
+     "vis": "0.75"
+    },
+    "LNAV/VNAV": {
+     "alt": 461,
+     "hat": 453,
+     "vis": "1.5"
+    }
+   },
+   "RNAV (GPS)-A": {
+    "LNAV": {
+     "alt": 500,
+     "hat": 492,
+     "vis": "1"
+    }
+   },
+   "RNAV (GPS)-B": {
+    "LNAV": {
+     "alt": 500,
+     "hat": 492,
+     "vis": "1"
+    }
+   }
+  },
+  "KAVO": {
+   "RNAV (GPS) RWY 05": {
+    "LNAV": {
+     "alt": 540,
+     "hat": 380,
+     "vis": "1"
+    }
+   },
+   "RNAV (GPS) RWY 10": {
+    "LNAV": {
+     "alt": 640,
+     "hat": 486,
+     "vis": "1"
+    }
+   }
+  },
+  "KBCT": {
+   "RNAV (GPS) RWY 05": {
+    "LNAV": {
+     "alt": 440,
+     "hat": 428,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 458,
+     "hat": 446,
+     "vis": "1.5"
+    }
+   },
+   "RNAV (GPS) Y RWY 23": {
+    "LNAV": {
+     "alt": 480,
+     "hat": 467,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 357,
+     "hat": 344,
+     "vis": "1.125"
+    }
+   }
+  },
+  "KBOW": {
+   "RNAV (GPS) RWY 05": {
+    "LNAV": {
+     "alt": 520,
+     "hat": 397,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 509,
+     "hat": 386,
+     "vis": "1.5"
+    }
+   },
+   "RNAV (GPS) RWY 09L": {
+    "LNAV": {
+     "alt": 540,
+     "hat": 415,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 539,
+     "hat": 414,
+     "vis": "1.5"
+    }
+   },
+   "RNAV (GPS) RWY 23": {
+    "LNAV": {
+     "alt": 580,
+     "hat": 456,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 575,
+     "hat": 451,
+     "vis": "1.5"
+    }
+   },
+   "RNAV (GPS) RWY 27R": {
+    "LNAV": {
+     "alt": 580,
+     "hat": 455,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 530,
+     "hat": 405,
+     "vis": "1.5"
+    }
+   }
+  },
+  "KCHN": {
+   "RNAV (GPS) RWY 18": {
+    "LNAV": {
+     "alt": 580,
+     "hat": 481,
+     "vis": "1"
+    }
+   },
+   "RNAV (GPS) RWY 36": {
+    "LNAV": {
+     "alt": 560,
+     "hat": 457,
+     "vis": "1"
+    }
+   }
+  },
+  "KCOI": {
+   "RNAV (GPS) RWY 11": {
+    "LNAV": {
+     "alt": 600,
+     "hat": 594,
+     "vis": "1"
+    }
+   }
+  },
+  "KDAB": {
+   "RNAV (GPS) RWY 07L": {
+    "LNAV": {
+     "alt": 420,
+     "hat": 392,
+     "vis": "4000"
+    },
+    "LNAV/VNAV": {
+     "alt": 427,
+     "hat": 399,
+     "vis": "4500"
+    }
+   },
+   "RNAV (GPS) RWY 07R": {
+    "LNAV": {
+     "alt": 440,
+     "hat": 408,
+     "vis": "1"
+    }
+   },
+   "RNAV (GPS) RWY 16": {
+    "LNAV": {
+     "alt": 500,
+     "hat": 467,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 479,
+     "hat": 446,
+     "vis": "1.5"
+    }
+   },
+   "RNAV (GPS) RWY 25L": {
+    "LNAV": {
+     "alt": 560,
+     "hat": 528,
+     "vis": "1"
+    }
+   },
+   "RNAV (GPS) RWY 25R": {
+    "LNAV": {
+     "alt": 460,
+     "hat": 426,
+     "vis": "1"
+    }
+   },
+   "RNAV (GPS) RWY 34": {
+    "LNAV": {
+     "alt": 400,
+     "hat": 368,
+     "vis": "1"
+    }
+   }
+  },
+  "KDED": {
+   "RNAV (GPS) RWY 05": {
+    "LNAV": {
+     "alt": 580,
+     "hat": 501,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 577,
+     "hat": 498,
+     "vis": "1.75"
+    }
+   },
+   "RNAV (GPS) RWY 12": {
+    "LNAV": {
+     "alt": 600,
+     "hat": 526,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 528,
+     "hat": 454,
+     "vis": "1.5"
+    }
+   },
+   "RNAV (GPS) RWY 23": {
+    "LNAV": {
+     "alt": 420,
+     "hat": 342,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 414,
+     "hat": 336,
+     "vis": "1.25"
+    }
+   },
+   "RNAV (GPS) RWY 30": {
+    "LNAV": {
+     "alt": 500,
+     "hat": 428,
+     "vis": "1"
+    }
+   }
+  },
+  "KEVB": {
+   "RNAV (GPS) RWY 02": {
+    "LNAV": {
+     "alt": 700,
+     "hat": 691,
+     "vis": "1"
+    }
+   },
+   "RNAV (GPS) RWY 07": {
+    "LNAV": {
+     "alt": 440,
+     "hat": 431,
+     "vis": "1"
+    }
+   },
+   "RNAV (GPS) RWY 25": {
+    "LNAV": {
+     "alt": 380,
+     "hat": 370,
+     "vis": "1"
+    }
+   },
+   "RNAV (GPS) RWY 29": {
+    "LNAV": {
+     "alt": 380,
+     "hat": 370,
+     "vis": "1"
+    }
+   }
+  },
+  "KEYW": {
+   "RNAV (GPS) RWY 09": {
+    "LNAV": {
+     "alt": 580,
+     "hat": 577,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 425,
+     "hat": 422,
+     "vis": "1.5"
+    }
+   },
+   "RNAV (GPS) RWY 27": {
+    "LNAV": {
+     "alt": 460,
+     "hat": 457,
+     "vis": "1"
+    }
+   }
+  },
+  "KFLL": {
+   "RNAV (GPS) RWY 10R": {
+    "LNAV": {
+     "alt": 460,
+     "hat": 446,
+     "vis": "4000"
+    },
+    "LNAV/VNAV": {
+     "alt": 419,
+     "hat": 405,
+     "vis": "6000"
+    }
+   },
+   "RNAV (GPS) RWY 28L": {
+    "LNAV": {
+     "alt": 500,
+     "hat": 435,
+     "vis": "4000"
+    },
+    "LNAV/VNAV": {
+     "alt": 389,
+     "hat": 324,
+     "vis": "4000"
+    }
+   },
+   "RNAV (GPS) Y RWY 28R": {
+    "LNAV": {
+     "alt": 620,
+     "hat": 613,
+     "vis": "2400"
+    },
+    "LNAV/VNAV": {
+     "alt": 594,
+     "hat": 587,
+     "vis": "1.5"
+    }
+   },
+   "RNAV (GPS) Z RWY 10L": {
+    "LNAV": {
+     "alt": 460,
+     "hat": 453,
+     "vis": "4000"
+    },
+    "LNAV/VNAV": {
+     "alt": 477,
+     "hat": 470,
+     "vis": "1.625"
+    }
+   }
+  },
+  "KFMY": {
+   "RNAV (GPS) RWY 05": {
+    "LNAV": {
+     "alt": 420,
+     "hat": 405,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 319,
+     "hat": 304,
+     "vis": "1"
+    }
+   },
+   "RNAV (GPS) RWY 13": {
+    "LNAV": {
+     "alt": 480,
+     "hat": 465,
+     "vis": "1.375"
+    },
+    "LNAV/VNAV": {
+     "alt": 480,
+     "hat": 465,
+     "vis": "1.625"
+    }
+   },
+   "RNAV (GPS) RWY 23": {
+    "LNAV": {
+     "alt": 440,
+     "hat": 424,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 338,
+     "hat": 322,
+     "vis": "1"
+    }
+   },
+   "RNAV (GPS) RWY 31": {
+    "LNAV": {
+     "alt": 480,
+     "hat": 465,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 366,
+     "hat": 351,
+     "vis": "1.125"
+    }
+   }
+  },
+  "KFPR": {
+   "RNAV (GPS) RWY 10R": {
+    "LNAV": {
+     "alt": 380,
+     "hat": 357,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 348,
+     "hat": 325,
+     "vis": "1"
+    }
+   },
+   "RNAV (GPS) RWY 14": {
+    "LNAV": {
+     "alt": 400,
+     "hat": 377,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 355,
+     "hat": 332,
+     "vis": "1.125"
+    }
+   },
+   "RNAV (GPS) RWY 28L": {
+    "LNAV": {
+     "alt": 400,
+     "hat": 377,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 412,
+     "hat": 389,
+     "vis": "1.25"
+    }
+   },
+   "RNAV (GPS) RWY 32": {
+    "LNAV": {
+     "alt": 420,
+     "hat": 397,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 306,
+     "hat": 283,
+     "vis": "0.875"
+    }
+   }
+  },
+  "KFXE": {
+   "RNAV (GPS) RWY 09": {
+    "LNAV": {
+     "alt": 480,
+     "hat": 467,
+     "vis": "0.5"
+    },
+    "LNAV/VNAV": {
+     "alt": 427,
+     "hat": 414,
+     "vis": "0.875"
+    }
+   },
+   "RNAV (GPS) RWY 27": {
+    "LNAV": {
+     "alt": 440,
+     "hat": 427,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 450,
+     "hat": 437,
+     "vis": "1.5"
+    }
+   }
+  },
+  "KGIF": {
+   "RNAV (GPS) RWY 05": {
+    "LNAV": {
+     "alt": 660,
+     "hat": 515,
+     "vis": "1"
+    }
+   },
+   "RNAV (GPS) RWY 11": {
+    "LNAV": {
+     "alt": 760,
+     "hat": 615,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 647,
+     "hat": 502,
+     "vis": "1.75"
+    }
+   }
+  },
+  "KHWO": {
+   "RNAV (GPS) RWY 10R": {
+    "LNAV": {
+     "alt": 480,
+     "hat": 472,
+     "vis": "1.25"
+    }
+   },
+   "RNAV (GPS) RWY 28R": {
+    "LNAV": {
+     "alt": 520,
+     "hat": 511,
+     "vis": "1"
+    }
+   }
+  },
+  "KIMM": {
+   "RNAV (GPS) RWY 09": {
+    "LNAV": {
+     "alt": 440,
+     "hat": 403,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 287,
+     "hat": 250,
+     "vis": "1"
+    }
+   },
+   "RNAV (GPS) RWY 18": {
+    "LNAV": {
+     "alt": 360,
+     "hat": 324,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 286,
+     "hat": 250,
+     "vis": "1"
+    }
+   },
+   "RNAV (GPS) RWY 27": {
+    "LNAV": {
+     "alt": 380,
+     "hat": 345,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 311,
+     "hat": 276,
+     "vis": "1"
+    }
+   },
+   "RNAV (GPS) RWY 36": {
+    "LNAV": {
+     "alt": 580,
+     "hat": 546,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 284,
+     "hat": 250,
+     "vis": "1"
+    }
+   }
+  },
+  "KISM": {
+   "RNAV (GPS) RWY 06": {
+    "LNAV": {
+     "alt": 440,
+     "hat": 360,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 455,
+     "hat": 375,
+     "vis": "1.25"
+    }
+   },
+   "RNAV (GPS) RWY 15": {
+    "LNAV": {
+     "alt": 520,
+     "hat": 438,
+     "vis": "0.75"
+    },
+    "LNAV/VNAV": {
+     "alt": 532,
+     "hat": 450,
+     "vis": "1.5"
+    }
+   },
+   "RNAV (GPS) RWY 33": {
+    "LNAV": {
+     "alt": 480,
+     "hat": 404,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 396,
+     "hat": 320,
+     "vis": "1"
+    }
+   }
+  },
+  "KLAL": {
+   "RNAV (GPS) RWY 05": {
+    "LNAV": {
+     "alt": 560,
+     "hat": 424,
+     "vis": "0.5"
+    },
+    "LNAV/VNAV": {
+     "alt": 505,
+     "hat": 369,
+     "vis": "1.25"
+    }
+   },
+   "RNAV (GPS) RWY 09": {
+    "LNAV": {
+     "alt": 520,
+     "hat": 388,
+     "vis": "0.5"
+    },
+    "LNAV/VNAV": {
+     "alt": 439,
+     "hat": 307,
+     "vis": "0.5"
+    }
+   },
+   "RNAV (GPS) RWY 23": {
+    "LNAV": {
+     "alt": 720,
+     "hat": 579,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 480,
+     "hat": 339,
+     "vis": "1.25"
+    }
+   },
+   "RNAV (GPS) RWY 27": {
+    "LNAV": {
+     "alt": 560,
+     "hat": 418,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 455,
+     "hat": 313,
+     "vis": "1"
+    }
+   }
+  },
+  "KLEE": {
+   "RNAV (GPS) RWY 03": {
+    "LNAV": {
+     "alt": 580,
+     "hat": 513,
+     "vis": "1"
+    }
+   },
+   "RNAV (GPS) RWY 13": {
+    "LNAV": {
+     "alt": 500,
+     "hat": 426,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 415,
+     "hat": 341,
+     "vis": "1.125"
+    }
+   },
+   "RNAV (GPS) RWY 31": {
+    "LNAV": {
+     "alt": 500,
+     "hat": 433,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 351,
+     "hat": 284,
+     "vis": "1"
+    }
+   }
+  },
+  "KLNA": {
+   "RNAV (GPS) RWY 34": {
+    "LNAV": {
+     "alt": 400,
+     "hat": 386,
+     "vis": "1"
+    }
+   },
+   "RNAV (GPS)-A": {
+    "LNAV": {
+     "alt": 460,
+     "hat": 446,
+     "vis": "1"
+    }
+   },
+   "RNAV (GPS)-B": {
+    "LNAV": {
+     "alt": 460,
+     "hat": 446,
+     "vis": "1"
+    }
+   }
+  },
+  "KMCO": {
+   "RNAV (GPS) RWY 17L": {
+    "LNAV": {
+     "alt": 500,
+     "hat": 410,
+     "vis": "2400"
+    },
+    "LNAV/VNAV": {
+     "alt": 515,
+     "hat": 425,
+     "vis": "4800"
+    }
+   },
+   "RNAV (GPS) RWY 17R": {
+    "LNAV": {
+     "alt": 660,
+     "hat": 570,
+     "vis": "2400"
+    },
+    "LNAV/VNAV": {
+     "alt": 526,
+     "hat": 436,
+     "vis": "5000"
+    }
+   },
+   "RNAV (GPS) RWY 18L": {
+    "LNAV": {
+     "alt": 480,
+     "hat": 384,
+     "vis": "5500"
+    },
+    "LNAV/VNAV": {
+     "alt": 398,
+     "hat": 302,
+     "vis": "5000"
+    }
+   },
+   "RNAV (GPS) RWY 18R": {
+    "LNAV": {
+     "alt": 540,
+     "hat": 466,
+     "vis": "2400"
+    },
+    "LNAV/VNAV": {
+     "alt": 390,
+     "hat": 296,
+     "vis": "2400"
+    }
+   },
+   "RNAV (GPS) RWY 35L": {
+    "LNAV": {
+     "alt": 500,
+     "hat": 412,
+     "vis": "2400"
+    },
+    "LNAV/VNAV": {
+     "alt": 407,
+     "hat": 319,
+     "vis": "2700"
+    }
+   },
+   "RNAV (GPS) RWY 35R": {
+    "LNAV": {
+     "alt": 460,
+     "hat": 370,
+     "vis": "2400"
+    },
+    "LNAV/VNAV": {
+     "alt": 360,
+     "hat": 270,
+     "vis": "2400"
+    }
+   },
+   "RNAV (GPS) RWY 36L": {
+    "LNAV": {
+     "alt": 480,
+     "hat": 387,
+     "vis": "5500"
+    },
+    "LNAV/VNAV": {
+     "alt": 412,
+     "hat": 319,
+     "vis": "5000"
+    }
+   },
+   "RNAV (GPS) RWY 36R": {
+    "LNAV": {
+     "alt": 540,
+     "hat": 448,
+     "vis": "2400"
+    },
+    "LNAV/VNAV": {
+     "alt": 454,
+     "hat": 362,
+     "vis": "3500"
+    }
+   }
+  },
+  "KMIA": {
+   "RNAV (GPS) RWY 08L": {
+    "LNAV": {
+     "alt": 600,
+     "hat": 592,
+     "vis": "5500"
+    },
+    "LNAV/VNAV": {
+     "alt": 512,
+     "hat": 504,
+     "vis": "1.625"
+    }
+   },
+   "RNAV (GPS) RWY 09": {
+    "LNAV": {
+     "alt": 460,
+     "hat": 453,
+     "vis": "4000"
+    },
+    "LNAV/VNAV": {
+     "alt": 428,
+     "hat": 421,
+     "vis": "4600"
+    }
+   },
+   "RNAV (GPS) RWY 26R": {
+    "LNAV": {
+     "alt": 480,
+     "hat": 472,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 433,
+     "hat": 425,
+     "vis": "1.375"
+    }
+   },
+   "RNAV (GPS) Z RWY 08R": {
+    "LNAV": {
+     "alt": 600,
+     "hat": 592,
+     "vis": "2400"
+    },
+    "LNAV/VNAV": {
+     "alt": 530,
+     "hat": 522,
+     "vis": "6000"
+    }
+   },
+   "RNAV (GPS) Z RWY 12": {
+    "LNAV": {
+     "alt": 600,
+     "hat": 592,
+     "vis": "4000"
+    },
+    "LNAV/VNAV": {
+     "alt": 506,
+     "hat": 498,
+     "vis": "6000"
+    }
+   },
+   "RNAV (GPS) Z RWY 26L": {
+    "LNAV": {
+     "alt": 560,
+     "hat": 552,
+     "vis": "4000"
+    },
+    "LNAV/VNAV": {
+     "alt": 348,
+     "hat": 340,
+     "vis": "4500"
+    }
+   },
+   "RNAV (GPS) Z RWY 27": {
+    "LNAV": {
+     "alt": 560,
+     "hat": 552,
+     "vis": "2400"
+    },
+    "LNAV/VNAV": {
+     "alt": 440,
+     "hat": 432,
+     "vis": "5000"
+    }
+   },
+   "RNAV (GPS) Z RWY 30": {
+    "LNAV": {
+     "alt": 560,
+     "hat": 552,
+     "vis": "4000"
+    }
+   }
+  },
+  "KMKY": {
+   "RNAV (GPS) RWY 17": {
+    "LNAV": {
+     "alt": 560,
+     "hat": 555,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 458,
+     "hat": 453,
+     "vis": "1.5"
+    }
+   },
+   "RNAV (GPS) RWY 35": {
+    "LNAV": {
+     "alt": 520,
+     "hat": 515,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 394,
+     "hat": 389,
+     "vis": "1.5"
+    }
+   }
+  },
+  "KMLB": {
+   "RNAV (GPS) RWY 09L": {
+    "LNAV": {
+     "alt": 420,
+     "hat": 389,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 465,
+     "hat": 434,
+     "vis": "1.375"
+    }
+   },
+   "RNAV (GPS) RWY 09R": {
+    "LNAV": {
+     "alt": 400,
+     "hat": 368,
+     "vis": "2400"
+    },
+    "LNAV/VNAV": {
+     "alt": 427,
+     "hat": 395,
+     "vis": "4000"
+    }
+   },
+   "RNAV (GPS) RWY 27L": {
+    "LNAV": {
+     "alt": 500,
+     "hat": 478,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 314,
+     "hat": 292,
+     "vis": "0.875"
+    }
+   },
+   "RNAV (GPS) RWY 27R": {
+    "LNAV": {
+     "alt": 400,
+     "hat": 374,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 437,
+     "hat": 411,
+     "vis": "1.375"
+    }
+   }
+  },
+  "KMTH": {
+   "RNAV (GPS) RWY 07": {
+    "LNAV": {
+     "alt": 600,
+     "hat": 595,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 441,
+     "hat": 436,
+     "vis": "1.5"
+    }
+   },
+   "RNAV (GPS) RWY 25": {
+    "LNAV": {
+     "alt": 440,
+     "hat": 435,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 404,
+     "hat": 399,
+     "vis": "1.5"
+    }
+   }
+  },
+  "KOBE": {
+   "RNAV (GPS) RWY 05": {
+    "LNAV": {
+     "alt": 480,
+     "hat": 447,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 454,
+     "hat": 421,
+     "vis": "1.5"
+    }
+   },
+   "RNAV (GPS) RWY 14": {
+    "LNAV": {
+     "alt": 400,
+     "hat": 367,
+     "vis": "1"
+    }
+   },
+   "RNAV (GPS) RWY 23": {
+    "LNAV": {
+     "alt": 400,
+     "hat": 367,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 435,
+     "hat": 402,
+     "vis": "1.25"
+    }
+   },
+   "RNAV (GPS) RWY 32": {
+    "LNAV": {
+     "alt": 440,
+     "hat": 407,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 498,
+     "hat": 465,
+     "vis": "1.75"
+    }
+   }
+  },
+  "KOPF": {
+   "RNAV (GPS) RWY 09L": {
+    "LNAV": {
+     "alt": 420,
+     "hat": 412,
+     "vis": "0.75"
+    },
+    "LNAV/VNAV": {
+     "alt": 321,
+     "hat": 313,
+     "vis": "0.75"
+    }
+   },
+   "RNAV (GPS) RWY 12": {
+    "LNAV": {
+     "alt": 520,
+     "hat": 512,
+     "vis": "0.75"
+    },
+    "LNAV/VNAV": {
+     "alt": 320,
+     "hat": 312,
+     "vis": "0.75"
+    }
+   },
+   "RNAV (GPS) RWY 27R": {
+    "LNAV": {
+     "alt": 420,
+     "hat": 412,
+     "vis": "0.75"
+    },
+    "LNAV/VNAV": {
+     "alt": 413,
+     "hat": 405,
+     "vis": "1"
+    }
+   }
+  },
+  "KORL": {
+   "RNAV (GPS) RWY 07": {
+    "LNAV": {
+     "alt": 740,
+     "hat": 631,
+     "vis": "2400"
+    },
+    "LNAV/VNAV": {
+     "alt": 447,
+     "hat": 338,
+     "vis": "3000"
+    }
+   },
+   "RNAV (GPS) RWY 25": {
+    "LNAV": {
+     "alt": 540,
+     "hat": 427,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 371,
+     "hat": 258,
+     "vis": "0.875"
+    }
+   }
+  },
+  "KPCM": {
+   "RNAV (GPS) RWY 10": {
+    "LNAV": {
+     "alt": 500,
+     "hat": 347,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 510,
+     "hat": 357,
+     "vis": "1"
+    }
+   },
+   "RNAV (GPS) RWY 28": {
+    "LNAV": {
+     "alt": 600,
+     "hat": 447,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 459,
+     "hat": 306,
+     "vis": "1"
+    }
+   }
+  },
+  "KPGD": {
+   "RNAV (GPS) RWY 04": {
+    "LNAV": {
+     "alt": 380,
+     "hat": 356,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 306,
+     "hat": 282,
+     "vis": "0.875"
+    }
+   },
+   "RNAV (GPS) RWY 15": {
+    "LNAV": {
+     "alt": 380,
+     "hat": 359,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 301,
+     "hat": 285,
+     "vis": "1"
+    }
+   },
+   "RNAV (GPS) RWY 22": {
+    "LNAV": {
+     "alt": 380,
+     "hat": 354,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 310,
+     "hat": 284,
+     "vis": "1"
+    }
+   },
+   "RNAV (GPS) RWY 33": {
+    "LNAV": {
+     "alt": 380,
+     "hat": 357,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 305,
+     "hat": 282,
+     "vis": "0.875"
+    }
+   }
+  },
+  "KPHK": {
+   "RNAV (GPS) RWY 18": {
+    "LNAV": {
+     "alt": 440,
+     "hat": 424,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 342,
+     "hat": 326,
+     "vis": "1"
+    }
+   },
+   "RNAV (GPS) RWY 36": {
+    "LNAV": {
+     "alt": 520,
+     "hat": 504,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 429,
+     "hat": 413,
+     "vis": "1.375"
+    }
+   }
+  },
+  "KPIE": {
+   "RNAV (GPS) RWY 18": {
+    "LNAV": {
+     "alt": 300,
+     "hat": 293,
+     "vis": "2400"
+    },
+    "LNAV/VNAV": {
+     "alt": 257,
+     "hat": 250,
+     "vis": "2400"
+    }
+   },
+   "RNAV (GPS) RWY 36": {
+    "LNAV": {
+     "alt": 460,
+     "hat": 450,
+     "vis": "5500"
+    },
+    "LNAV/VNAV": {
+     "alt": 319,
+     "hat": 309,
+     "vis": "5000"
+    }
+   },
+   "RNAV (GPS)-A": {
+    "LNAV": {
+     "alt": 520,
+     "hat": 509,
+     "vis": "1"
+    }
+   }
+  },
+  "KPMP": {
+   "RNAV (GPS) RWY 06": {
+    "LNAV": {
+     "alt": 480,
+     "hat": 461,
+     "vis": "1"
+    }
+   },
+   "RNAV (GPS) RWY 15": {
+    "LNAV": {
+     "alt": 480,
+     "hat": 463,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 399,
+     "hat": 382,
+     "vis": "1"
+    }
+   },
+   "RNAV (GPS) RWY 24": {
+    "LNAV": {
+     "alt": 500,
+     "hat": 482,
+     "vis": "1"
+    }
+   },
+   "RNAV (GPS) RWY 33": {
+    "LNAV": {
+     "alt": 620,
+     "hat": 605,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 700,
+     "hat": 685,
+     "vis": "2.5"
+    }
+   }
+  },
+  "KRSW": {
+   "RNAV (GPS) RWY 06": {
+    "LNAV": {
+     "alt": 440,
+     "hat": 413,
+     "vis": "2400"
+    },
+    "LNAV/VNAV": {
+     "alt": 380,
+     "hat": 353,
+     "vis": "4000"
+    }
+   },
+   "RNAV (GPS) RWY 24": {
+    "LNAV": {
+     "alt": 580,
+     "hat": 550,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 420,
+     "hat": 390,
+     "vis": "1.25"
+    }
+   }
+  },
+  "KSEF": {
+   "RNAV (GPS) RWY 01": {
+    "LNAV": {
+     "alt": 540,
+     "hat": 478,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 408,
+     "hat": 346,
+     "vis": "1.125"
+    }
+   },
+   "RNAV (GPS) RWY 14": {
+    "LNAV": {
+     "alt": 560,
+     "hat": 500,
+     "vis": "1"
+    }
+   },
+   "RNAV (GPS) RWY 32": {
+    "LNAV": {
+     "alt": 480,
+     "hat": 420,
+     "vis": "1"
+    }
+   }
+  },
+  "KSFB": {
+   "RNAV (GPS) RWY 09L": {
+    "LNAV": {
+     "alt": 460,
+     "hat": 405,
+     "vis": "0.5"
+    },
+    "LNAV/VNAV": {
+     "alt": 355,
+     "hat": 300,
+     "vis": "0.75"
+    }
+   },
+   "RNAV (GPS) RWY 09R": {
+    "LNAV": {
+     "alt": 460,
+     "hat": 421,
+     "vis": "0.5"
+    },
+    "LNAV/VNAV": {
+     "alt": 458,
+     "hat": 419,
+     "vis": "1"
+    }
+   },
+   "RNAV (GPS) RWY 18": {
+    "LNAV": {
+     "alt": 480,
+     "hat": 432,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 298,
+     "hat": 250,
+     "vis": "0.75"
+    }
+   },
+   "RNAV (GPS) RWY 27L": {
+    "LNAV": {
+     "alt": 420,
+     "hat": 396,
+     "vis": "1"
+    }
+   },
+   "RNAV (GPS) RWY 27R": {
+    "LNAV": {
+     "alt": 420,
+     "hat": 375,
+     "vis": "0.5"
+    },
+    "LNAV/VNAV": {
+     "alt": 425,
+     "hat": 380,
+     "vis": "0.875"
+    }
+   }
+  },
+  "KSPG": {
+   "RNAV (GPS) RWY 07": {
+    "LNAV": {
+     "alt": 660,
+     "hat": 653,
+     "vis": "1"
+    }
+   },
+   "RNAV (GPS) RWY 18": {
+    "LNAV": {
+     "alt": 800,
+     "hat": 794,
+     "vis": "1"
+    }
+   },
+   "RNAV (GPS) RWY 36": {
+    "LNAV": {
+     "alt": 540,
+     "hat": 534,
+     "vis": "1"
+    }
+   }
+  },
+  "KSRQ": {
+   "RNAV (GPS) RWY 04": {
+    "LNAV": {
+     "alt": 380,
+     "hat": 357,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 295,
+     "hat": 272,
+     "vis": "1"
+    }
+   },
+   "RNAV (GPS) RWY 14": {
+    "LNAV": {
+     "alt": 440,
+     "hat": 417,
+     "vis": "0.5"
+    },
+    "LNAV/VNAV": {
+     "alt": 489,
+     "hat": 466,
+     "vis": "1.125"
+    }
+   },
+   "RNAV (GPS) RWY 22": {
+    "LNAV": {
+     "alt": 400,
+     "hat": 376,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 295,
+     "hat": 271,
+     "vis": "1"
+    }
+   },
+   "RNAV (GPS) RWY 32": {
+    "LNAV": {
+     "alt": 440,
+     "hat": 413,
+     "vis": "0.5"
+    },
+    "LNAV/VNAV": {
+     "alt": 463,
+     "hat": 436,
+     "vis": "1"
+    }
+   }
+  },
+  "KSUA": {
+   "RNAV (GPS) RWY 12": {
+    "LNAV": {
+     "alt": 420,
+     "hat": 404,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 448,
+     "hat": 433,
+     "vis": "1.5"
+    }
+   },
+   "RNAV (GPS) RWY 30": {
+    "LNAV": {
+     "alt": 400,
+     "hat": 388,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 400,
+     "hat": 388,
+     "vis": "1.375"
+    }
+   }
+  },
+  "KTIX": {
+   "RNAV (GPS) RWY 09": {
+    "LNAV": {
+     "alt": 420,
+     "hat": 388,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 347,
+     "hat": 315,
+     "vis": "1"
+    }
+   },
+   "RNAV (GPS) RWY 36": {
+    "LNAV": {
+     "alt": 640,
+     "hat": 606,
+     "vis": "0.5"
+    }
+   },
+   "RNAV (GPS) Y RWY 18": {
+    "LNAV": {
+     "alt": 440,
+     "hat": 408,
+     "vis": "1"
+    }
+   },
+   "RNAV (GPS) Z RWY 18": {
+    "LNAV/VNAV": {
+     "alt": 377,
+     "hat": 345,
+     "vis": "1.25"
+    }
+   }
+  },
+  "KTMB": {
+   "RNAV (GPS) RWY 09L": {
+    "LNAV": {
+     "alt": 380,
+     "hat": 372,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 364,
+     "hat": 356,
+     "vis": "1.25"
+    }
+   },
+   "RNAV (GPS) RWY 09R": {
+    "LNAV": {
+     "alt": 460,
+     "hat": 450,
+     "vis": "0.5"
+    },
+    "LNAV/VNAV": {
+     "alt": 302,
+     "hat": 292,
+     "vis": "0.5"
+    }
+   },
+   "RNAV (GPS) RWY 27L": {
+    "LNAV": {
+     "alt": 420,
+     "hat": 412,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 341,
+     "hat": 333,
+     "vis": "1.125"
+    }
+   },
+   "RNAV (GPS) RWY 27R": {
+    "LNAV": {
+     "alt": 420,
+     "hat": 412,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 352,
+     "hat": 344,
+     "vis": "1.25"
+    }
+   }
+  },
+  "KTNT": {
+   "RNAV (GPS) RWY 09": {
+    "LNAV": {
+     "alt": 360,
+     "hat": 347,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 280,
+     "hat": 267,
+     "vis": "1"
+    }
+   }
+  },
+  "KTPA": {
+   "RNAV (GPS) RWY 01L": {
+    "LNAV": {
+     "alt": 440,
+     "hat": 429,
+     "vis": "2400"
+    },
+    "LNAV/VNAV": {
+     "alt": 431,
+     "hat": 420,
+     "vis": "4500"
+    }
+   },
+   "RNAV (GPS) RWY 01R": {
+    "LNAV": {
+     "alt": 440,
+     "hat": 420,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 491,
+     "hat": 471,
+     "vis": "1.375"
+    }
+   },
+   "RNAV (GPS) RWY 10": {
+    "LNAV": {
+     "alt": 480,
+     "hat": 460,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 432,
+     "hat": 412,
+     "vis": "1.375"
+    }
+   },
+   "RNAV (GPS) RWY 19R": {
+    "LNAV": {
+     "alt": 440,
+     "hat": 419,
+     "vis": "2400"
+    },
+    "LNAV/VNAV": {
+     "alt": 466,
+     "hat": 445,
+     "vis": "5000"
+    }
+   },
+   "RNAV (GPS) RWY 28": {
+    "LNAV": {
+     "alt": 520,
+     "hat": 494,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 419,
+     "hat": 393,
+     "vis": "1.25"
+    }
+   },
+   "RNAV (GPS) Z RWY 19L": {
+    "LNAV": {
+     "alt": 460,
+     "hat": 434,
+     "vis": "2400"
+    },
+    "LNAV/VNAV": {
+     "alt": 440,
+     "hat": 414,
+     "vis": "4500"
+    }
+   }
+  },
+  "KTPF": {
+   "RNAV (GPS) RWY 22": {
+    "LNAV": {
+     "alt": 580,
+     "hat": 573,
+     "vis": "1"
+    }
+   },
+   "RNAV (GPS) RWY 36": {
+    "LNAV": {
+     "alt": 500,
+     "hat": 492,
+     "vis": "1"
+    }
+   }
+  },
+  "KTTS": {
+   "RNAV (GPS) RWY 15": {
+    "LNAV": {
+     "alt": 360,
+     "hat": 352,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 286,
+     "hat": 278,
+     "vis": "1"
+    }
+   },
+   "RNAV (GPS) RWY 33": {
+    "LNAV": {
+     "alt": 540,
+     "hat": 530,
+     "vis": "1"
+    }
+   }
+  },
+  "KVDF": {
+   "RNAV (GPS) RWY 05": {
+    "LNAV": {
+     "alt": 500,
+     "hat": 479,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 506,
+     "hat": 485,
+     "vis": "1.625"
+    }
+   },
+   "RNAV (GPS) RWY 18": {
+    "LNAV": {
+     "alt": 580,
+     "hat": 562,
+     "vis": "1"
+    }
+   },
+   "RNAV (GPS) RWY 23": {
+    "LNAV": {
+     "alt": 560,
+     "hat": 539,
+     "vis": "0.75"
+    },
+    "LNAV/VNAV": {
+     "alt": 272,
+     "hat": 251,
+     "vis": "0.75"
+    }
+   }
+  },
+  "KVNC": {
+   "RNAV (GPS) RWY 05": {
+    "LNAV": {
+     "alt": 480,
+     "hat": 463,
+     "vis": "1"
+    }
+   },
+   "RNAV (GPS) RWY 13": {
+    "LNAV": {
+     "alt": 460,
+     "hat": 444,
+     "vis": "1"
+    }
+   },
+   "RNAV (GPS) RWY 23": {
+    "LNAV": {
+     "alt": 440,
+     "hat": 422,
+     "vis": "1"
+    }
+   },
+   "RNAV (GPS) RWY 31": {
+    "LNAV": {
+     "alt": 320,
+     "hat": 304,
+     "vis": "1"
+    }
+   }
+  },
+  "KVRB": {
+   "RNAV (GPS) RWY 04": {
+    "LNAV": {
+     "alt": 480,
+     "hat": 456,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 355,
+     "hat": 331,
+     "vis": "1.125"
+    }
+   },
+   "RNAV (GPS) RWY 12R": {
+    "LNAV": {
+     "alt": 380,
+     "hat": 357,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 294,
+     "hat": 271,
+     "vis": "0.875"
+    }
+   },
+   "RNAV (GPS) RWY 22": {
+    "LNAV": {
+     "alt": 520,
+     "hat": 497,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 544,
+     "hat": 521,
+     "vis": "1.75"
+    }
+   },
+   "RNAV (GPS) RWY 30L": {
+    "LNAV": {
+     "alt": 540,
+     "hat": 518,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 346,
+     "hat": 324,
+     "vis": "1"
+    }
+   }
+  },
+  "KZPH": {
+   "RNAV (GPS) RWY 01": {
+    "LNAV": {
+     "alt": 440,
+     "hat": 353,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 366,
+     "hat": 279,
+     "vis": "0.875"
+    }
+   },
+   "RNAV (GPS) RWY 05": {
+    "LNAV": {
+     "alt": 540,
+     "hat": 455,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 582,
+     "hat": 497,
+     "vis": "1.625"
+    }
+   },
+   "RNAV (GPS) RWY 19": {
+    "LNAV": {
+     "alt": 460,
+     "hat": 370,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 380,
+     "hat": 290,
+     "vis": "1"
+    }
+   },
+   "RNAV (GPS) RWY 23": {
+    "LNAV": {
+     "alt": 600,
+     "hat": 512,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 409,
+     "hat": 321,
+     "vis": "1"
+    }
+   }
+  },
+  "X04": {
+   "RNAV (GPS)-A": {
+    "LNAV": {
+     "alt": 780,
+     "hat": 630,
+     "vis": "1"
+    }
+   },
+   "RNAV (GPS)-B": {
+    "LNAV": {
+     "alt": 700,
+     "hat": 558,
+     "vis": "1"
+    }
+   }
+  },
+  "X06": {
+   "RNAV (GPS)-A": {
+    "LNAV": {
+     "alt": 420,
+     "hat": 357,
+     "vis": "1"
+    }
+   },
+   "RNAV (GPS)-B": {
+    "LNAV": {
+     "alt": 420,
+     "hat": 357,
+     "vis": "1"
+    }
+   }
+  },
+  "X07": {
+   "RNAV (GPS) RWY 06": {
+    "LNAV": {
+     "alt": 520,
+     "hat": 393,
+     "vis": "1"
+    }
+   },
+   "RNAV (GPS) RWY 24": {
+    "LNAV": {
+     "alt": 580,
+     "hat": 453,
+     "vis": "1"
+    }
+   }
+  },
+  "X14": {
+   "RNAV (GPS) RWY 14": {
+    "LNAV": {
+     "alt": 520,
+     "hat": 501,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 565,
+     "hat": 546,
+     "vis": "2"
+    }
+   },
+   "RNAV (GPS) RWY 32": {
+    "LNAV": {
+     "alt": 480,
+     "hat": 460,
+     "vis": "1"
+    }
+   }
+  },
+  "X21": {
+   "RNAV (GPS)-A": {
+    "LNAV": {
+     "alt": 580,
+     "hat": 550,
+     "vis": "1"
+    }
+   },
+   "RNAV (GPS)-B": {
+    "LNAV": {
+     "alt": 680,
+     "hat": 650,
+     "vis": "1"
+    }
+   }
+  },
+  "X23": {
+   "RNAV (GPS) RWY 01": {
+    "LNAV": {
+     "alt": 660,
+     "hat": 555,
+     "vis": "1"
+    }
+   },
+   "RNAV (GPS) RWY 19": {
+    "LNAV": {
+     "alt": 620,
+     "hat": 513,
+     "vis": "1"
+    }
+   }
+  },
+  "X26": {
+   "RNAV (GPS)-A": {
+    "LNAV": {
+     "alt": 520,
+     "hat": 498,
+     "vis": "1"
+    }
+   },
+   "RNAV (GPS)-B": {
+    "LNAV": {
+     "alt": 520,
+     "hat": 498,
+     "vis": "1"
+    }
+   }
+  },
+  "X50": {
+   "RNAV (GPS) RWY 18": {
+    "LNAV": {
+     "alt": 500,
+     "hat": 489,
+     "vis": "1"
+    }
+   },
+   "RNAV (GPS) RWY 36": {
+    "LNAV": {
+     "alt": 400,
+     "hat": 389,
+     "vis": "1"
+    }
+   }
+  },
+  "X51": {
+   "RNAV (GPS) RWY 10": {
+    "LNAV": {
+     "alt": 320,
+     "hat": 313,
+     "vis": "1"
+    },
+    "LNAV/VNAV": {
+     "alt": 257,
+     "hat": 250,
+     "vis": "0.875"
+    }
+   },
+   "RNAV (GPS) RWY 28": {
+    "LNAV": {
+     "alt": 320,
+     "hat": 313,
+     "vis": "1"
+    }
+   }
+  }
+ },
+ "effective": {
+  "LNAV": "2019-01-31",
+  "LNAV/VNAV": "2019-01-31"
+ },
+ "page": "https://www.faa.gov/about/officeorg/headquartersoffices/ato/all-approaches-master-rnavs",
+ "source": "https://www.faa.gov/sites/faa.gov/files/2021-12/MasterRNAVs-20211222.xlsx"
+}
