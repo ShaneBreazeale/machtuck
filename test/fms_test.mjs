@@ -122,6 +122,41 @@ const speedHold = (ac, o, kias) => { ac.ctl.thr = clamp(ac.ctl.thr + (kias - o.K
   expect(Math.abs(minH - 4000) < 60, `preselect 4,000 ft with WILBA at or above 3,000: VNAV levels at ${Math.round(minH)} ft`);
 }
 
+// ---- direct to: a fix of the plan ahead, a holding fix, a fix off the plan ----
+{
+  const seq = (f) => f.legs.slice(f.i).map((l) => l.pt + (l.fix ? ' ' + l.fix.id : '')).join(', ');
+  const f = new FMS(); f.load(procedureLegs(apt, 'APP', 'I10L', { trans: 'GULLO' }));
+  f.directTo({ id: 'ZISUR' }, [0, 0]);
+  expect(seq(f) === 'DF ZISUR, CF RW10L, CA, VI, CF MORGA, HM MORGA' && f.active.faf && f.active.alt.a1 === 2000, `direct ZISUR (FAF) skips GULLO, WILBA and keeps the FAF and 2,000 ft: ${seq(f)}`);
+  const v = new FMS(); v.load(procedureLegs(apt, 'APP', 'I10L', { trans: 'GULLO' }), 4);
+  const pbi = db.findFix('PBI', [0, 0]); v.directTo(pbi, [0, 0]);
+  expect(seq(v) === 'DF PBI, VI, CF MORGA, HM MORGA', `direct PBI (off the plan) during the missed approach's climb: the altitude leg is dropped, the plan resumes: ${seq(v)}`);
+  const h = new FMS(); h.load(procedureLegs(apt, 'APP', 'I10L', { trans: 'WILBA' }));
+  h.directTo({ id: 'WILBA' }, [0, 0]);
+  expect(/^DF WILBA, HF WILBA/.test(seq(h)) && !h.active.turn, `direct WILBA (course-reversal hold): the hold stays after the direct: ${seq(h).split(', ').slice(0, 3).join(', ')}`);
+  const z = db.findFix('zisur', [0, 0]), zl = f.active.fix.ne;
+  expect(z && Math.hypot(z.ne[0] - zl[0], z.ne[1] - zl[1]) < 1 && !db.findFix('NOPEZ'), `terminal fix by ident from the loaded procedures: ZISUR ${z ? 'found' : 'missing'}, NOPEZ not found`);
+}
+// ---- direct to, flown: from the approach start, direct PBI (off the plan) on LNAV, then back to the plan ----
+{
+  const ac = new Learjet60(); setWeight(ac, 'typical'); const fe = new FreeEnv('calm');
+  const s = { apt: 'KDJT', start: 'app', app: 'I10L', trans: 'GULLO' }, legs = procedureLegs(apt, 'APP', s.app, { trans: s.trans });
+  const r = setupStart(ac, s, fe, legs); let o = ac.step(0, env);
+  const ap = new Autopilot(true), fms = new FMS(); configureGuidance(ap, fms, r, s, legs, o);
+  ap.appr = false; ap.altTgt = 3000 * FT;
+  const pbi = db.findFix('PBI', [ac.pos[0], ac.pos[1]]), was = fms.active.fix.id;
+  let minD = 1e9, after = null, trkErr = null;
+  for (let t = 0; t < 900 && !after; t += DT) {
+    if (Math.abs(t - 5) < DT / 2) fms.directTo(pbi, [ac.pos[0], ac.pos[1]]);
+    speedHold(ac, o, 200); ap.step(ac, DT, o); o = ac.step(DT, env);
+    const d = Math.hypot(pbi.ne[0] - ac.pos[0], pbi.ne[1] - ac.pos[1]) / 1852; minD = Math.min(minD, d);
+    if (t > 60 && trkErr === null && d > 3) trkErr = Math.abs(wrap180(trkDeg(o) - ((Math.atan2(pbi.ne[1] - ac.pos[1], pbi.ne[0] - ac.pos[0]) / DEG + 360) % 360)));
+    if (t > 6 && fms.active && fms.active.fix && fms.active.fix.id !== 'PBI') after = { t, id: fms.active.fix.id, lat: ap.lat };
+  }
+  expect(trkErr !== null && trkErr < 3 && minD < 0.6, `flies direct PBI on LNAV: track ${trkErr && trkErr.toFixed(1)}° off the bearing a minute in, passes ${minD.toFixed(2)} nm from it`);
+  expect(after && after.id === was && after.lat === 'LNAV', `then resumes the plan at ${after && after.id} (was ${was}) in ${after && after.lat} after ${after && (after.t / 60).toFixed(1)} min`);
+}
+
 function flyFd(ac, ap, o) {
   const e = ap.fdTheta - o.theta; ac.fI = clamp((ac.fI || 0) + e * DT * 4, -0.5, 0.5);
   ac.ctl.elev = clamp((6 * e - 2 * o.q) / 2.5 + ac.fI, -1, 1);

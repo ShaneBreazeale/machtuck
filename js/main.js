@@ -73,6 +73,7 @@ function atcSync() {
   else if (Math.abs(el.currentTime - want) > 0.6) el.currentTime = want;
 }
 function newGame(hypKey, hard = true) {
+  DTO.el.classList.add('hidden');
   const ac = new Learjet60(), env = new Environment(hypKey, hard), ap = new Autopilot(hard);
   ac.failures.tailIce = env.hyp.tailIce; ac.failures.tuck = env.hyp.tuck;
   const g0 = ghost[0];
@@ -150,6 +151,7 @@ function sortiePlan(o) {
   return { dep, arr, parse, ...plan, errors: [...parse.errors, ...plan.errors] };
 }
 function newFreeFlight(o) {
+  DTO.el.classList.add('hidden');
   const P = sortiePlan(o);
   if (!P) { console.warn('airport not loaded', o.apt, o.arr); return; }
   const { dep, arr, legs } = P, apt = arr, cruise = o.cruise ? +o.cruise : null;
@@ -569,6 +571,7 @@ function handleEvents() {
       else if (!(G.fms && G.fms.fafIndex() >= 0) && !(ap.nav && ap.nav(ac.out))) log('SYS', 'APR: no approach loaded and no localizer in range');
       else { ap.appr = !ap.appr; if (!ap.appr) { ap.latArm = ap.vertArm = null; if (ap.lat === 'LOC') { ap.lat = 'HDG'; ap.hdgTgt = wrap360(ac.out.psi * RAD); } if (ap.vert === 'GS' || ap.vert === 'GP') { ap.vert = 'ALT'; ap.altTgt = ac.out.h; } } log('SYS', ap.appr ? `APR armed: ${ap.latArm || 'LOC'} then ${ap.vertArm || 'GS'}` : 'APR off'); }
     }
+    else if (e === 'direct') dtoToggle();
     else if (e === 'lnav') { if (G.fms && ap.armLnav()) log('SYS', ap.lat === 'LNAV' ? 'LNAV' : 'LNAV armed: engages on the flight-plan path'); else log('SYS', 'LNAV: no flight plan'); }
     else if (e === 'vnav') { if (G.fms && ap.armVnav()) log('SYS', 'VNAV armed: flies the plan\'s altitude constraints within the preselected altitude'); else log('SYS', 'VNAV: no flight plan'); }
   }
@@ -854,6 +857,39 @@ function applyRot() {
   const x = c.getContext('2d'); x.translate(c.width / 2, c.height / 2); x.rotate(PL.rot * Math.PI / 180); x.drawImage(im, -im.naturalWidth / 2, -im.naturalHeight / 2);
   img.src = c.toDataURL('image/png');
 }
+// ---- direct to (the FMS DIR key, @): a fix of the plan ahead, or any fix by ident ----
+const DTO = { el: document.getElementById('dto') };
+DTO.inp = document.getElementById('dtofix'); DTO.list = DTO.el.querySelector('.dlist'); DTO.note = DTO.el.querySelector('.dnote');
+const toFix = (ne, fx) => { const dn = fx[0] - ne[0], de = fx[1] - ne[1]; return { nm: Math.hypot(dn, de) / 1852, brg: wrap360(Math.atan2(de, dn) * RAD - (G.apt ? G.apt.magvar : 0)) }; };
+function dtoClose() { DTO.el.classList.add('hidden'); DTO.inp.blur(); document.getElementById('hud').focus(); }
+function dtoToggle() {
+  if (!DTO.el.classList.contains('hidden')) { dtoClose(); return; }
+  if (!G || G.mode !== 'free' || !G.fms) { log('SYS', 'DIRECT TO: free flight only'); return; }
+  const F = G.fms, ne = [G.ac.pos[0], G.ac.pos[1]], seen = new Set();
+  DTO.list.textContent = ''; DTO.note.textContent = ''; DTO.inp.value = '';
+  for (let j = F.i; j < F.legs.length && seen.size < 12; j++) {
+    const l = F.legs[j]; if (!l.fix || l.fix.id === 'VECTR' || seen.has(l.fix.id)) continue; seen.add(l.fix.id);
+    const b = document.createElement('button'), d = toFix(ne, l.fix.ne); b.className = 'alt';
+    b.append(l.fix.id); const sp = document.createElement('span'); sp.textContent = `${String(Math.round(d.brg) || 360).padStart(3, '0')}° ${d.nm.toFixed(0)} nm`; b.append(sp);
+    b.onclick = () => dtoGo(l.fix.id); DTO.list.append(b);
+  }
+  if (!seen.size) DTO.note.textContent = 'No fixes ahead in the flight plan: type any fix, navaid or airport.';
+  DTO.el.classList.remove('hidden'); DTO.inp.focus();
+}
+function dtoGo(id) {
+  const { fms: F, ac, ap } = G; id = id.trim().toUpperCase(); if (!id) return;
+  const ne = [ac.pos[0], ac.pos[1]], inPlan = F.legs.slice(F.i).find((l) => l.fix && l.fix.id === id);
+  const fx = inPlan ? inPlan.fix : DB.findFix(id, ne);
+  if (!fx) { DTO.note.textContent = `${id}: not in the flight plan or the nav database`; return; }
+  F.directTo(fx, ne);
+  const d = toFix(ne, fx.ne), rest = F.next ? `, then ${legText(G.apt, F.next)}` : '';
+  log('SYS', `DIRECT ${id}: ${String(Math.round(d.brg) || 360).padStart(3, '0')}°, ${d.nm.toFixed(1)} nm${rest}${ap.lat === 'LNAV' ? '' : ap.latArm === 'LNAV' ? ' (LNAV armed)' : '. Press ( for LNAV'}`);
+  dtoClose();
+}
+DTO.inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { dtoGo(DTO.inp.value); e.preventDefault(); } else if (e.key === 'Escape') { dtoClose(); e.preventDefault(); } });
+document.getElementById('dtogo').onclick = () => dtoGo(DTO.inp.value);
+document.getElementById('dtox').onclick = dtoClose;
+
 function togglePlates() {
   if (!PL.meta) { log('SYS', 'Approach plates not loaded'); return; }
   if (PL.el.classList.contains('hidden')) {

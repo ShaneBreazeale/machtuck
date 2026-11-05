@@ -37,6 +37,19 @@ export class NavDB {
   allIls() { const o = []; for (const a of this.apts.values()) o.push(...Object.values(a.ils)); return o; }
   // a fix by ident: enroute waypoint, navaid or airport (terminal fixes come with their procedures)
   fix(id) { return this.byId ? this.byId.get(id) || null : null; }
+  // a fix by ident for a direct-to: enroute fixes, navaids and airports, plus the terminal fixes and navaids of the loaded
+  // airports' procedures. Idents repeat between regions: the one nearest `near` ([n, e]) wins. { id, ne } or null.
+  findFix(id, near = [0, 0]) {
+    id = id.trim().toUpperCase(); if (!id) return null;
+    const c = []; const f = this.fix(id); if (f) c.push({ id, ne: f.ne });
+    for (const a of this.apts.values()) {
+      for (const n of Object.values(a.raw.navaids || {})) if (n.id === id) c.push({ id, ne: toNE(n.lat, n.lon) });
+      for (const kind of Object.values(a.raw.procedures || {})) for (const p of Object.values(kind))
+        for (const legs of Object.values(p.trans)) for (const l of legs) if (l.fix && l.fix.id === id) { c.push({ id, ne: toNE(l.fix.lat, l.fix.lon) }); break; }
+    }
+    const d = (x) => Math.hypot(x.ne[0] - near[0], x.ne[1] - near[1]);
+    return c.length ? c.reduce((a, b) => (d(b) < d(a) ? b : a)) : null;
+  }
 }
 
 // Assemble a procedure into legs. kind: 'SID' | 'STAR' | 'APP'; trans: the transition name (runway 'RW10L' for SIDs /

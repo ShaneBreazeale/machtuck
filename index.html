@@ -81,7 +81,7 @@
       </div>
     </div>
     <p class="plan" id="splan"></p>
-    <p class="keys"><b>X</b> autopilot · <b>|</b> flight director · <b>?</b> TOGA · <b>(</b> LNAV · <b>)</b> VNAV · <b>\</b> APR · <b>{ }</b> heading bug · <b>&lt; &gt;</b> altitude preselect · <b>Shift</b> brakes. Armed modes show white, active green. VNAV climbs to the cruise altitude and descends on the arrival's constraints, never through the preselected altitude except on final. No autothrottle: thrust is yours.</p>
+    <p class="keys"><b>X</b> autopilot · <b>|</b> flight director · <b>?</b> TOGA · <b>(</b> LNAV · <b>)</b> VNAV · <b>@</b> direct to · <b>\</b> APR · <b>{ }</b> heading bug · <b>&lt; &gt;</b> altitude preselect · <b>Shift</b> brakes. Armed modes show white, active green. VNAV climbs to the cruise altitude and descends on the arrival's constraints, never through the preselected altitude except on final. No autothrottle: thrust is yours.</p>
     <button id="ffgo">Fly the sortie</button><button id="platebtn" class="alt">Approach plates</button><button id="sback" class="alt">← The accident</button>
   </div>
 </div>
@@ -92,6 +92,12 @@
     <div class="pview"><img class="pimg" alt="FAA chart"></div>
     <p class="note pnote"></p>
   </div>
+</div>
+
+<div id="dto" class="hidden">
+  <div class="dtop"><b>DIRECT TO</b><input id="dtofix" placeholder="fix ident" maxlength="7" autocomplete="off" spellcheck="false"><button class="sm" id="dtogo">Direct</button><button class="alt sm" id="dtox">Esc</button></div>
+  <div class="dlist"></div>
+  <p class="dnote"></p>
 </div>
 
 <div id="debrief" class="overlay hidden">

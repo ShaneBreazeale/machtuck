@@ -102,12 +102,17 @@ The autopilot and flight director modes follow FAA [AC 25.1329-1C](https://www.f
   except on final. On a route it climbs to the cruise altitude by speed on elevator: you set climb thrust, and pitch
   holds 250 kt below 10,000 ft, then 280 kt / M 0.70. It holds cruise until the descent path to the arrival
   constraints reaches it (top of descent). Lower the preselected altitude to let it descend.
+- **Direct to** (`@`) opens a DIRECT TO box listing the plan's fixes ahead with bearing and distance. Click one, or
+  type any fix, navaid or airport and press Enter. A fix in the plan is flown direct and the legs before it are
+  skipped; it keeps its altitude constraint and approach role (a direct to the FAF is still the FAF). Any other fix is
+  flown direct and the plan resumes from it. A holding fix is reached direct and the hold entry follows. The mode stays
+  yours: press `(` for LNAV if you are on HDG.
 - **Vectors:** a departure that ends in radar vectors gets a "proceed direct" clearance from ATC after a minute.
 - **Go-around** (`?`) pitches 10°, arms LNAV for the published missed approach and climbs until the preselected
   altitude is above you. Once you are established on the glideslope, the pilot monitoring sets the missed-approach
   altitude.
 
-`X` engages the autopilot, `|` toggles the flight director, `(` arms LNAV, `)` arms VNAV and `\` arms the approach.
+`X` engages the autopilot, `|` toggles the flight director, `(` arms LNAV, `)` arms VNAV, `@` is direct to and `\` arms the approach.
 `{` `}` move the heading bug and `<` `>` set the preselected altitude. There is no autothrottle on the Learjet 60, so
 speed stays yours.
 
@@ -140,7 +145,7 @@ python3 tools/fetch_plates.py --cycle <cycle>
 | Pitch trim | `,` nose-down, `.` nose-up | R1 / L1 |
 | Autopilot off or on | X | Cross |
 | Heading bug, altitude preselect, approach (APR) | `{` `}`, `<` `>`, `\` | |
-| LNAV, VNAV | `(`, `)` | |
+| LNAV, VNAV, direct to | `(`, `)`, `@` | |
 | Flight director, go-around (TOGA) | `\|`, `?` (or a bound button) | |
 | Approach plates | `~` | |
 | Spoilers, gear, flaps | B, G, F | Circle, D-pad |

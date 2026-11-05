@@ -83,3 +83,13 @@ button.sm { font-size: 12px; padding: 4px 10px; margin-right: 4px; }
 #sortie .imp { display: flex; gap: 4px; align-items: center; margin-top: 4px; }
 #sortie .imp input { background: #0d0f12; color: #e6edf3; border: 1px solid #333a44; border-radius: 4px; padding: 4px 6px; font: 12px "SF Mono", Menlo, monospace; min-width: 0; flex: 1; }
 #sortie .plan.err { color: #ffb000; }
+#dto { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 22; background: rgba(8,12,18,0.94); border: 1px solid #3a4a5c; border-radius: 6px; padding: 8px 10px; font: 13px ui-monospace, Menlo, monospace; color: #dfe7ef; min-width: 320px; max-width: 92vw; }
+#dto.hidden { display: none; }
+#dto .dtop { display: flex; gap: 6px; align-items: center; }
+#dto .dtop b { color: #ff5cf0; margin-right: 4px; }
+#dto input { flex: 1; min-width: 0; font: inherit; text-transform: uppercase; background: #000; color: #4dff7a; border: 1px solid #556; padding: 3px 6px; }
+#dto .dlist { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+#dto .dlist button { font: inherit; font-size: 12px; padding: 2px 6px; }
+#dto .dlist button span { color: #8fa3b5; margin-left: 4px; }
+#dto .dnote { margin: 6px 0 0; color: #ffb347; font-size: 12px; min-height: 0; }
+#dto .dnote:empty { display: none; }
