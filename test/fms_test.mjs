@@ -40,6 +40,15 @@ const speedHold = (ac, o, kias) => { ac.ctl.thr = clamp(ac.ctl.thr + (kias - o.K
   const got = [min('ILS OR LOC RWY 10L', 'S-ILS'), min('ILS OR LOC RWY 10L', 'S-LOC'), min('ILS OR LOC RWY 28R', 'S-ILS'), min('ILS OR LOC RWY 28R', 'S-LOC'), min('RNAV (GPS) Y RWY 14', 'LNAV/VNAV'), min('RNAV (GPS) Y RWY 10L', 'LNAV')];
   expect(got.join(' ') === '216 380 218 460 338 440', `plate minimums (Cat C): ILS 10L DA ${got[0]}, LOC 10L MDA ${got[1]}, ILS 28R DA ${got[2]}, LOC 28R MDA ${got[3]}, RNAV Y 14 LNAV/VNAV DA ${got[4]}, RNAV Y 10L LNAV MDA ${got[5]}`);
 }
+// ---- minimums at every airport: the plates' text layer, all 72 airports (tools/fetch_plates.py --all) ----
+{
+  const M = JSON.parse(readFileSync(new URL('../data/plates/minimums.json', import.meta.url), 'utf8'));
+  const get = (apt, title, type) => { const c = M.airports[apt].charts.find((x) => x.title === title), m = c && c.minimums.find((x) => x.type === type); return m ? m.cat.C.alt : null; };
+  const got = [get('KMCO', 'ILS OR LOC RWY 18R', 'S-ILS'), get('KMIA', 'LOC RWY 08L', 'S-LOC'), get('KPIE', 'VOR RWY 04', 'S-VOR'), get('KFLL', 'RNAV (GPS) RWY 10R', 'LNAV/VNAV'), get('KFLL', 'RNAV (GPS) RWY 10R', 'LNAV')];
+  const n = Object.values(M.airports).reduce((s, a) => s + a.charts.filter((c) => c.minimums.length).length, 0);
+  expect(got.join() === '294,440,1000,355,460' && n >= 275, `cycle ${M.cycle}: KMCO ILS 18R ${got[0]}, KMIA LOC 8L ${got[1]} ("S-8L" on the plate), KPIE VOR 4 ${got[2]} ("S-4"), KFLL RNAV 10R LNAV/VNAV ${got[3]} / LNAV ${got[4]} (split header); ${n} plates with straight-in minimums`);
+}
+
 // ---- RNAV minimums where no plate is loaded: the FAA master RNAV list (tools/fetch_rnav_minimums.py) ----
 {
   const L = db.rnavMins, exact = rnavListMinimums(L, 'KMCO', 'RNAV (GPS) RWY 17R'), renamed = rnavListMinimums(L, 'KMCO', 'RNAV (GPS) Y RWY 18R');

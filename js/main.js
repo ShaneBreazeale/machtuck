@@ -131,9 +131,9 @@ const APPROACH_CAT = 'C';
 // RNAV straight-in minimums from the FAA master RNAV list where no plate is loaded (js/navdb.js rnavListMinimums)
 function rnavMinimums(app, aptId) { return app && app[0] === 'R' ? rnavListMinimums(DB.rnavMins, aptId, procName(app)) : null; }
 function plateMinimums(app, rwy, aptId) {
-  if (!PL.meta || !app || !rwy || (aptId && PL.meta.icao !== aptId)) return null;   // plates are fetched for one airport
+  const set = plateSet(aptId); if (!set || !app || !rwy) return null;
   const k = app[0], want = { I: ['S-ILS'], L: ['S-LOC'], X: ['S-LDA'], R: ['LNAV/VNAV', 'LNAV'], H: ['RNP 0.30', 'RNP 0.11'] }[k] || [];
-  const title = procName(app), charts = PL.meta.charts.filter((c) => c.code === 'IAP' && c.title.endsWith('RWY ' + rwy) &&
+  const title = procName(app), charts = set.charts.filter((c) => c.code === 'IAP' && c.title.endsWith('RWY ' + rwy) &&
     (k === 'I' ? /^ILS/.test(c.title) : k === 'L' ? /LOC/.test(c.title) : c.title === title));
   for (const t of want) for (const c of charts) {
     const m = (c.minimums || []).find((x) => x.type === t && (!x.rwy || x.rwy === rwy));
@@ -185,7 +185,7 @@ function newFreeFlight(o) {
   if (hasApp) {
     const minTxt = pm ? `${pm.type} ${/MDA|LOC|LNAV$|LDA/.test(pm.type) && !/VNAV/.test(pm.type) ? 'MDA' : 'DA'} ${pm.alt} ft (${Math.round(pm.alt - tdze)} above touchdown, ${pm.straightIn ? 'straight-in' : `Cat ${APPROACH_CAT}`}${pm.rvr ? `, RVR ${pm.rvr}` : ''}; ${pm.chart})`
       : `${Math.round(G.mins)} ft (no plate minimums for this approach: ${precision ? 200 : 400} ft above touchdown)`;
-    if (il) log('SYS', `${il.id.replace(/^I/, 'I-')} ${il.freq.toFixed(2)}, course ${magOf(arr, il.crsT)}°, ${o.app[0] === 'I' ? `glideslope ${il.gs.toFixed(1)}°` : 'localizer only: no glideslope (GP flies the FMS path)'}. Minimums: ${minTxt}.${PL.meta && PL.meta.icao === arr.id ? ' Press ~ for the plates.' : ''}`);
+    if (il) log('SYS', `${il.id.replace(/^I/, 'I-')} ${il.freq.toFixed(2)}, course ${magOf(arr, il.crsT)}°, ${o.app[0] === 'I' ? `glideslope ${il.gs.toFixed(1)}°` : 'localizer only: no glideslope (GP flies the FMS path)'}. Minimums: ${minTxt}.${plateSet(arr.id) ? ' Press ~ for the plates.' : ''}`);
     else log('SYS', `Minimums: ${minTxt}.`);
   }
   if (r.onGround) log('SYS', `AFM takeoff speeds, flaps 8, ${Math.round(lb).toLocaleString()} lb: V1 ${Math.round(V.v1)}, VR ${Math.round(V.vr)}, V2 ${Math.round(V.v2)} KIAS (bugs on the speed tape).`);
@@ -864,17 +864,39 @@ document.getElementById('csv').addEventListener('click', () => {
 });
 document.getElementById('hwbtn').addEventListener('click', () => HP.show());
 // ---------- approach plates (FAA d-TPP, data/plates; tools/fetch_plates.py) ----------
-const PL = { el: document.getElementById('plates'), meta: null, i: 0, rot: 0 };
-fetch('data/plates/plates.json').then((r) => r.json()).then((m) => {
-  PL.meta = m; const tabs = PL.el.querySelector('.ptabs');
+// PL.home: the airport whose plates ship as images (data/plates/plates.json, KDJT); PL.all: every airport's approach
+// minimums and chart list without images (data/plates/minimums.json; the viewer links each chart's FAA PDF instead).
+const PL = { el: document.getElementById('plates'), meta: null, home: null, all: null, icao: null, i: 0, rot: 0 };
+fetch('data/plates/plates.json').then((r) => r.json()).then((m) => { PL.home = m; if (!PL.meta) plateAirport(m.icao); }).catch(() => {});
+fetch('data/plates/minimums.json').then((r) => r.json()).then((m) => { PL.all = m; }).catch(() => {});
+// the charts of an airport, with the cycle they come from: images for PL.home, PDF links for the rest
+function plateSet(icao) {
+  if (PL.home && PL.home.icao === icao) return PL.home;
+  const a = PL.all && PL.all.airports[icao];
+  return a ? { airport: a.airport, icao, cycle: PL.all.cycle, valid_from: PL.all.valid_from, valid_to: PL.all.valid_to, source: PL.all.source, charts: a.charts } : null;
+}
+function plateAirport(icao) {
+  const m = plateSet(icao); if (!m) return false;
+  if (PL.icao === icao) return true;
+  PL.meta = m; PL.icao = icao; const tabs = PL.el.querySelector('.ptabs'); tabs.textContent = '';
   m.charts.forEach((c, i) => { const b = document.createElement('button'); b.className = 'alt sm'; b.textContent = c.title.replace('ILS OR LOC ', 'ILS '); b.onclick = () => showPlate(i); tabs.appendChild(b); });
   PL.el.querySelector('.pnote').textContent = `${m.airport} (${m.icao}) · FAA d-TPP cycle ${m.cycle}, ${m.valid_from} to ${m.valid_to} · public domain · NOT FOR NAVIGATION`;
-}).catch(() => {});
+  return true;
+}
 function showPlate(i) {
-  if (!PL.meta) return; PL.i = i; const c = PL.meta.charts[i];
+  if (!PL.meta) return; PL.i = i; const c = PL.meta.charts[i], img = PL.el.querySelector('.pimg'), link = PL.el.querySelector('.plink');
+  PL.el.querySelectorAll('.ptabs button').forEach((b, k) => b.classList.toggle('on', k === i));
+  if (!c) return;
+  if (!c.file) {   // no image shipped for this airport: the FAA PDF of the cycle (aeronav keeps the current cycles only)
+    img.classList.add('hidden'); link.classList.remove('hidden'); link.textContent = '';
+    const mins = (c.minimums || []).filter((x) => x.cat && x.cat[APPROACH_CAT]).map((x) => `${x.type}${x.rwy ? ' ' + x.rwy : ''} ${x.cat[APPROACH_CAT].alt}`).join(' · ');
+    const a = document.createElement('a'); a.href = PL.meta.source + c.pdf; a.target = '_blank'; a.rel = 'noopener'; a.textContent = `Open ${c.title} (FAA PDF, cycle ${PL.meta.cycle})`;
+    link.append(a, document.createElement('br'), `Straight-in minimums, Cat ${APPROACH_CAT}: ${mins || 'none read from the plate'}.`);
+    return;
+  }
+  img.classList.remove('hidden'); link.classList.add('hidden');
   PL.rot = c.code === 'APD' ? 90 : 0;   // this airport diagram is printed sideways: north-up after a quarter turn
   PL.src = new Image(); PL.src.onload = applyRot; PL.src.src = 'data/plates/' + c.file;
-  PL.el.querySelectorAll('.ptabs button').forEach((b, k) => b.classList.toggle('on', k === i));
 }
 // rotate the pixels (a CSS transform leaves the layout box unrotated and clips the chart)
 function applyRot() {
@@ -927,12 +949,14 @@ document.getElementById('dtogo').onclick = () => dtoGo(DTO.inp.value);
 document.getElementById('dtox').onclick = dtoClose;
 
 function togglePlates() {
-  if (!PL.meta) { log('SYS', 'Approach plates not loaded'); return; }
   if (PL.el.classList.contains('hidden')) {
     let i = 0;   // open on the approach ahead, or the airport diagram on the ground
-    if (G && G.mode === 'free') {
-      const here = G.ac.wow ? G.free.apt : (G.apt ? G.apt.id : G.free.apt);   // the field you're at, or the one you're going to
-      if (PL.meta.icao && here !== PL.meta.icao) { log('SYS', `No approach plates for ${here} in this build (plates ship for ${PL.meta.icao} only)`); return; }
+    const planning = !document.getElementById('sortie').classList.contains('hidden');   // the sortie screen: the arrival being planned
+    const here = planning ? ($('sarr').value || $('sapt').value)
+      : G && G.mode === 'free' ? (G.ac.wow ? G.free.apt : (G.apt ? G.apt.id : G.free.apt))   // the field you're at, or the one you're going to
+      : (PL.home ? PL.home.icao : 'KDJT');
+    if (!plateAirport(here)) { log('SYS', PL.home || PL.all ? `No FAA plates for ${here} (not in the d-TPP)` : 'Approach plates not loaded'); return; }
+    if (G && G.mode === 'free' && !planning) {
       const rw = G.legs && G.legs.length ? approachRunway(G.legs, G.free.app) : null;
       const app = G.free.app || '', mine = (c) => c.code === 'IAP' && c.title.endsWith('RWY ' + rw) && (app[0] === 'I' ? /^ILS/.test(c.title) : app[0] === 'L' ? /LOC/.test(c.title) : c.title === procName(app));
       const k = G.ac.wow || !rw ? PL.meta.charts.findIndex((c) => c.code === 'APD') : PL.meta.charts.findIndex(mine);

@@ -98,15 +98,15 @@ The Learjet 60 doesn't have one, so speed stays yours. The thrust levers always 
 and VNAV engaged. In a VNAV climb you set climb thrust and the pitch holds the speed. See
 [Autopilot and flight director](flight-guidance.md).
 
-### Why do only KDJT approaches have plates?
+### Why do only KDJT plates show as images?
 
-The repository ships the FAA charts for one airport and one cycle: all 12 KDJT approach plates and the airport
-diagram, from d-TPP cycle 2611. `tools/fetch_plates.py` downloads one airport per run, and `data/plates/plates.json`
-describes that airport only.
+Rendering every chart at the 72 airports (376 of them) would add about 64 MB to the repository each cycle, so only
+KDJT's 12 approach plates and diagram ship as images. Everywhere else `~` lists the airport's plates with a link to the
+FAA PDF for the cycle.
 
-The plates also carry the minimums, because CIFP has the procedures but not their minimums. At other airports the
-minimums come from the FAA master RNAV list for RNAV (GPS) approaches (dated 2019, so possibly off by a few hundred
-feet), and otherwise fall back to 200 ft above touchdown on an ILS with a glideslope and 400 ft on other approaches. See
+The minimums are read from every plate anyway (CIFP has the procedures but not their minimums): 280 of the 329
+approach plates give them. Where a plate gives none, RNAV (GPS) approaches use the FAA master RNAV list (dated 2019)
+and the rest fall back to 200 ft above touchdown on an ILS with a glideslope and 400 ft on other approaches. See
 [Approaches and minimums](approaches.md) and [Data pipeline](data-pipeline.md#plates-and-minimums).
 
 ### Why KDJT and not KPBI?

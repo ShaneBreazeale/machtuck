@@ -75,6 +75,9 @@ button.sm { font-size: 12px; padding: 4px 10px; margin-right: 4px; }
 #plates .ptabs button.on { background: #ffe34d; color: #000; }
 #plates .pview { overflow: auto; background: #fff; border-radius: 4px; flex: 1; min-height: 0; text-align: center; }
 #plates .pimg { max-width: 100%; }
+#plates .pimg.hidden, #plates .plink.hidden { display: none; }
+#plates .plink { color: #111; padding: 40px 20px; font-size: 15px; line-height: 1.6; }
+#plates .plink a { color: #0645ad; font-weight: 600; }
 
 /* sortie planner: the assembled flight plan */
 #sortie .plan { font-size: 12px; line-height: 1.5; color: #cfd8e3; margin: 10px 0 0; }

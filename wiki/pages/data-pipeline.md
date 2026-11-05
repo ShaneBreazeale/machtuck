@@ -232,7 +232,8 @@ python3 tools/fetch_rnav_minimums.py
 ### Plates and minimums
 
 ```bash
-python3 tools/fetch_plates.py [--cycle 2611] [--apt DJT] [--out data/plates] [--dpi 170]
+python3 tools/fetch_plates.py [--cycle 2611] [--apt DJT] [--out data/plates] [--dpi 170]   # one airport, with images
+python3 tools/fetch_plates.py [--cycle 2611] --all [--cache DIR] [--delay 0.3]            # every airport, minimums only
 ```
 
 Needs `pdftoppm` and `pdftotext` from poppler on your `PATH`. The script:
@@ -243,13 +244,19 @@ Needs `pdftoppm` and `pdftotext` from poppler on your `PATH`. The script:
    PNG with `pdftoppm`.
 4. Runs `pdftotext -layout` on each approach plate and reads the straight-in minimums: the DA or MDA per aircraft
    category for each line (S-ILS, S-LOC, LPV, LNAV/VNAV, LNAV, RNP 0.30 and so on).
-5. Writes `plates.json` with the cycle, the validity dates, and each chart's title, file, amendment and minimums.
+5. Writes `plates.json` with the cycle, the validity dates, and each chart's title, file, PDF, amendment and minimums.
+
+With `--all` it does steps 1, 2 and 4 for every airport in `data/nav/index.json` (FAA id = ICAO without the K), one
+plate at a time `--delay` seconds apart, renders nothing, and writes `minimums.json`: per airport, each approach
+plate's title, PDF name, amendment and minimums. It ends with the list of plates it read no straight-in minimums from.
+`--cache DIR` keeps the PDFs, so a parser change can be re-run without downloading again.
 
 CIFP carries the procedures but not their minimums, which is why the plates are parsed at all. Circling minimums are
 skipped: in the text layer they wrap across lines and can't be assigned to categories. The sim uses the Category C
 line. See [Approaches and minimums](approaches.md).
 
-The repository ships one airport (KDJT, 12 approach plates and the diagram) for one cycle. The charts and the nav
+The repository ships the KDJT charts as images (12 approach plates and the diagram) and every airport's minimums
+(280 of 329 plates), for one cycle. The charts and the nav
 data are **not for navigation**.
 
 ## Models and livery
