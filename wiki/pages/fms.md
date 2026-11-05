@@ -205,28 +205,45 @@ direct PBI, flown on LNAV:   passes 0.08 nm from PBI, then resumes the plan at G
 
 ## The CDU
 
-The captain's control display unit (CDU) on the pedestal runs this FMS (`js/cdu.js`). It is laid over the CDU painted
-on the cockpit model, and every key is a live control. Click its screen, the `CDU` button on the 2D panel, or press
-`F2` for a large pop-out on the right. While it has focus the keyboard types into it (letters, digits, `.`, `/`,
-`-` for +/−, Backspace for CLR, Delete for DEL) and the flight keys rest; `Esc` or `F2` closes it.
+The captain's control display unit on the pedestal is a Collins CDU-4200, the CDU of the Learjet 60's FMS-4200
+(Pro Line 4), running this FMS (`js/cdu.js`). It is laid over the CDU painted on the cockpit model, and every key is a
+live control. Click its screen, the `CDU` button on the 2D panel, or press `F2` for a large pop-out. While it has focus
+the keyboard types into it: letters, digits, `.`, `/`, `-` for +/−, Backspace for CLR, Delete for DEL, Enter for
+EXEC, Page Up / Down for PREV / NEXT PAGE. `Esc` or `F2` closes it.
 
-> **Note:** The Learjet 60's FMS is the Collins FMS-4200 (Pro Line 4). The pages below are a provisional, generic
-> Collins-style set. They will be matched to the FMS-4200 pilot's guide: page names, key labels and line layout.
+> **Note:** The key set, the page names and the workflow come from the FMS-4200 pilot's guide (Rockwell Collins, 2nd
+> edition, 1999). Only its front matter was available, so the line layout inside each page follows Collins
+> conventions rather than the guide itself.
 
-The screen is 24 columns by 14 rows: a title, six label and data line pairs next to the line-select keys L1 to L6 and
-R1 to R6, and the scratchpad at the bottom, where messages appear in amber.
+### MOD and EXEC
 
-| Page (key) | Shows | Line-select keys |
+Any change to the flight plan builds a **MOD** flight plan: the title reads MOD, the EXEC key's light comes on, and
+the airplane keeps flying the active plan. **EXEC** (or Enter) makes the MOD the active plan; **<CANCEL MOD** on L6
+drops it. Cruise altitude, holds and new procedures go through the same MOD.
+
+### Pages
+
+The screen is 24 columns by 14 rows: the title (ACT or MOD, page n/m), six label and data line pairs next to the
+line-select keys L1 to L6 and R1 to R6, and the scratchpad, where messages also appear in amber (and the MSG key's
+light comes on). DEL puts `DELETE` in the scratchpad; a line-select key then deletes that item.
+
+| Key / page | Shows | Line-select keys |
 |---|---|---|
-| IDX | The pages | L1 to L4 open them |
-| FPL | The active flight plan from the active leg, six legs a page (PREV / NEXT): ident (magenta: active), the course and distance to it above, the altitude constraint on the right | L: an empty scratchpad copies the ident; an ident goes **direct** on L1 of page 1 and is **inserted** before the leg on any other line; `DELETE` (the DEL key) removes the leg. R: an altitude sets the constraint: `5000`, `FL240`, `5000A` (at or above), `5000B` (at or below); `DELETE` clears it |
-| DIR | The fixes ahead with bearing and distance | L1 to L6: direct to that fix; an ident in the scratchpad and L1: direct to it |
-| PROG | The active fix, the next one and the destination (the missed-approach point), each with distance along the plan and time at the current ground speed; GS, TAS, fuel, altitude | |
-| DEP ARR | The origin, destination, runway, approach, SID and STAR as planned on the sortie screen (read-only) | |
+| INDEX | The pages | STATUS, DATA BASE, FPLN, LEGS, DEP/ARR, PERF, PROG, HOLD (POS INIT, FMS CTL, ROUTE MENU and DEFAULTS are not available) |
+| FPLN | Page 1: ORIGIN, DEST, DIST (along the plan), ORIG RWY. Then VIA / TO lines: a SID, airway, STAR or approach and the last fix on it, or DIRECT and a fix | R: a fix ident adds it DIRECT before that line (or before the STAR and approach on an empty line). L: an airway (`A315`), then its exit fix on R, expands the airway from the previous TO. `DELETE` on L removes the line. R6: PERF INIT |
+| LEGS | Each waypoint: course and distance above, ident (magenta: active), speed / altitude right | L1 on page 1 with an ident: **direct**. L on any other line: **insert** before it. An empty scratchpad copies the ident; `DELETE` removes it. R: `5000`, `FL240`, `5000A` (at or above), `5000B` (at or below), optionally a speed first (`250/10000`); `DELETE` clears |
+| DIR INTC | DIRECT TO, then the fixes ahead with bearing and distance | L1 with an ident, or L2 to L5: direct into a MOD, shown on the LEGS page |
+| DEP ARR | DEP/ARR INDEX: the origin and destination, SID, STAR, runway, approach | L1: DEPART (the origin's SIDs). R1: ARRIVAL (the destination's approaches and STARs). Choosing one rebuilds the plan from the FAA CIFP into a MOD, flown from the active fix (or the start of the changed part). EXEC also brings the new approach's localizer and minimums |
+| PERF | PERF INIT: CRZ ALT, gross weight, fuel | L1: cruise altitude (`FL250`, `25000`) |
+| VNAV | CRZ ALT, the VNAV target altitude, climb speeds, speed limit, descent angle, the vertical mode | L1: cruise altitude |
+| PROG | The active fix, the next one and the destination, with distance along the plan and time at the current ground speed; GS, TAS, fuel, altitude | |
+| HOLD | A hold ahead: fix, entry (once in it), inbound course (magnetic), turn, leg time; EXIT HOLD | L1: hold at the active fix (empty scratchpad) or a typed one: inbound on the course to the fix, right turns, 1 min legs (1.5 above 14,000 ft). L2: inbound course. L3: `L` or `R`. L4: leg time. R6: EXIT HOLD (one more circuit, then on) |
+| MSG | The latest messages | |
 
-Changes take effect at once; EXEC and MSG only answer. A typed ident is looked up in the plan ahead first, then in the
-nav database (nearest wins), as for the [DIRECT TO box](#direct-to). Direct-to, insert and delete are the FMS's own
-`directTo`, `insertFix` and `deleteLeg`, so the CDU, the `@` box and the map always agree.
+FIX, SEC FPLN, RADIO and the MFD MENU, MFD DATA and MFD ADV keys answer NOT AVAILABLE: the sim has nothing behind
+them. A typed ident is looked up in the plan ahead first, then in the nav database (nearest wins), as for the
+[DIRECT TO box](#direct-to). Direct-to, insert and delete are the FMS's own `directTo`, `insertFix` and `deleteLeg`,
+run on a copy for the MOD, so the CDU, the `@` box and the map always agree.
 
 ## VNAV
 

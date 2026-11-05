@@ -14,7 +14,7 @@ import { FreeEnv, setupStart, setWeight, configureGuidance, frameFor, approachRu
 import { takeoffSpeeds, vref, MAX_LANDING_LB } from './afm.js';
 import { runwayAt } from './ground.js';
 import { nearestIls } from './nav.js';
-import { NavDB, procedureLegs, procedureList, rnavListMinimums } from './navdb.js';
+import { NavDB, procedureLegs, procedureList, rnavListMinimums, airwayLegs } from './navdb.js';
 import { parseRoute, buildPlan, parsePln } from './route.js';
 import { FMS } from './fms.js';
 import { Audio } from './audio.js';
@@ -1035,7 +1035,24 @@ PANEL.define({
     state: () => (G.ap.vert === 'VS' ? `${Math.round(G.ap.vsTgt * 196.85)} ft/min` : 'not in VS') },
 });
 // ---------- the FMS CDU (js/cdu.js): on the pedestal, and a 2D pop-out you can type into (F2) ----------
-const CDU = new CduUnit({ G: () => G, findFix: (id, ne) => DB.findFix(id, ne), log: (t) => log('SYS', t), magvar: () => (G && G.apt ? G.apt.magvar : -6) });
+const CDU = new CduUnit({ G: () => G, findFix: (id, ne) => DB.findFix(id, ne), log: (t) => log('SYS', t), magvar: () => (G && G.apt ? G.apt.magvar : -6),
+  cycle: () => DB.index && DB.index.cycle, procName: (id) => procName(id),
+  airwayLegs: (awy, from, to) => { try { return airwayLegs(DB, awy, from.id, to.id); } catch { return null; } },
+  procedures: (id, kind) => { const a = DB.loaded(id); return a ? procedureList(a, kind) : []; },
+  replan: (changes) => (G && G.free ? sortiePlan({ ...G.free, ...changes }) : null),
+  onExec: (changes) => cduPlanChanged(changes) });
+// after EXEC with a new SID, STAR or approach (the CDU's DEP ARR pages): the sortie choices follow, and a new approach
+// brings its localizer and minimums (plate, then the FAA RNAV list, then 200 / 400 ft above touchdown)
+function cduPlanChanged(changes) {
+  if (!G || !G.free) return;
+  G.free = { ...G.free, ...changes }; G.legs = G.fms.legs;
+  if (!changes.app) return;
+  const arr = DB.loaded(G.free.arr || G.free.apt), app = G.free.app, rwy = approachRunway(G.legs, app), id = G.fms.approachNav(), il = id ? arr.ils[id] : null;
+  const tdze = rwy && arr.runways['RW' + rwy] ? arr.runways['RW' + rwy].elev : arr.elev;
+  const pm = plateMinimums(app, rwy, arr.id) || rnavMinimums(app, arr.id), precision = !!(il && il.gs && /^I/.test(app));
+  G.mins = pm ? pm.alt : tdze + (precision ? 200 : 400); G.minsFrom = pm; G.co = {};
+  log('SYS', `${procName(app)}${il ? ` · ${il.id.replace(/^I/, 'I-')} ${il.freq.toFixed(2)}` : ''} · minimums ${Math.round(G.mins)} ft${pm ? ` (${pm.type}, ${pm.chart})` : ' (no plate minimums)'}`);
+}
 const CP = { el: document.getElementById('cdupop') }; CP.cv = CP.el.querySelector('canvas'); CP.ctx = CP.cv.getContext('2d'); CP.hud = { hits: [] };
 function cduToggle(open = CP.el.classList.contains('hidden')) {
   CP.el.classList.toggle('hidden', !open);

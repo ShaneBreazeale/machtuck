@@ -59,7 +59,7 @@ comes back up.
 | `(` | Arm LNAV (needs a flight plan) |
 | `)` | Arm VNAV (needs a flight plan) |
 | `@` | DIRECT TO box (free flight with a flight plan). See [Direct to](#direct-to). |
-| `F2` | The FMS CDU, large, where you can type (again or `Esc` to close). See [FMS and navigation](fms.md#the-cdu). |
+| `F2` | The FMS CDU-4200, large, where you can type (Enter is EXEC; again or `Esc` to close). See [FMS and navigation](fms.md#the-cdu). |
 | `?` | Go-around (TOGA) in the air; takeoff mode on the runway. Free flight only. |
 
 The full mode logic is on [Autopilot and flight director](flight-guidance.md). The mode band at the top of the PFD and
