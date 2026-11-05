@@ -92,10 +92,16 @@ is active. Otherwise they show the FMS leg in magenta. See [Cockpit and instrume
 
 ## Minimums
 
-`tools/fetch_plates.py` downloads the FAA d-TPP charts for one airport and reads the straight-in minimums from each
-plate's text layer. The parser finds each line of minimums by its label (S-ILS, S-LOC, LPV, LNAV/VNAV, LNAV, RNP
+`tools/fetch_plates.py` reads the straight-in minimums from each FAA d-TPP plate's text layer, at every airport in the
+data: 280 of the 329 approach plates at the 72 airports in cycle 2611 give minimums. The other 49 are military plates
+(KCOF, KHST, KMCF, KNQX: a different layout), circling-only approaches (the `-A` / `-B` ones) and one visual approach.
+Short labels are named from the chart title ("S-8L" on a LOC plate is S-LOC, "S-4" on a VOR plate S-VOR), and the
+category letters are found right of the `CATEGORY` label even when the text layer scatters them over the lines either
+side. The parser finds each line of minimums by its label (S-ILS, S-LOC, LPV, LNAV/VNAV, LNAV, RNP
 0.30 and so on). It assigns the DA or MDA, and the RVR, to categories A to E using the column positions under the
-`CATEGORY` header. The results go into `data/plates/plates.json`.
+`CATEGORY` header. The results go into `data/plates/minimums.json` (every airport) and `data/plates/plates.json`
+(KDJT, with the rendered charts). The free-flight log quotes the line, the chart and its amendment, for example
+`S-ILS DA 294 ft (202 above touchdown, Cat C, RVR 1800; ILS OR LOC RWY 18R Amdt 11A)` at KMCO.
 
 **Circling minimums are skipped.** In the text layer their entries wrap across several lines and can't be assigned
 to categories reliably, so the parser stops at `CIRCLING`.
@@ -141,7 +147,8 @@ plate is in the viewer, but the CIFP has no matching procedure, so it can't be f
 
 ### Without a plate
 
-At other airports, an RNAV (GPS) approach takes its minimums from the FAA's
+When the plate gives no straight-in minimums (or the approach has no plate in the cycle), an RNAV (GPS) approach takes
+its minimums from the FAA's
 [All Approaches - Master RNAVs](https://www.faa.gov/about/officeorg/headquartersoffices/ato/all-approaches-master-rnavs)
 spreadsheet (`data/nav/rnav_minimums.json`, built by `tools/fetch_rnav_minimums.py`): the LNAV/VNAV DA if there is one
 (the airplane has baro-VNAV), else the LNAV MDA, straight-in. It covers 154 of the 193 RNAV (GPS) approaches in the
@@ -262,14 +269,17 @@ an inbound track of 339° true (published 340°) within a 77 ft altitude spread.
 - The airport diagram is printed sideways, so it opens rotated a quarter turn to put north up.
 - The footer gives the airport, the d-TPP cycle and validity, and "public domain · NOT FOR NAVIGATION".
 
-The viewer only holds the KDJT set: all 12 approach plates and the airport diagram. In free flight at any other
-airport (the field you are on, or the one you are flying to), `~` doesn't open it and the log reads
-`No approach plates for <ID> in this build (plates ship for KDJT only)`.
+KDJT's 12 approach plates and its diagram ship as images. At every other airport (the field you are on, the one you
+are flying to, or on the sortie screen the arrival you are planning) the viewer lists the airport's approach plates as
+tabs; each opens a link to the FAA PDF for the cycle (`https://aeronav.faa.gov/d-tpp/<cycle>/...`, which the FAA keeps
+online only for the current cycles) with the straight-in minimums the sim read from it. Rendering all 376 charts as
+images would add about 64 MB to the repository every cycle.
 
 To refresh the charts for a new cycle (this needs `pdftoppm` and `pdftotext` from poppler):
 
 ```bash
-python3 tools/fetch_plates.py --cycle <cycle>
+python3 tools/fetch_plates.py --cycle <cycle>          # KDJT images and minimums
+python3 tools/fetch_plates.py --cycle <cycle> --all    # every airport's minimums, no images
 ```
 
 The default airport is `DJT` (`--apt`), the FAA ident KPBI took from cycle 2611. See [Data pipeline](data-pipeline.md).

@@ -82,7 +82,7 @@ instead (see [Mouse and touch](#mouse-and-touch)).
 
 | Key | Action |
 |---|---|
-| `~` | Approach plates: opens on the loaded approach's chart, or on the airport diagram when you are on the ground. Esc closes. Plates ship for KDJT only: elsewhere the log says so. |
+| `~` | Approach plates: opens on the loaded approach's chart, or on the airport diagram when you are on the ground. Esc closes. KDJT's charts show as images; elsewhere each plate opens a link to the FAA PDF. |
 | `Tab` | EFB tablet: map, then procedures, then off |
 | `1` to `6` | Open procedure card 1 to 6 on the EFB |
 | backtick key | Back to the procedure list |
