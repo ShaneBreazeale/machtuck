@@ -41,11 +41,11 @@ export class Input {
     const down = (x, y) => { this.mouse.down = true; this.mouse.x0 = x; this.mouse.y0 = y; this.mouse.dx = 0; this.mouse.dy = 0; };
     const move = (x, y) => { if (!this.mouse.down) return; this.mouse.dx = (x - this.mouse.x0) / 220; this.mouse.dy = (y - this.mouse.y0) / 220; };
     const up = () => { this.mouse.down = false; this.mouse.dx = 0; this.mouse.dy = 0; };
-    canvas.addEventListener('mousedown', (e) => { if (e.button === 0) { if (this.onClick && this.onClick(e.clientX, e.clientY)) return; down(e.clientX, e.clientY); } if (e.button === 2) this.rdrag = { x: e.clientX, y: e.clientY, yaw: this.orbit.yaw, pitch: this.orbit.pitch }; });
+    canvas.addEventListener('mousedown', (e) => { if (e.button === 0) { const r = this.onClick && this.onClick(e.clientX, e.clientY); if (r === 'drag') this.ctlDrag = true; if (r) return; down(e.clientX, e.clientY); } if (e.button === 2) this.rdrag = { x: e.clientX, y: e.clientY, yaw: this.orbit.yaw, pitch: this.orbit.pitch }; });
     canvas.addEventListener('mousemove', (e) => { if (this.onHover && !this.mouse.down && !this.rdrag) this.onHover(e.clientX, e.clientY); });
     canvas.addEventListener('mouseleave', () => { if (this.onHover) this.onHover(-1, -1); });
-    window.addEventListener('mousemove', (e) => { move(e.clientX, e.clientY); if (this.rdrag) { this.orbit.yaw = this.rdrag.yaw + (e.clientX - this.rdrag.x) * 0.01; this.orbit.pitch = clamp(this.rdrag.pitch + (e.clientY - this.rdrag.y) * 0.01, -1.2, 1.2); } });
-    window.addEventListener('mouseup', (e) => { if (e.button === 2) this.rdrag = null; else up(); });
+    window.addEventListener('mousemove', (e) => { if (this.ctlDrag && this.onDragMove) this.onDragMove(e.clientX, e.clientY); move(e.clientX, e.clientY); if (this.rdrag) { this.orbit.yaw = this.rdrag.yaw + (e.clientX - this.rdrag.x) * 0.01; this.orbit.pitch = clamp(this.rdrag.pitch + (e.clientY - this.rdrag.y) * 0.01, -1.2, 1.2); } });
+    window.addEventListener('mouseup', (e) => { if (e.button === 2) this.rdrag = null; else { if (this.ctlDrag) { this.ctlDrag = false; if (this.onDragEnd) this.onDragEnd(); } up(); } });
     canvas.addEventListener('touchstart', (e) => { const t = e.touches[0]; if (this.onClick && this.onClick(t.clientX, t.clientY)) { e.preventDefault(); return; } down(t.clientX, t.clientY); e.preventDefault(); }, { passive: false });
     canvas.addEventListener('touchmove', (e) => { const t = e.touches[0]; move(t.clientX, t.clientY); e.preventDefault(); }, { passive: false });
     canvas.addEventListener('touchend', up);

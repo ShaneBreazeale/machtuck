@@ -356,11 +356,14 @@ export class HUD {
   // ---------------- Pedestal ----------------
   pedestal(S, x, y, w, h) {
     this.box(x, y, w, h, COL.bezel, '#3a3f48', 6); const ac = S.ac;
-    const lever = (lx, label, f, col) => { this.box(lx, y + 4, 14, h - 8, '#0b0c0f', '#3a3f48', 2); this.ctx.fillStyle = col; this.ctx.fillRect(lx + 2, y + 4 + (h - 8) * (1 - f) - 3, 10, 6); this.text(label, lx + 7, y + h - 6, 8, COL.dim, 'center'); };
+    // f: 1 = the top of the slot (forward); id: the lever control (js/panel.js) that a drag moves, h - 8 px for its whole travel
+    const lever = (lx, label, f, col, id) => { this.box(lx, y + 4, 14, h - 8, '#0b0c0f', '#3a3f48', 2); this.ctx.fillStyle = col; this.ctx.fillRect(lx + 2, y + 4 + (h - 8) * (1 - f) - 3, 10, 6); this.text(label, lx + 7, y + h - 6, 8, COL.dim, 'center');
+      if (id) this.hits.push({ x: lx - 3, y: y + 2, w: 20, h: h - 4, id, dragPx: h - 8 }); };
     const cx = x + w / 2;
-    lever(cx - 40, 'L', ac.ctl.thr, '#ddd'); lever(cx - 22, 'R', ac.ctl.thr, '#ddd');
-    lever(cx + 10, 'SPLR', ac.ctl.sb, COL.green); lever(cx + 32, 'FLAP', ac.ctl.flaps, COL.green);
-    this.text(`THRUST ${Math.round(ac.ctl.thr * 100)}%   N1 ${Math.round(lerp(28, 98, ac.n1))}%`, cx - 60, y + h / 2, 10, '#dfe6ee', 'right');
+    const thr = ac.ctl.rev > 0 ? 0 : ac.ctl.thr;
+    lever(cx - 40, 'L', thr, ac.ctl.rev > 0 ? COL.amber : '#ddd', 'lever_thr'); lever(cx - 22, 'R', thr, ac.ctl.rev > 0 ? COL.amber : '#ddd', 'lever_thr');
+    lever(cx + 10, 'SPLR', 1 - ac.ctl.sb, COL.green, 'lever_sb'); lever(cx + 32, 'FLAP', 1 - ac.ctl.flaps, COL.green, 'lever_flaps');   // aft = extended
+    this.text(`${ac.ctl.rev > 0 ? `REVERSE ${Math.round(ac.ctl.rev * 100)}%` : `THRUST ${Math.round(ac.ctl.thr * 100)}%`}   N1 ${Math.round(lerp(28, 98, ac.n1))}%`, cx - 60, y + h / 2, 10, ac.ctl.rev > 0 ? COL.amber : '#dfe6ee', 'right');
     this.text(`TRIM ${stabDeg(ac.ctl.trim).toFixed(1)}°  [, .]   ${ac.sys.trimMode}`, cx + 60, y + h / 2, 10, ac.ctl.trim < -0.4 ? COL.red : '#dfe6ee', 'left');
     this.text(`−/= thrust · 0 idle · B spoilers · F flaps · G gear`, x + w - 10, y + h / 2, 9, COL.dim, 'right');
     // the glareshield's flight guidance panel (js/vcgauges.js fgp), scaled into the bar's left end, its controls live

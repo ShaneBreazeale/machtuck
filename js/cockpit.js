@@ -24,7 +24,7 @@ const FS = `#version 300 es
 precision highp float;
 in vec3 vNor; in vec2 vUv; in vec3 vPos; out vec4 o;
 uniform int uMode; uniform sampler2D uTex; uniform bool uHasTex; uniform vec4 uDiffuse; uniform float uSpec, uPower, uSpecMask;
-uniform vec3 uSun; uniform float uAmb, uSunI, uFlash, uScreen, uLamp;
+uniform vec3 uSun; uniform float uAmb, uSunI, uFlash, uScreen, uLamp, uHi;
 void main(){
   vec3 n = normalize(vNor), vd = normalize(-vPos);
   if (dot(n, vd) < 0.) n = -n;
@@ -39,6 +39,7 @@ void main(){
     vec3 c = base * l;
     float ks = 0.05 + uSpec * 0.25 + uSpecMask * (1. - t.a) * 0.6;
     c += pow(max(dot(n, h), 0.), max(uPower, 24.)) * uSunI * ks;
+    c += vec3(0.16, 0.42, 0.58) * uHi;           // the lever under the mouse (js/panel.js)
     o = vec4(pow(c, vec3(1. / 1.08)), 1.);
   } else if (uMode == 1) {                   // emissive display behind glass
     vec4 t = texture(uTex, vUv);
@@ -59,9 +60,21 @@ void main(){
 }`;
 
 // sim variables of the FS2004 model -> our controls (t on 0..100 along each keyframe track)
-const VAR = { YOKE_PITCH: 524, YOKE_ROLL: 528, RUDDER: 532, THR_L: 472, THR_R: 476, FLAPS: 552, SPOILER: 544 };
+const VAR = { YOKE_PITCH: 524, YOKE_ROLL: 528, RUDDER: 532, THR_L: 472, THR_R: 476, FLAPS: 552, SPOILER: 544, PARK: 548 };
+// the model's levers you can grab (js/panel.js ids): the animated nodes of each, and everything hung under them
+export const LEVERS = { lever_thr: [VAR.THR_L, VAR.THR_R], lever_flaps: [VAR.FLAPS], lever_sb: [VAR.SPOILER], park: [VAR.PARK] };
+// 4x4 column-major affine inverse (rotation, translation, uniform scale)
+function inv4(m) {
+  const a = m[0], b = m[1], c = m[2], d = m[4], e = m[5], f = m[6], g = m[8], h = m[9], i = m[10];
+  const A = e * i - f * h, B = -(d * i - f * g), C = d * h - e * g, det = a * A + b * B + c * C || 1e-12;
+  const r = [A / det, -(b * i - c * h) / det, (b * f - c * e) / det, B / det, (a * i - c * g) / det, -(a * f - c * d) / det, C / det, -(a * h - b * g) / det, (a * e - b * d) / det];
+  const t = [m[12], m[13], m[14]];
+  return [r[0], r[1], r[2], 0, r[3], r[4], r[5], 0, r[6], r[7], r[8], 0,
+    -(r[0] * t[0] + r[3] * t[1] + r[6] * t[2]), -(r[1] * t[0] + r[4] * t[1] + r[7] * t[2]), -(r[2] * t[0] + r[5] * t[1] + r[8] * t[2]), 1];
+}
+const xf = (m, p, w) => [m[0] * p[0] + m[4] * p[1] + m[8] * p[2] + m[12] * w, m[1] * p[0] + m[5] * p[1] + m[9] * p[2] + m[13] * w, m[2] * p[0] + m[6] * p[1] + m[10] * p[2] + m[14] * w];
 // Thrust levers: the model's own lever track, max (t 0) to idle (t 50), 17.5 deg; t 50..100 lifts the reversers
-const THR_T = (thr) => 50 * (1 - clamp(thr, 0, 1));
+const THR_T = (thr, rev = 0) => (rev > 0 ? 50 + 50 * clamp(rev, 0, 1) : 50 * (1 - clamp(thr, 0, 1)));
 // pilot eye in model coordinates: aircraft.cfg eyepoint (-16.7, -1.6, 2.0 ft from the datum, datum 34.5 ft ahead of the origin)
 export const EYE = [-1.6 * 0.3048, 2.0 * 0.3048, (34.5 - 16.7) * 0.3048];
 
@@ -85,7 +98,7 @@ export class Cockpit {
     const sh = (t, s) => { const o = gl.createShader(t); gl.shaderSource(o, s); gl.compileShader(o); if (!gl.getShaderParameter(o, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(o)); return o; };
     const p = this.prog = gl.createProgram(); gl.attachShader(p, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, FS)); gl.linkProgram(p);
     if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
-    this.u = {}; for (const n of ['uHead', 'uModel', 'uProj', 'uEye', 'uMode', 'uTex', 'uHasTex', 'uDiffuse', 'uSpec', 'uPower', 'uSpecMask', 'uSun', 'uAmb', 'uSunI', 'uFlash', 'uScreen', 'uLamp']) this.u[n] = gl.getUniformLocation(p, n);
+    this.u = {}; for (const n of ['uHead', 'uModel', 'uProj', 'uEye', 'uMode', 'uTex', 'uHasTex', 'uDiffuse', 'uSpec', 'uPower', 'uSpecMask', 'uSun', 'uAmb', 'uSunI', 'uFlash', 'uScreen', 'uLamp', 'uHi']) this.u[n] = gl.getUniformLocation(p, n);
     this.aniso = gl.getExtension('EXT_texture_filter_anisotropic');
     // instruments: offscreen canvases drawn by the existing HUD code (and vcgauges.js for the standby gauges)
     const mk = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; const hud = new HUD(c); hud.W = w; hud.H = h; return { c, hud, tex: this.mkTex(), frame: 0 }; };
@@ -119,11 +132,23 @@ export class Cockpit {
     }
     const nv = meta.vertices, V = new Float32Array(bin, 0, nv * 8), Ix = new Uint16Array(bin, nv * 32, meta.indices);
     this.va = this.vao(V);
+    this.V = V; this.Ix = Ix;
     const ib = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ib); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, Ix, gl.STATIC_DRAW);
     gl.bindVertexArray(null);
     const m4 = (m) => m && [m[0], m[1], m[2], 0, m[3], m[4], m[5], 0, m[6], m[7], m[8], 0, m[9], m[10], m[11], 1];
     this.nodes = meta.nodes.map(n => ({ ...n, m: m4(n.m) }));
     this.batches = meta.batches;
+    // levers: the batches of each lever's nodes (and their children), with a local bounding box per batch for picking
+    const under = (vars) => { const set = new Set(this.nodes.map((n, i) => (vars.includes(n.var) ? i : -1)).filter((i) => i >= 0));
+      let grow = true; while (grow) { grow = false; this.nodes.forEach((n, i) => { if (!set.has(i) && set.has(n.p)) { set.add(i); grow = true; } }); } return set; };
+    this.levers = Object.entries(LEVERS).map(([id, vars]) => {
+      const nodes = under(vars), parts = [];
+      this.batches.forEach((b, bi) => { if (!nodes.has(b.node)) return;
+        const lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9];
+        for (let k = b.first; k < b.first + b.count; k++) { const i = Ix[k]; for (let a = 0; a < 3; a++) { lo[a] = Math.min(lo[a], V[i * 8 + a]); hi[a] = Math.max(hi[a], V[i * 8 + a]); } }
+        parts.push({ bi, node: b.node, lo: lo.map((v) => v - 0.006), hi: hi.map((v) => v + 0.006) }); });
+      return { id, parts, batches: new Set(parts.map((p) => p.bi)) };
+    });
     // The dynamic-texture quads of the original panel ($panL, $panR, ...): corners from their uv-mapped vertices
     this.pans = {};
     for (const b of this.batches.filter(b => b.tex.startsWith('$'))) {
@@ -175,7 +200,8 @@ export class Cockpit {
   // World matrices of the model's animated nodes for the current control positions
   pose(ctl) {
     const t = new Map([[VAR.YOKE_PITCH, 50 + 50 * clamp(ctl.elev, -1, 1)], [VAR.YOKE_ROLL, 50 + 50 * clamp(ctl.ail, -1, 1)], [VAR.RUDDER, 50 + 50 * clamp(ctl.rud, -1, 1)],
-      [VAR.THR_L, THR_T(ctl.thr)], [VAR.THR_R, THR_T(ctl.thr)], [VAR.FLAPS, 100 * clamp(ctl.flaps, 0, 1)], [VAR.SPOILER, 100 * clamp(ctl.sb, 0, 1)]]);
+      [VAR.THR_L, THR_T(ctl.thr, ctl.rev)], [VAR.THR_R, THR_T(ctl.thr, ctl.rev)], [VAR.FLAPS, 100 * clamp(ctl.flaps, 0, 1)], [VAR.SPOILER, 100 * clamp(ctl.sb, 0, 1)],
+      [VAR.PARK, ctl.park ? 100 : 0]]);
     const W = this.W || (this.W = []);
     this.nodes.forEach((n, i) => {
       let m = track(n.keys, n.type, t.has(n.var) ? t.get(n.var) : 0);
@@ -203,7 +229,8 @@ export class Cockpit {
     gl.bindVertexArray(this.va);
     const glass = [];
     gl.uniform1i(u.uMode, 0);
-    for (const bt of this.batches) {
+    const hov = this.controls && this.controls.hover, hiLever = hov && this.levers ? this.levers.find((l) => l.id === hov.id) : null;
+    for (const [bi, bt] of this.batches.entries()) {
       if (bt.tex.startsWith('$')) continue;
       if (bt.diffuse[3] < 0.99) { glass.push(bt); continue; }
       const t = bt.tex && this.tex[bt.tex];
@@ -211,9 +238,11 @@ export class Cockpit {
       gl.uniform1i(u.uHasTex, t ? 1 : 0); if (t) gl.bindTexture(gl.TEXTURE_2D, t);
       gl.uniform4fv(u.uDiffuse, bt.diffuse); gl.uniform1f(u.uSpec, bt.specular); gl.uniform1f(u.uPower, bt.power);
       gl.uniform1f(u.uSpecMask, bt.tex === 'chrome' || bt.tex === 'learjet_fuse' ? 1 : 0);
+      gl.uniform1f(u.uHi, hiLever && hiLever.batches.has(bi) ? 1 : 0);
       gl.drawElements(gl.TRIANGLES, bt.count, gl.UNSIGNED_SHORT, bt.first * 2);
     }
     // instruments (emissive, sampled from the instrument canvases)
+    gl.uniform1f(u.uHi, 0);
     gl.uniformMatrix4fv(u.uModel, false, I4); gl.uniform1i(u.uMode, 1);
     gl.enable(gl.BLEND); gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     for (const sf of this.surfaces) { gl.bindTexture(gl.TEXTURE_2D, this.inst[sf.key].tex); gl.bindVertexArray(sf.va); gl.drawArrays(gl.TRIANGLES, 0, 6); }
@@ -239,6 +268,20 @@ export class Cockpit {
       if (uu < 0 || uu > 1 || vv < 0 || vv > 1) continue;
       const it = this.inst[sf.key];
       best = { t, key: sf.key, hit: it.hud.hit(uu * it.c.width, vv * it.c.height) };
+    }
+    // the levers: the ray in each part's own (animated) frame against its local box
+    if (this.levers && this.W) {
+      for (const L of this.levers) for (const p of L.parts) {
+        const M = this.W[p.node]; if (!M) continue;
+        const Mi = inv4(M), o = xf(Mi, EYE, 1), dl = xf(Mi, d, 0);
+        let t0 = 0, t1 = 1e9;
+        for (let a = 0; a < 3; a++) {
+          if (Math.abs(dl[a]) < 1e-12) { if (o[a] < p.lo[a] || o[a] > p.hi[a]) { t0 = 2e9; break; } continue; }
+          let ta = (p.lo[a] - o[a]) / dl[a], tb = (p.hi[a] - o[a]) / dl[a]; if (ta > tb) [ta, tb] = [tb, ta];
+          t0 = Math.max(t0, ta); t1 = Math.min(t1, tb);
+        }
+        if (t0 <= t1 && t0 < 1e9 && (!best || t0 < best.t)) best = { t: t0, key: '3d', hit: { id: L.id, x: 0, y: 0, w: 1, h: 1, fx: 0.5, fy: 0.5, dragPx: 240 } };
+      }
     }
     return best;
   }
