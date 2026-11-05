@@ -58,29 +58,30 @@
     <p class="sub">No storm and no accident script. Airports, runways, ILS and procedures come from the FAA CIFP (cycle <span id="cycle">…</span>); the flight plan is flown by the FMS through the autopilot (AP) and flight director (FD). NOT FOR NAVIGATION.</p>
     <div class="cols">
       <div>
-        <h3>Where</h3>
+        <h3>Departure</h3>
         <label>Airport <select id="sapt"></select></label>
-        <label>Start <select id="sstart"></select></label>
-        <label>Departure runway <select id="srwy"></select></label>
-        <h3>Flight plan</h3>
-        <label>Approach <select id="sapp"></select></label>
-        <label>Transition <select id="strans"></select></label>
-        <p class="plan" id="splan"></p>
+        <label>Runway <select id="srwy"></select></label>
+        <div class="row2"><label>SID <select id="ssid"></select></label><label>Transition <select id="ssidt"></select></label></div>
+        <h3>Route</h3>
+        <label>Route <span class="dim">(fixes, airways, DCT; a SID or STAR in it is picked up)</span>
+          <textarea id="sroute" rows="2" spellcheck="false" placeholder="e.g. TBIRD8 CHEFS MUNGI1"></textarea></label>
+        <div class="row2"><label>Cruise altitude <select id="scruise"></select></label>
+          <label>Import <span class="imp"><button id="splnbtn" class="alt sm">MSFS .pln</button><input id="spln" type="file" accept=".pln,.xml" hidden>
+            <input id="ssbuser" placeholder="SimBrief user" size="12"><button id="ssbbtn" class="alt sm">Fetch</button></span></label></div>
       </div>
       <div>
-        <h3>Conditions</h3>
-        <label>Weather <select id="swx"></select></label>
-        <label>Weight <select id="swt"></select></label>
+        <h3>Arrival</h3>
+        <label>Airport <select id="sarr"></select></label>
+        <div class="row2"><label>STAR <select id="sstar"></select></label><label>Transition <select id="sstart2"></select></label></div>
+        <div class="row2"><label>Approach <select id="sapp"></select></label><label>Transition <select id="strans"></select></label></div>
+        <h3>Start and conditions</h3>
+        <label>Start <select id="sstart"></select></label>
+        <div class="row2"><label>Weather <select id="swx"></select></label><label>Weight <select id="swt"></select></label></div>
         <label>Failure <select id="sfail"></select></label>
-        <h3>Flight guidance</h3>
-        <ul>
-          <li><b>X</b> autopilot · <b>|</b> flight director · <b>?</b> TOGA (takeoff on the ground, go-around in the air)</li>
-          <li><b>(</b> LNAV · <b>)</b> VNAV · <b>\</b> APR (ILS: LOC + GS; RNAV: LNAV + GP) · <b>{ }</b> heading bug · <b>&lt; &gt;</b> altitude preselect</li>
-          <li>Armed modes show white on the PFD, active modes green. VNAV never climbs or descends through the preselected altitude except on final; a go-around climbs until the preselected altitude is above you.</li>
-          <li>The ground model covers gear, tyres, brakes and nosewheel steering. <b>Shift</b> = brakes; Q/E or pedals steer; thrust below idle on the ground (− or L2) = reversers; spoilers deploy themselves at idle.</li>
-        </ul>
       </div>
     </div>
+    <p class="plan" id="splan"></p>
+    <p class="keys"><b>X</b> autopilot · <b>|</b> flight director · <b>?</b> TOGA · <b>(</b> LNAV · <b>)</b> VNAV · <b>\</b> APR · <b>{ }</b> heading bug · <b>&lt; &gt;</b> altitude preselect · <b>Shift</b> brakes. Armed modes show white, active green. VNAV climbs to the cruise altitude and descends on the arrival's constraints, never through the preselected altitude except on final. No autothrottle: thrust is yours.</p>
     <button id="ffgo">Fly the sortie</button><button id="platebtn" class="alt">Approach plates</button><button id="sback" class="alt">← The accident</button>
   </div>
 </div>

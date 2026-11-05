@@ -21,8 +21,8 @@ function rel(pos, fix, crs) {
 const intercept = (crs, cross, k = 0.012, cap = 45) => wrap360(crs - clamp(cross * k, -cap, cap));   // steer back onto a path
 
 export class FMS {
-  constructor() { this.legs = []; this.i = 0; this.from = null; this.hold = null; this.events = []; this.turnDir = 0; this.bank = 25; }
-  load(legs, i = 0) { this.legs = legs; this.activate(i, null); }
+  constructor() { this.legs = []; this.i = 0; this.from = null; this.hold = null; this.events = []; this.turnDir = 0; this.bank = 25; this.cruise = null; this.descending = false; this.atcVectors = true; }
+  load(legs, i = 0, cruise = null) { this.legs = legs; this.cruise = cruise; this.descending = false; this.activate(i, null); }
   get active() { return this.legs[this.i] || null; }
   get next() { return this.legs[this.i + 1] || null; }
   activate(i, pos) {
@@ -55,6 +55,12 @@ export class FMS {
     const leg = this.active; if (!leg) return null;
     this.legT += ctx.dt;
     const R = Math.max(500, ctx.gs * ctx.gs / (G * Math.tan(this.bank * DEG)));
+    // radar vectors (a heading or course to manual termination, FM / VM): in the sim, ATC clears the airplane direct
+    // to the next fix after a minute
+    if (this.atcVectors && (leg.pt === 'FM' || leg.pt === 'VM') && this.legT > 60) {
+      const k = this.legs.findIndex((l, j) => j > this.i && l.fix);
+      if (k > 0) { this.legs[k] = { ...this.legs[k], pt: 'DF' }; this.events.push({ type: 'atc', txt: `proceed direct ${this.legs[k].fix.id}` }); this.activate(k, ctx.ne); return this.update({ ...ctx, dt: 0 }); }
+    }
     const had = this.turnDir;
     let g = this.guide(leg, ctx, R);
     // published turn direction: hold it until close to the wanted track (not on the step that ordered the turn)
@@ -160,7 +166,21 @@ export class FMS {
   // ---- vertical: the altitude to be at now, from the constraints ahead (ft MSL), and a path climb / descent rate ----
   // Climb toward the next at / at-or-above constraint; descend on the path (3 deg, or the leg's vertical angle) to the
   // next at / at-or-below one, never below an at-or-above constraint still ahead of it.
+  // With a cruise level (a route): climb to it, bounded by any at-or-below departure constraint still ahead, and hold
+  // it until the descent path to the arrival constraints comes down to it (top of descent).
   vertical(ctx) {
+    const r = this.constraintTarget(ctx), c = this.cruise;
+    if (!c) return r;
+    const arr = this.legs.findIndex((l) => l.kind === 'STAR' || l.kind === 'APP');
+    if (arr >= 0 && this.i >= arr) this.descending = true;
+    if (this.descending) return r;
+    if (r && r.path != null && r.path < Math.min(ctx.h, c) - 30) { this.descending = ctx.h > c - 1000; return r; }
+    if (r && r.path == null && r.alt > ctx.h + 50) return r;                       // a climb constraint
+    let ceil = c;
+    for (let k = this.i; k < (arr >= 0 ? arr : this.legs.length); k++) { const a = this.legs[k].alt; if (a && (a.d === '-' || a.d === '@' || a.d === 'B' || a.d === 'Y' || a.d === 'X' || !a.d)) { ceil = Math.min(ceil, a.d === 'B' ? a.a1 : a.a1); break; } }
+    return { alt: Math.max(Math.min(c, ceil, r && r.path != null ? Math.max(r.path, ctx.h) : c), Math.min(ctx.h, c)) };
+  }
+  constraintTarget(ctx) {
     const pos = ctx.ne; let along = 0, last = pos, floor = -Infinity;
     for (let k = this.i; k < this.legs.length; k++) {
       const l = this.legs[k];

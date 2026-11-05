@@ -78,3 +78,8 @@ button.sm { font-size: 12px; padding: 4px 10px; margin-right: 4px; }
 
 /* sortie planner: the assembled flight plan */
 #sortie .plan { font-size: 12px; line-height: 1.5; color: #cfd8e3; margin: 10px 0 0; }
+#sortie .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
+#sortie textarea { width: 100%; box-sizing: border-box; font: 12px "SF Mono", Menlo, monospace; background: #0d0f12; color: #e6edf3; border: 1px solid #333a44; border-radius: 4px; padding: 6px; margin-top: 4px; resize: vertical; }
+#sortie .imp { display: flex; gap: 4px; align-items: center; margin-top: 4px; }
+#sortie .imp input { background: #0d0f12; color: #e6edf3; border: 1px solid #333a44; border-radius: 4px; padding: 4px 6px; font: 12px "SF Mono", Menlo, monospace; min-width: 0; flex: 1; }
+#sortie .plan.err { color: #ffb000; }

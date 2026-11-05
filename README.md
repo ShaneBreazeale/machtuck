@@ -28,8 +28,9 @@ Manual (AFM). It is pure WebGL2 and ES modules with no build step.
   trim, or a runaway nose-down trim, each "as flown" or in trainer mode. Both modes fly the same airplane through the
   same storm: trainer only gives the autopilot a gentler auto-trim and doesn't hand over the airplane trimmed nose-down.
 - **A reconstruction mode.** Watch the reported ADS-B track replayed with chase, cockpit and ground cameras.
-- **Free flight sorties.** Separate from the accident: plan a flight at any of the 72 IFR airports within 160 nm of
-  Palm Beach, using runways, ILS and approach procedures from the FAA nav database (CIFP). An FMS flies the
+- **Free flight sorties and IFR routes.** Separate from the accident: plan a local flight or a route between any of the
+  72 IFR airports within 160 nm of Palm Beach. Choose a departure procedure, airways and fixes, an arrival and an
+  approach from the FAA nav database (CIFP), or import an MSFS `.pln` file or a SimBrief plan. An FMS flies the
   procedure, including the missed approach and holds, through an autopilot and flight director whose modes follow
   FAA AC 25.1329-1C. The ground model covers landing gear, tyres, brakes, nosewheel steering and ground effect.
 - **A Pro Line 4-style PFD.** Mode band (active modes green, armed modes white), single-cue flight director, speed
@@ -63,13 +64,20 @@ The page opens on the accident: real weather, autopilot on, 12:47:00 EST.
 **Free flight sortie** is a separate mode: **Plan a sortie →** on the briefing screen, or open `index.html#sortie`.
 There is no storm and no accident script. Choose:
 
-- **Airport and runway**, from the nav database.
-- **Approach and transition**, from the airport's published procedures (ILS, LOC, RNAV). The planner shows the legs,
-  including the missed approach.
-- **Start:** lined up on the runway, airborne at the start of the approach with the autopilot on, a 6 nm final, or
-  cruise at FL350.
+- **Departure:** airport, runway, and a SID with its transition.
+- **Route:** fixes, airways and coordinates (`2630N08010W`), for example `TBIRD8 CHEFS MUNGI1`. A SID or STAR written in
+  the route is selected for you, with or without its version digit and in FAA style (`TBIRD.MATLK MATLK.SLOAO1`).
+  `FL210` or `/F210` in the route sets the cruise altitude. **Import** reads an MSFS `.pln` file, or fetches the
+  latest SimBrief plan for a username you type (sent only to SimBrief, only when you click Fetch).
+- **Arrival:** airport, STAR with its transition, approach with its transition. **Auto** joins the approach where the
+  route ends; if the route ends elsewhere, ATC-style vectors put you on the final approach course at a 30° intercept.
+- **Start:** lined up on the departure runway, en route at the cruise altitude, airborne at the start of the
+  approach, or a 6 nm final.
 - **Weather, weight and failure:** calm air, the accident day's METAR wind or a crosswind; an engine failure at V1 or
   after takeoff.
+
+The planner shows the whole plan with its distance and lists anything it couldn't find. For example, KDJT to KMCO via
+`TBIRD8 CHEFS MUNGI1` to the ILS 18R is 176 nm.
 
 On the runway the parking brake is set and takeoff trim is dialled in. The AFM V1, VR and V2 for your weight appear on
 the speed tape and are called out. Hold Shift to release the brake, add full thrust, and rotate at VR to about +9°
@@ -91,7 +99,10 @@ The autopilot and flight director modes follow FAA [AC 25.1329-1C](https://www.f
 - **Armed modes** (white) engage when their capture criteria are met. LNAV engages within 2 nm of the path, and above
   400 ft after takeoff or a go-around.
 - **VNAV** flies the plan's altitude constraints but never climbs or descends through the preselected altitude,
-  except on final.
+  except on final. On a route it climbs to the cruise altitude by speed on elevator: you set climb thrust, and pitch
+  holds 250 kt below 10,000 ft, then 280 kt / M 0.70. It holds cruise until the descent path to the arrival
+  constraints reaches it (top of descent). Lower the preselected altitude to let it descend.
+- **Vectors:** a departure that ends in radar vectors gets a "proceed direct" clearance from ATC after a minute.
 - **Go-around** (`?`) pitches 10°, arms LNAV for the published missed approach and climbs until the preselected
   altitude is above you. Once you are established on the glideslope, the pilot monitoring sets the missed-approach
   altitude.
@@ -194,6 +205,11 @@ to the real stop, and nose-up trim has more to give in a recovery. The upset sce
 otherwise: column force, tail-stall onset and autopilot authority per unit of pitching moment are unchanged.
 
 ### Ground
+
+The world's ground surface is curved (its height grows with the square of the distance from Palm Beach). Free flight
+measures altitude above that surface, applies gravity along its local vertical, and reports pitch and bank relative to
+the local horizon. So the altimeter, VSI, glideslopes and VNAV read the same at Orlando, 230 km away, as at Palm
+Beach. The accident keeps the flat frame it was calibrated in: across its 30 km box the difference is under 70 m.
 
 [`js/ground.js`](js/ground.js) models three oleo struts (stiffness and damping set so each sits about a third into its
 stroke), tyres with rolling and cornering friction, anti-skid brakes, and nosewheel steering that narrows from 45° at
@@ -327,6 +343,7 @@ node tools/bench.mjs 2560x1320 8080
 | `js/input.js`, `js/hardware.js`, `js/hwui.js` | Keyboard and mouse, all connected flight hardware, the binding panel |
 | `js/ground.js`, `js/freeflight.js` | Landing gear and ground contact; free-flight starts, weather and trim solver |
 | `js/navdb.js`, `js/fms.js` | Nav database (CIFP) and procedure assembly; the FMS leg engine (LNAV, VNAV, holds) |
+| `js/route.js` | Route strings, MSFS `.pln` import, whole-plan assembly (SID, airways, STAR, approach, vectors to final) |
 | `js/nav.js`, `js/afm.js` | ILS deviations for any ILS in the database; AFM takeoff speeds and VREF |
 | `js/pfd.js` | Pro Line 4-style primary flight display |
 | `js/ffb.js` | USB PID force-feedback driver over WebHID |

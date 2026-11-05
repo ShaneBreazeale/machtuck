@@ -13,6 +13,7 @@ import { takeoffSpeeds, vref, MAX_LANDING_LB } from './afm.js';
 import { runwayAt } from './ground.js';
 import { nearestIls } from './nav.js';
 import { NavDB, procedureLegs, procedureList } from './navdb.js';
+import { parseRoute, buildPlan, parsePln } from './route.js';
 import { FMS } from './fms.js';
 import { Audio } from './audio.js';
 import { DEG, RAD, clamp, qmat, mulMV, nedToWorld, lerp, smoothstep, qfromEuler, wrap180, wrap360 } from './util.js';
@@ -88,12 +89,13 @@ function newGame(hypKey, hard = true) {
 }
 // Free flight sortie (js/freeflight.js): no storm, no script. The airport, runway and approach come from the nav
 // database; the flight plan is flown by the FMS (js/fms.js) through the autopilot / flight director.
-const FREE_KEY = 'n722bd_sortie_v2';
+const FREE_KEY = 'n722bd_sortie_v3';
 const magOf = (apt, t) => String(Math.round(wrap360(t - (apt ? apt.magvar : 0))) || 360).padStart(3, '0');
 const altTxt = (a) => !a ? '' : a.d === '+' || a.d === 'H' || a.d === 'J' || a.d === 'V' ? ` ≥${a.a1.toLocaleString()}` : a.d === '-' || a.d === 'Y' ? ` ≤${a.a1.toLocaleString()}` : a.d === 'B' ? ` ${a.a2.toLocaleString()}–${a.a1.toLocaleString()}` : ` ${a.a1.toLocaleString()}`;
 // one line per leg, plain language, from the leg data
 function legText(apt, l) {
   const fx = l.fix ? l.fix.id : '', crs = l.crsMag != null ? String(Math.round(l.crsMag) || 360).padStart(3, '0') + '°' : l.crsT != null ? magOf(apt, l.crsT) + '°' : '', turn = l.turn ? (l.turn === 'L' ? 'left ' : 'right ') : '';
+  if (l.vectors) return fx === 'VECTR' ? 'ATC vectors to final' : `intercept the final approach course at ${fx}${altTxt(l.alt)}`;
   switch (l.pt) {
     case 'IF': return `${fx}${altTxt(l.alt)}`;
     case 'TF': case 'DF': return `${turn}direct ${fx}${altTxt(l.alt)}`;
@@ -107,7 +109,15 @@ function legText(apt, l) {
     default: return `${l.pt} ${fx}`;
   }
 }
+// the route part (SID / airways / STAR) as fix names; the approach in full
 function planSummary(apt, legs) {
+  const a0 = legs.findIndex((l) => l.kind === 'APP');
+  const route = (a0 >= 0 ? legs.slice(0, a0) : legs.filter((l) => l.kind && l.kind !== 'APP')).filter((l) => l.fix).map((l) => l.fix.id);
+  const app = a0 >= 0 ? legs.slice(a0) : legs.some((l) => l.kind === 'APP') ? legs : [];
+  const appTxt = app.length ? approachSummary(apt, app) : '';
+  return route.length ? `${route.join(' ')}${appTxt ? ' — APPROACH: ' + appTxt : ''}` : appTxt;
+}
+function approachSummary(apt, legs) {
   const m = legs.findIndex((l) => l.map);
   const fin = legs.slice(0, m + 1).map((l) => legText(apt, l) + (l.faf ? ' (FAF)' : l.map ? ' (MAP)' : '')), miss = legs.slice(m + 1).map((l) => legText(apt, l));
   return `${fin.join(' · ')}${miss.length ? ` — MISSED APPROACH: ${miss.join(', then ')}` : ''}`;
@@ -117,8 +127,8 @@ function planSummary(apt, legs) {
 // Line of minimums by procedure: ILS -> S-ILS, LOC -> S-LOC, LDA -> S-LDA, RNAV (GPS) -> LNAV/VNAV (baro-VNAV, no
 // WAAS), else LNAV; RNAV (RNP) -> RNP 0.30. Returns { alt (ft MSL), type, chart } or null.
 const APPROACH_CAT = 'C';
-function plateMinimums(app, rwy) {
-  if (!PL.meta || !app || !rwy) return null;
+function plateMinimums(app, rwy, aptId) {
+  if (!PL.meta || !app || !rwy || (aptId && PL.meta.icao !== aptId)) return null;   // plates are fetched for one airport
   const k = app[0], want = { I: ['S-ILS'], L: ['S-LOC'], X: ['S-LDA'], R: ['LNAV/VNAV', 'LNAV'], H: ['RNP 0.30', 'RNP 0.11'] }[k] || [];
   const title = procName(app), charts = PL.meta.charts.filter((c) => c.code === 'IAP' && c.title.endsWith('RWY ' + rwy) &&
     (k === 'I' ? /^ILS/.test(c.title) : k === 'L' ? /LOC/.test(c.title) : c.title === title));
@@ -128,33 +138,48 @@ function plateMinimums(app, rwy) {
   }
   return null;
 }
+// The sortie's flight plan: departure procedure, the route string's airways and fixes, arrival procedure, approach.
+// o: the planner's selections. Returns { dep, arr, legs, errors, dist, parse } (null while an airport is loading).
+const runwayOfApp = (app) => { const m = (app || '').slice(1).match(/^(\d\d[LRC]?)/); return m ? m[1] : null; };
+function sortiePlan(o) {
+  const dep = DB.loaded(o.apt), arr = DB.loaded(o.arr || o.apt);
+  if (!dep || !arr) return null;
+  const parse = parseRoute(DB, o.route || '', dep, arr);
+  const plan = buildPlan(DB, { dep, arr, depRwy: o.rwy, sid: o.sid || null, sidTrans: o.sidTrans || null, enroute: parse.enroute,
+    star: o.star || null, starTrans: o.starTrans || null, arrRwy: runwayOfApp(o.app), app: o.app || null, appTrans: o.trans === 'auto' ? undefined : (o.trans || null) });
+  return { dep, arr, parse, ...plan, errors: [...parse.errors, ...plan.errors] };
+}
 function newFreeFlight(o) {
-  const apt = DB.loaded(o.apt);
-  if (!apt) { console.warn('airport not loaded', o.apt); return; }
-  const legs = o.app ? procedureLegs(apt, 'APP', o.app, { trans: o.trans || null }) : [];
+  const P = sortiePlan(o);
+  if (!P) { console.warn('airport not loaded', o.apt, o.arr); return; }
+  const { dep, arr, legs } = P, apt = arr, cruise = o.cruise ? +o.cruise : null;
   const ac = new Learjet60(), env = new FreeEnv(o.wx), ap = new Autopilot(true), fms = new FMS();
   setWeight(ac, o.weight);
-  const r = setupStart(ac, o, env, legs);
+  const r = setupStart(ac, { ...o, arr: arr.id, cruise }, env, legs);
   env.wind(ac.pos, 0, 0); ac.step(0, { wind: [0, 0, 0] });
   // the ILS: the loaded approach's localizer, else the nearest one ahead
-  ap.nav = (q) => { const id = fms.approachNav(), il = id && apt.ils[id]; return nearestIls(il ? [il] : DB.allIls(), ac.pos[0], ac.pos[1], q.h, q.track ?? q.psi); };
-  configureGuidance(ap, fms, r, o, legs, ac.out);
+  ap.nav = (q) => { const id = fms.approachNav(), il = id && arr.ils[id]; return nearestIls(il ? [il] : DB.allIls(), ac.pos[0], ac.pos[1], q.h, q.track ?? q.psi); };
+  configureGuidance(ap, fms, r, { ...o, cruise }, legs, ac.out);
   ATC.el.pause(); ATC.on = false;
   newGame('combined', true);   // builds the shared state; then swap in the free-flight pieces
-  const lb = ac.m / 0.45359237, V = takeoffSpeeds(lb, 19);
-  const rwy = o.start === 'rwy' ? o.rwy : approachRunway(legs, o.app), il = legs.length && fms.approachNav() ? apt.ils[fms.approachNav()] : null;
-  const tdze = rwy && apt.runways['RW' + rwy] ? apt.runways['RW' + rwy].elev : apt.elev;
-  Object.assign(G, { mode: 'free', free: o, ac, env, ap, fms, apt, legs, hypKey: 'free', vsp: { ...V, ref: vref(Math.min(lb, 23100)) }, co: {}, failAt: o.fail === 'climb' ? 400 + Math.random() * 1100 : null, autoSb: true,
+  const lb = ac.m / 0.45359237, V = takeoffSpeeds(lb, 19), hasApp = legs.some((l) => l.kind === 'APP');
+  const rwy = hasApp ? approachRunway(legs, o.app) : null, il = hasApp && fms.approachNav() ? arr.ils[fms.approachNav()] : null;
+  const tdze = rwy && arr.runways['RW' + rwy] ? arr.runways['RW' + rwy].elev : arr.elev;
+  const routeTxt = dep.id !== arr.id || legs.some((l) => l.kind !== 'APP') ? `${dep.id}${o.sid ? ' ' + o.sid : ''} → ${arr.id}` : `${arr.id}`;
+  Object.assign(G, { mode: 'free', free: o, ac, env, ap, fms, apt: o.start === 'rwy' ? dep : arr, legs, hypKey: 'free', vsp: { ...V, ref: vref(Math.min(lb, 23100)) }, co: {}, failAt: o.fail === 'climb' ? 400 + Math.random() * 1100 : null, autoSb: true,
     mins: null, minsFrom: null, legI: -1,
-    hypName: `SORTIE · ${o.apt}${o.app ? ' · ' + o.app + (o.trans ? '.' + o.trans : '') : ''} · ${STARTS[o.start].name.split(',')[0]} · ${WEATHER[o.wx].name.split(':')[0]} · ${WEIGHTS[o.weight].name.split(' (')[0]}` });
-  const pm = legs.length ? plateMinimums(o.app, rwy) : null;
-  G.mins = pm ? pm.alt : legs.length ? tdze + (il ? 200 : 400) : null; G.minsFrom = pm;
+    hypName: `SORTIE · ${routeTxt}${o.app ? ' · ' + o.app + (o.trans && o.trans !== 'auto' ? '.' + o.trans : '') : ''}${cruise ? ' · ' + (cruise >= 18000 ? 'FL' + cruise / 100 : cruise.toLocaleString() + ' ft') : ''} · ${STARTS[o.start].name.split(',')[0]} · ${WEATHER[o.wx].name.split(':')[0]} · ${WEIGHTS[o.weight].name.split(' (')[0]}` });
+  const pm = hasApp ? plateMinimums(o.app, rwy, arr.id) : null;
+  G.mins = pm ? pm.alt : hasApp ? tdze + (il ? 200 : 400) : null; G.minsFrom = pm;
   log('SYS', r.msg);
   if (legs.length) {
-    log('SYS', `FLIGHT PLAN ${o.app}${o.trans ? ' via ' + o.trans : ''} (FAA CIFP ${DB.index.cycle}): ${planSummary(apt, legs)}`);
+    log('SYS', `FLIGHT PLAN (FAA CIFP ${DB.index.cycle}${P.dist ? `, ${Math.round(P.dist)} nm` : ''}): ${planSummary(apt, legs)}`);
+    if (P.errors.length) log('SYS', `Not in the plan: ${P.errors.join('; ')}`);
+  }
+  if (hasApp) {
     const minTxt = pm ? `${pm.type} ${/MDA|LOC|LNAV$|LDA/.test(pm.type) && !/VNAV/.test(pm.type) ? 'MDA' : 'DA'} ${pm.alt} ft (${Math.round(pm.alt - tdze)} above touchdown, Cat ${APPROACH_CAT}${pm.rvr ? `, RVR ${pm.rvr}` : ''}; ${pm.chart})`
       : `${Math.round(G.mins)} ft (no plate minimums for this approach: ${il ? 200 : 400} ft above touchdown)`;
-    if (il) log('SYS', `${il.id.replace(/^I/, 'I-')} ${il.freq.toFixed(2)}, course ${magOf(apt, il.crsT)}°, ${o.app[0] === 'I' ? `glideslope ${il.gs.toFixed(1)}°` : 'localizer only: no glideslope (GP flies the FMS path)'}. Minimums: ${minTxt}. Press ~ for the plates.`);
+    if (il) log('SYS', `${il.id.replace(/^I/, 'I-')} ${il.freq.toFixed(2)}, course ${magOf(arr, il.crsT)}°, ${o.app[0] === 'I' ? `glideslope ${il.gs.toFixed(1)}°` : 'localizer only: no glideslope (GP flies the FMS path)'}. Minimums: ${minTxt}.${PL.meta && PL.meta.icao === arr.id ? ' Press ~ for the plates.' : ''}`);
     else log('SYS', `Minimums: ${minTxt}.`);
   }
   if (r.onGround) log('SYS', `AFM takeoff speeds, flaps 8, ${Math.round(lb).toLocaleString()} lb: V1 ${Math.round(V.v1)}, VR ${Math.round(V.vr)}, V2 ${Math.round(V.v2)} KIAS (bugs on the speed tape).`);
@@ -188,6 +213,7 @@ function freeTick(h, out) {
   if (F) {
     for (const ev of F.events.splice(0)) {
       if (ev.type === 'hold') log('SYS', `${ev.leg.fix.id}: ${ev.entry} entry — ${legText(G.apt, ev.leg)}`);
+      else if (ev.type === 'atc') { log('ATC', `Lear 60, ${ev.txt}.`); if (SETTINGS.comms) AU.say(ev.txt, 0); }
       else if (ev.type === 'leg' && G.legI >= 0) { const m = F.mapIndex(); if (m >= 0 && ev.i === m + 1) log('SYS', `MISSED APPROACH: ${F.missedLegs().map((l) => legText(G.apt, l)).join(', then ')}`); }
     }
     G.legI = F.i;
@@ -702,45 +728,96 @@ setOpts($('sstart'), Object.entries(STARTS).map(([k, v]) => [k, v.name]), SK.sta
 setOpts($('swx'), Object.entries(WEATHER).map(([k, v]) => [k, v.name]), SK.wx || 'calm');
 setOpts($('swt'), Object.entries(WEIGHTS).map(([k, v]) => [k, v.name]), SK.weight || 'typical');
 setOpts($('sfail'), Object.entries(FAILURES).map(([k, v]) => [k, v.name]), SK.fail || 'none');
-const sortieSel = () => ({ apt: $('sapt').value, start: $('sstart').value, rwy: $('srwy').value, app: $('sapp').value, trans: $('strans').value, wx: $('swx').value, weight: $('swt').value, fail: $('sfail').value });
-function sortiePreview() {
-  const o = sortieSel(), apt = DB.loaded(o.apt), el = $('splan'), needApp = o.start === 'app' || o.start === 'final';
-  $('srwy').disabled = o.start !== 'rwy';
-  $('strans').disabled = !o.app;
-  if (!apt) { el.textContent = ''; return; }
-  if (needApp && !o.app) { el.textContent = 'This start needs an approach.'; $('ffgo').disabled = true; return; }
-  $('ffgo').disabled = false;
-  try { const legs = o.app ? procedureLegs(apt, 'APP', o.app, { trans: o.trans || null }) : []; el.textContent = legs.length ? planSummary(apt, legs) : 'No flight plan: fly it by hand, heading and altitude modes.'; }
-  catch (e) { el.textContent = String(e.message || e); }
+setOpts($('scruise'), [['', 'None (local flight)'], ...[3000, 5000, 7000, 9000, 11000, 13000, 15000, 17000, 19000, 21000, 23000, 25000, 27000, 29000, 31000, 33000, 35000, 37000, 39000, 41000]
+  .map((a) => [String(a), a >= 18000 ? `FL${a / 100}` : `${a.toLocaleString()} ft`])], SK.cruise ?? '');
+$('sroute').value = SK.route || '';
+const sortieSel = () => ({ apt: $('sapt').value, rwy: $('srwy').value, sid: $('ssid').value, sidTrans: $('ssidt').value, route: $('sroute').value.trim(), cruise: $('scruise').value,
+  arr: $('sarr').value, star: $('sstar').value, starTrans: $('sstart2').value, app: $('sapp').value, trans: $('strans').value,
+  start: $('sstart').value, wx: $('swx').value, weight: $('swt').value, fail: $('sfail').value });
+// procedure selectors: [id, name] lists with their transitions
+const procOpts = (apt, kind) => (apt ? procedureList(apt, kind).sort((a, b) => a.id.localeCompare(b.id)) : []);
+function fillTrans(sel, apt, kind, id, want, none) {
+  const p = procOpts(apt, kind).find((x) => x.id === id), list = p ? p.trans.filter((t) => !/^RW/.test(t)) : [];
+  setOpts(sel, [...none, ...list.map((t) => [t, t])], want ?? (none.length ? none[0][0] : list[0]));
+  sel.disabled = !id;
 }
-function sortieTrans(want) {
-  const apt = DB.loaded($('sapt').value), app = $('sapp').value;
-  const p = apt && app ? procedureList(apt, 'APP').find((x) => x.id === app) : null;
-  setOpts($('strans'), [['', 'None (from the intermediate fix)'], ...(p ? p.trans.map((t) => [t, t]) : [])], want ?? (p && p.trans[0]) ?? '');
+function sortiePreview() {
+  const o = sortieSel(), el = $('splan'), needApp = o.start === 'app' || o.start === 'final';
+  el.classList.remove('err');
+  if (needApp && !o.app) { el.textContent = 'This start needs an approach.'; el.classList.add('err'); $('ffgo').disabled = true; return; }
+  const P = sortiePlan(o); if (!P) { el.textContent = 'Loading…'; $('ffgo').disabled = true; return; }
+  $('ffgo').disabled = false;
+  const route = P.legs.some((l) => l.kind !== 'APP');
+  el.textContent = P.legs.length ? `${route ? `${P.dep.id} → ${P.arr.id}, ${Math.round(P.dist)} nm${o.cruise ? ' at ' + $('scruise').selectedOptions[0].textContent : ''}: ` : ''}${planSummary(P.arr, P.legs)}` : 'No flight plan: fly it by hand, heading and altitude modes.';
+  if (P.errors.length) { el.textContent += `  ⚠ ${P.errors.join('; ')}`; el.classList.add('err'); }
+}
+// a route string names a SID / STAR / cruise level: select them
+function sortieRoute() {
+  const dep = DB.loaded($('sapt').value), arr = DB.loaded($('sarr').value); if (!dep || !arr) return sortiePreview();
+  const r = parseRoute(DB, $('sroute').value, dep, arr);
+  if (r.sid) { $('ssid').value = r.sid; fillTrans($('ssidt'), dep, 'SID', r.sid, r.sidTrans || '', [['', 'None']]); }
+  if (r.star) { $('sstar').value = r.star; fillTrans($('sstart2'), arr, 'STAR', r.star, r.starTrans || '', [['', 'None']]); }
+  if (r.cruise && [...$('scruise').options].some((x) => x.value === String(r.cruise))) $('scruise').value = String(r.cruise);
   sortiePreview();
 }
-async function sortieAirport(id, keep = {}) {
+async function sortieDep(id, keep = {}) {
   const apt = await DB.airport(id);
   const rwys = Object.keys(apt.runways).map((k) => k.slice(2)).filter((r) => { try { frameFor(id, r); return true; } catch { return false; } });
   setOpts($('srwy'), rwys.map((r) => [r, `Runway ${r} · ${apt.runways['RW' + r].length.toLocaleString()} ft`]), keep.rwy);
-  const apps = procedureList(apt, 'APP').sort((a, b) => a.id.localeCompare(b.id));
-  setOpts($('sapp'), [['', 'None'], ...apps.map((p) => [p.id, procName(p.id)])], keep.app ?? (apps.find((p) => p.id[0] === 'I') || apps[0] || { id: '' }).id);
-  sortieTrans(keep.trans);
+  setOpts($('ssid'), [['', 'None'], ...procOpts(apt, 'SID').map((p) => [p.id, p.id])], keep.sid ?? '');
+  fillTrans($('ssidt'), apt, 'SID', $('ssid').value, keep.sidTrans ?? '', [['', 'None']]);
+  sortiePreview();
 }
-DB_READY.then((db) => {
+async function sortieArr(id, keep = {}) {
+  const apt = await DB.airport(id);
+  setOpts($('sstar'), [['', 'None'], ...procOpts(apt, 'STAR').map((p) => [p.id, p.id])], keep.star ?? '');
+  fillTrans($('sstart2'), apt, 'STAR', $('sstar').value, keep.starTrans ?? '', [['', 'None']]);
+  const apps = procOpts(apt, 'APP');
+  setOpts($('sapp'), [['', 'None'], ...apps.map((p) => [p.id, procName(p.id)])], keep.app ?? (apps.find((p) => p.id[0] === 'I') || apps[0] || { id: '' }).id);
+  fillTrans($('strans'), apt, 'APP', $('sapp').value, keep.trans, [['auto', 'Auto (route / vectors)'], ['', 'None (from the intermediate fix)']]);
+  sortiePreview();
+}
+DB_READY.then(async (db) => {
   if (!db) { $('splan').textContent = 'Nav database not available (run tools/fetch_cifp.py).'; $('ffgo').disabled = true; return; }
   $('cycle').textContent = db.index.cycle;
   const list = db.airportList().slice().sort((a, b) => (a.id === 'KDJT' ? -1 : b.id === 'KDJT' ? 1 : a.id.localeCompare(b.id)));
-  setOpts($('sapt'), list.map((a) => [a.id, `${a.id} · ${a.name}`]), SK.apt && list.some((a) => a.id === SK.apt) ? SK.apt : 'KDJT');
-  sortieAirport($('sapt').value, SK);
+  const opts = list.map((a) => [a.id, `${a.id} · ${a.name}`]), has = (x) => x && list.some((a) => a.id === x);
+  setOpts($('sapt'), opts, has(SK.apt) ? SK.apt : 'KDJT'); setOpts($('sarr'), opts, has(SK.arr) ? SK.arr : $('sapt').value);
+  await sortieDep($('sapt').value, SK); await sortieArr($('sarr').value, SK);
 });
-$('sapt').addEventListener('change', () => sortieAirport($('sapt').value));
-$('sapp').addEventListener('change', () => sortieTrans());
-for (const id of ['sstart', 'strans', 'srwy']) $(id).addEventListener('change', sortiePreview);
+$('sapt').addEventListener('change', async () => { await sortieDep($('sapt').value); sortieRoute(); });
+$('sarr').addEventListener('change', async () => { await sortieArr($('sarr').value); sortieRoute(); });
+$('ssid').addEventListener('change', () => { fillTrans($('ssidt'), DB.loaded($('sapt').value), 'SID', $('ssid').value, undefined, [['', 'None']]); sortiePreview(); });
+$('sstar').addEventListener('change', () => { fillTrans($('sstart2'), DB.loaded($('sarr').value), 'STAR', $('sstar').value, undefined, [['', 'None']]); sortiePreview(); });
+$('sapp').addEventListener('change', () => { fillTrans($('strans'), DB.loaded($('sarr').value), 'APP', $('sapp').value, undefined, [['auto', 'Auto (route / vectors)'], ['', 'None (from the intermediate fix)']]); sortiePreview(); });
+$('sroute').addEventListener('change', sortieRoute);
+for (const id of ['sstart', 'strans', 'srwy', 'ssidt', 'sstart2', 'scruise']) $(id).addEventListener('change', sortiePreview);
+// imports: an MSFS .pln file, or the latest SimBrief flight plan for a username (fetched only when asked)
+async function importPlan({ dep, arr, route, cruise, depRwy, arrRwy }) {
+  const ok = (x) => x && DB.airportList().some((a) => a.id === x);
+  const miss = [dep, arr].filter((x) => x && !ok(x));
+  if (ok(dep)) { $('sapt').value = dep; await sortieDep(dep, { rwy: depRwy }); }
+  if (ok(arr)) { $('sarr').value = arr; await sortieArr(arr, {}); if (arrRwy) { const a = procOpts(DB.loaded(arr), 'APP').find((p) => p.id === 'I' + arrRwy) || procOpts(DB.loaded(arr), 'APP').find((p) => runwayOfApp(p.id) === arrRwy); if (a) { $('sapp').value = a.id; fillTrans($('strans'), DB.loaded(arr), 'APP', a.id, 'auto', [['auto', 'Auto (route / vectors)'], ['', 'None (from the intermediate fix)']]); } } }
+  $('sroute').value = route || '';
+  if (cruise) { const v = [...$('scruise').options].map((x) => +x.value).filter(Boolean).reduce((b, x) => (Math.abs(x - cruise) < Math.abs(b - cruise) ? x : b), 35000); $('scruise').value = String(v); }   // the nearest offered level
+  sortieRoute();
+  if (miss.length) { $('splan').textContent = `${miss.join(', ')} not in the nav database (airports within 160 nm of Palm Beach). ` + $('splan').textContent; $('splan').classList.add('err'); }
+}
+$('splnbtn').addEventListener('click', () => $('spln').click());
+$('spln').addEventListener('change', async () => { const f = $('spln').files[0]; if (!f) return; const p = parsePln(await f.text()); await importPlan(p); $('spln').value = ''; });
+$('ssbbtn').addEventListener('click', async () => {
+  const u = $('ssbuser').value.trim(); if (!u) return;
+  $('splan').textContent = 'Fetching the latest SimBrief flight plan…';
+  try {
+    const j = await (await fetch(`https://www.simbrief.com/api/xml.fetcher.php?username=${encodeURIComponent(u)}&json=1`)).json();
+    if (!j.origin) throw new Error(j.fetch && j.fetch.status || 'no flight plan');
+    await importPlan({ dep: j.origin.icao_code, arr: j.destination.icao_code, route: j.general.route, cruise: +j.general.initial_altitude || null, depRwy: j.origin.plan_rwy, arrRwy: j.destination.plan_rwy });
+  } catch (e) { $('splan').textContent = `SimBrief: ${e.message || e}`; $('splan').classList.add('err'); }
+});
 $('tosortie').addEventListener('click', () => { $('brief').classList.add('hidden'); SORTIE.classList.remove('hidden'); });
 $('sback').addEventListener('click', () => { SORTIE.classList.add('hidden'); $('brief').classList.remove('hidden'); });
 $('ffgo').addEventListener('click', () => {
-  const o = sortieSel(); if (!DB.loaded(o.apt)) return;
+  const o = sortieSel(); if (!DB.loaded(o.apt) || !DB.loaded(o.arr)) return;
   localStorage.setItem(FREE_KEY, JSON.stringify(o));
   SORTIE.classList.add('hidden'); AU.start();
   newFreeFlight(o); hc.focus();

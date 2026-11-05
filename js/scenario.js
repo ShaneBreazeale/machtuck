@@ -285,15 +285,18 @@ export class Autopilot {
     if (this.appr) {
       const plan = this.fms && this.fms.fafIndex() >= 0, proc = plan ? this.fms.legs[this.fms.fafIndex()].proc || '' : '';
       const onLoc = plan ? !!this.fms.approachNav() && /^I/.test(this.fms.approachNav()) && /^[ILXB]/.test(proc) : !!d;
-      if (onLoc) { if (this.lat !== 'LOC') this.latArm = 'LOC'; const v = !plan || proc[0] === 'I' ? 'GS' : 'GP'; if (this.vert !== v) this.vertArm = v; }
-      else if (plan) { if (this.lat !== 'LNAV') this.latArm = 'LNAV'; if (this.vert !== 'GP') this.vertArm = 'GP'; }
+      // (a pending LNAV / VNAV arm engages first; the approach modes arm behind it)
+      const latFree = this.latArm !== 'LNAV' || this.lat === 'LNAV', vertFree = this.vertArm !== 'VNAV';
+      if (onLoc) { if (this.lat !== 'LOC' && latFree) this.latArm = 'LOC'; const v = !plan || proc[0] === 'I' ? 'GS' : 'GP'; if (this.vert !== v && vertFree) this.vertArm = v; }
+      else if (plan) { if (this.lat !== 'LNAV') this.latArm = 'LNAV'; if (this.vert !== 'GP' && vertFree) this.vertArm = 'GP'; }
     }
     // captures: LOC inside 1.5 dots; GS inside 0.4 dot (on the localizer); LNAV inside 2 nm of the path, above 400 ft;
     // VNAV once LNAV is flying; GP past the final approach fix
     if (this.latArm === 'LOC' && d && d.locValid && Math.abs(d.locRaw) < 1.5) { this.lat = 'LOC'; this.latArm = null; }
     if (this.vertArm === 'GS' && d && d.gsValid && Math.abs(d.gsRaw) < 0.4 && Math.abs(d.locRaw) < 2) { this.vert = 'GS'; this.vertArm = null; }
     if (this.latArm === 'LNAV' && g && (g.xtk == null || Math.abs(g.xtk) < 2 * 1852) && (this.agl > 400 * FT || !out.wow && this.vert !== 'TO' && this.vert !== 'GA')) { this.lat = 'LNAV'; this.latArm = null; }
-    if (this.vertArm === 'VNAV' && this.lat === 'LNAV' && this.vnav && this.vert !== 'TO' && this.vert !== 'GA') { this.vert = 'VNAV'; this.vertArm = null; this.thRef = null; }
+    // VNAV: once LNAV is flying; after takeoff, at 1,000 ft (the acceleration height)
+    if (this.vertArm === 'VNAV' && this.lat === 'LNAV' && this.vnav && this.vert !== 'GA' && (this.vert !== 'TO' || this.agl > 1000 * FT)) { this.vert = 'VNAV'; this.vertArm = null; this.thRef = null; }
     if (this.vertArm === 'GP' && (this.lat === 'LNAV' || this.lat === 'LOC') && this.fms && this.fms.i > this.fms.fafIndex()) { this.vert = 'GP'; this.vertArm = null; }
     // losing the signal or the plan: back to holding heading / altitude (loss of approach mode is annunciated, 45c)
     if ((this.lat === 'LOC' || this.vert === 'GS') && !(d && d.locValid)) { this.lat = 'HDG'; this.hdgTgt = wrap360(psiD); this.appr = false; this.latArm = null; if (this.vert === 'GS') { this.vert = 'ALT'; this.altTgt = h; } this.lost = 'LOC'; }
@@ -355,17 +358,23 @@ export class Autopilot {
   // the final approach (GP) the preselected altitude bounds it: no climb unless it is above, no descent unless it is
   // below, never through it (AC 25.1329-1C 64i(2)).
   vnavRate(h, vs, out) {
-    const v = this.vnav, final = this.vert === 'GP'; if (!v) return 0;
+    const v = this.vnav, final = this.vert === 'GP'; this.climbSpd = null; if (!v) return 0;
     let tgt = v.alt * FT, path = v.path != null ? v.path * FT : null;
     if (!final) {
       const msp = this.altTgt;
       if (tgt > h) tgt = Math.min(tgt, Math.max(msp, h)); else tgt = Math.max(tgt, Math.min(msp, h));
       if (path != null) path = Math.max(path, msp);
     }
-    const climb = h < 3000 ? 7.6 : 5.1;
     // on a descent path: level while it is still above (never climb to meet it), then follow it down
     if (path != null && h > tgt + 15) return path > h + 15 ? 0 : clamp(-(out.gs || 60) * Math.tan((v.ang || 3) * DEG) + 0.12 * (path - h), -12, 0.5);
-    return clamp((tgt - h) * 0.10, -7.6, climb);
+    // a climb well short of its target: speed on elevator (thrust is the pilot's; pitch holds 250 kt below 10,000 ft,
+    // then 280 kt / M 0.70), as the flight-level-change climb (AC 25.1329-1C 64f); then capture as ALTS does
+    if (tgt - h > Math.max(60, (out.vs || 0) * 8)) {
+      const vc = h < 10000 * FT ? 250 : Math.min(280, out.M > 0.05 ? 0.70 * (out.KIAS || 250) / out.M : 280);
+      this.climbSpd = vc;
+      return clamp((out.vs || 0) + ((out.KIAS || vc) - vc) * 0.3, 1, 25);
+    }
+    return clamp((tgt - h) * 0.10, -7.6, 7.6);
   }
 }
 
