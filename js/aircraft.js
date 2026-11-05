@@ -91,6 +91,11 @@ export class Learjet60 {
     this.shaker = false;                 // no stick pusher on the Learjet 60 (AFM: AOA, lights, shaker, low-speed cues)
     this.damage = 0; this.broken = false; this.brokenWhat = ''; this.crashed = false;
     this.gnd = new Ground(); this.wow = false; this.crashWhy = '';   // landing gear and ground contact (js/ground.js)
+    // Curved-Earth datum (free flight): the world's ground surface is curved (js/ground.js groundAlt). With `curved`
+    // set, altitude is measured above that surface (so an altimeter reads the same over Miami as over Palm Beach),
+    // gravity acts along its local vertical, and pitch / bank are reported relative to the local horizon. The accident
+    // keeps the flat frame it was calibrated in (its 30 km box differs by < 70 m).
+    this.curved = false;
     this.ctl.brakeL = 0; this.ctl.brakeR = 0; this.ctl.park = false; this.ctl.rev = 0;   // rev: thrust-reverser lever 0..1 (ground only)
     this.engFail = null;                 // 'L' / 'R': that engine has failed (spools down, windmills)
     this.failSpool = 0;                  // the failed engine's remaining thrust fraction (spool-down)
@@ -162,8 +167,9 @@ export class Learjet60 {
     const { wind = [0, 0, 0], dT = 7 } = env;
     const ctl = this.ctl;
     const R = qmat(this.q);
-    const h = -this.pos[2];
-    const agl = h - groundAlt(this.pos[0], this.pos[1]) - this.gnd.elev;
+    const gA = groundAlt(this.pos[0], this.pos[1]), sN = this.curved ? 2 * this.pos[0] / 12720000 : 0, sE = this.curved ? 2 * this.pos[1] / 12720000 : 0;   // surface slope
+    const h = -this.pos[2] - (this.curved ? gA : 0);
+    const agl = -this.pos[2] - gA - this.gnd.elev;
     const ge = agl < 2 * this.b ? groundEffect(agl - 0.6, this.b) : null;   // wing ~0.6 m below the CG
     const atm = isa(Math.max(0, h), dT);
     const vrel = [this.vel[0] - wind[0], this.vel[1] - wind[1], this.vel[2] - wind[2]];
@@ -296,7 +302,7 @@ export class Learjet60 {
     this.wow = this.gnd.wow;
     const nz = -Fb[2] / (this.m * G0);
     const aN = mulMV(R, [Fb[0] / this.m, Fb[1] / this.m, Fb[2] / this.m]);
-    aN[2] += G0;
+    aN[2] += G0; aN[0] += G0 * sN; aN[1] += G0 * sE;   // gravity along the local vertical (zero slope in the flat frame)
 
     // ---- Moments & rates ----
     let Lm = qbar * this.S * this.b * Cl, Mm = qbar * this.S * this.c * Cm, Nm = qbar * this.S * this.b * Cn;
@@ -345,7 +351,11 @@ export class Learjet60 {
     if (agl < -0.3 && !this.crashed) { this.crashed = true; this.crashWhy = this.crashWhy || 'IMPACT'; }   // below the surface: nothing touched first
 
     const eu = eulerFromMat(qmat(this.q));
-    const vs = -this.vel[2];
+    const vs = -this.vel[2] - (sN * this.vel[0] + sE * this.vel[1]);   // climb rate above the surface
+    if (this.curved) {   // attitude relative to the local horizon: the surface rising ahead / to the right
+      const cp = Math.cos(eu.psi), sp = Math.sin(eu.psi);
+      eu.theta -= sN * cp + sE * sp; eu.phi += -sN * sp + sE * cp;
+    }
     this.maxG = Math.max(this.maxG, nz); this.minG = Math.min(this.minG, nz);
     // Load factor for the speed-tape bands, smoothed so turbulence doesn't make them flicker
     this.nzBand += (clamp(nz, 1, 2.5) - this.nzBand) * Math.min(1, dt / 0.8);
