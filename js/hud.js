@@ -373,6 +373,7 @@ export class HUD {
       ctx.save(); ctx.translate(x0, y0); ctx.scale(sc, sc);
       F.draw(ctx, S, { hits: { push: (b) => hits.push({ x: x0 + b.x * sc, y: y0 + b.y * sc, w: b.w * sc, h: b.h * sc, id: b.id }) } });
       ctx.restore();
+      const bx = x0 + F.w * sc + 8; if (bx + 46 < cx - 250) { this.box(bx, y0, 46, h - 8, '#2a2e36', '#4a4f57', 4); this.text('CDU', bx + 23, y0 + (h - 8) / 2 - 5, 10, '#dfe6ee', 'center', 'bold'); this.text('F2', bx + 23, y0 + (h - 8) / 2 + 8, 8, COL.dim, 'center'); hits.push({ x: bx, y: y0, w: 46, h: h - 8, id: 'cdu_SCREEN' }); }
     }
   }
 

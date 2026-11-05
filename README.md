@@ -165,6 +165,7 @@ python3 tools/fetch_plates.py --cycle <cycle> --all    # every airport's minimum
 | Thrust reversers (on the ground) | `−` past idle, `=` to stow; or a bound button | L2 past idle |
 | Camera | C, right-drag to orbit | Triangle |
 | Cockpit buttons, knobs and levers | Click; scroll a knob (Shift: faster); drag a lever (thrust, flaps, spoilers); click the parking brake; hover for a tooltip | |
+| FMS CDU (large, type into it) | F2, or click the CDU on the pedestal | |
 | Tablet (map and procedure cards) | Tab, then 1 to 6 for a card | |
 | Real weather on or off | U | |
 | Pause, restart, sim rate | P, R, `[` `]` | Options |

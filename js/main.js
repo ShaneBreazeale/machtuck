@@ -5,6 +5,7 @@ import { scenarioSun } from './sun.js';
 import { PilotControls } from './controls.js';
 import { HUD } from './hud.js';
 import { Panel } from './panel.js';
+import { CDU as CduUnit } from './cdu.js';
 import { Cockpit } from './cockpit.js';
 import { Input } from './input.js';
 import { HardwarePanel } from './hwui.js';
@@ -13,7 +14,7 @@ import { FreeEnv, setupStart, setWeight, configureGuidance, frameFor, approachRu
 import { takeoffSpeeds, vref, MAX_LANDING_LB } from './afm.js';
 import { runwayAt } from './ground.js';
 import { nearestIls } from './nav.js';
-import { NavDB, procedureLegs, procedureList, rnavListMinimums } from './navdb.js';
+import { NavDB, procedureLegs, procedureList, rnavListMinimums, airwayLegs } from './navdb.js';
 import { parseRoute, buildPlan, parsePln } from './route.js';
 import { FMS } from './fms.js';
 import { Audio } from './audio.js';
@@ -586,6 +587,7 @@ function handleEvents() {
       else { ap.appr = !ap.appr; if (!ap.appr) { ap.latArm = ap.vertArm = null; if (ap.lat === 'LOC') { ap.lat = 'HDG'; ap.hdgTgt = wrap360(ac.out.psi * RAD); } if (ap.vert === 'GS' || ap.vert === 'GP') { ap.vert = 'ALT'; ap.altTgt = ac.out.h; } } log('SYS', ap.appr ? `APR armed: ${ap.latArm || 'LOC'} then ${ap.vertArm || 'GS'}` : 'APR off'); }
     }
     else if (e === 'direct') dtoToggle();
+    else if (e === 'cdu') cduToggle();
     else if (e === 'lnav') { if (G.fms && ap.armLnav()) log('SYS', ap.lat === 'LNAV' ? 'LNAV' : 'LNAV armed: engages on the flight-plan path'); else log('SYS', 'LNAV: no flight plan'); }
     else if (e === 'vnav') { if (G.fms && ap.armVnav()) log('SYS', 'VNAV armed: flies the plan\'s altitude constraints within the preselected altitude'); else log('SYS', 'VNAV: no flight plan'); }
   }
@@ -688,7 +690,8 @@ function frame(now) {
   S.camVel = CO || G.camEff === 2 ? [0, 0, 0] : [ac.vel[1], -ac.vel[2], ac.vel[0]];   // attached cameras move with the airplane
   if (env.flashId !== undefined && env.flashId !== G.lastFlashId) { G.lastFlashId = env.flashId; if (Math.random() < 0.35 && env.flashPos) R.strike(env.flashPos[0], env.flashPos[2], WX.deckBase + 400); else R.bolt = null; }
   R.render(S); G.lastFov = S.fov;
-  const HS = { out, ac, ap, t: G.t, magvar: G.apt ? G.apt.magvar : (DB.loaded('KDJT') || { magvar: -6 }).magvar, log: G.log, inCloud: env.L.cloud, core: env.L.core, updraft: env.L.updraft, ext: G.ext, hist: G.hist, ghostProfile, ghostAlt, recovered: G.recovered, recoveredAlt: G.recoveredAlt, upsetT: UPSET_T,
+  cduPopDraw();
+  const HS = { cdu: CDU, out, ac, ap, t: G.t, magvar: G.apt ? G.apt.magvar : (DB.loaded('KDJT') || { magvar: -6 }).magvar, log: G.log, inCloud: env.L.cloud, core: env.L.core, updraft: env.L.updraft, ext: G.ext, hist: G.hist, ghostProfile, ghostAlt, recovered: G.recovered, recoveredAlt: G.recoveredAlt, upsetT: UPSET_T,
     apOffAt: G.apOffAt, apOffWall: G.apOffWall, timeScale: G.timeScale, quality: R.quality, help: G.help, paused: G.paused, hypName: G.hypName, endMsg: G.endMsg, antiice: G.antiice, flash: env.flash, fps,
     wxr: wxrSource(env),
     efb: { mode: SETTINGS.efb, range: SETTINGS.wxrRange }, checklist: evalProcedures(), trimRunaway: G.trimRunaway,
@@ -1031,6 +1034,44 @@ PANEL.define({
       ap.vsTgt = clamp(ap.vsTgt + n * (big ? 5 : 1) * 0.508, -30.48, 30.48); },
     state: () => (G.ap.vert === 'VS' ? `${Math.round(G.ap.vsTgt * 196.85)} ft/min` : 'not in VS') },
 });
+// ---------- the FMS CDU (js/cdu.js): on the pedestal, and a 2D pop-out you can type into (F2) ----------
+const CDU = new CduUnit({ G: () => G, findFix: (id, ne) => DB.findFix(id, ne), log: (t) => log('SYS', t), magvar: () => (G && G.apt ? G.apt.magvar : -6),
+  cycle: () => DB.index && DB.index.cycle, procName: (id) => procName(id),
+  airwayLegs: (awy, from, to) => { try { return airwayLegs(DB, awy, from.id, to.id); } catch { return null; } },
+  procedures: (id, kind) => { const a = DB.loaded(id); return a ? procedureList(a, kind) : []; },
+  replan: (changes) => (G && G.free ? sortiePlan({ ...G.free, ...changes }) : null),
+  onExec: (changes) => cduPlanChanged(changes) });
+// after EXEC with a new SID, STAR or approach (the CDU's DEP ARR pages): the sortie choices follow, and a new approach
+// brings its localizer and minimums (plate, then the FAA RNAV list, then 200 / 400 ft above touchdown)
+function cduPlanChanged(changes) {
+  if (!G || !G.free) return;
+  G.free = { ...G.free, ...changes }; G.legs = G.fms.legs;
+  if (!changes.app) return;
+  const arr = DB.loaded(G.free.arr || G.free.apt), app = G.free.app, rwy = approachRunway(G.legs, app), id = G.fms.approachNav(), il = id ? arr.ils[id] : null;
+  const tdze = rwy && arr.runways['RW' + rwy] ? arr.runways['RW' + rwy].elev : arr.elev;
+  const pm = plateMinimums(app, rwy, arr.id) || rnavMinimums(app, arr.id), precision = !!(il && il.gs && /^I/.test(app));
+  G.mins = pm ? pm.alt : tdze + (precision ? 200 : 400); G.minsFrom = pm; G.co = {};
+  log('SYS', `${procName(app)}${il ? ` · ${il.id.replace(/^I/, 'I-')} ${il.freq.toFixed(2)}` : ''} · minimums ${Math.round(G.mins)} ft${pm ? ` (${pm.type}, ${pm.chart})` : ' (no plate minimums)'}`);
+}
+const CP = { el: document.getElementById('cdupop') }; CP.cv = CP.el.querySelector('canvas'); CP.ctx = CP.cv.getContext('2d'); CP.hud = { hits: [] };
+function cduToggle(open = CP.el.classList.contains('hidden')) {
+  CP.el.classList.toggle('hidden', !open);
+  if (open) CP.el.focus(); else hc.focus();
+}
+function cduPopDraw() {
+  if (CP.el.classList.contains('hidden')) return;
+  CP.hud.hits = []; CP.ctx.clearRect(0, 0, 520, 796); CDU.draw(CP.ctx, 0, 0, 520, 796, CP.hud); PANEL.decorate(CP.hud, CP.ctx, 'pop');
+}
+const cpHit = (e) => { const r = CP.cv.getBoundingClientRect(), x = (e.clientX - r.left) * 520 / r.width, y = (e.clientY - r.top) * 796 / r.height; const h = CP.hud.hits.find((b) => x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h); return h ? { ...h, fx: (x - h.x) / h.w, fy: (y - h.y) / h.h } : null; };
+CP.cv.addEventListener('mousedown', (e) => { const h = cpHit(e); if (h && h.id !== 'cdu_SCREEN') PANEL.click(h); CP.el.focus(); e.preventDefault(); });
+CP.cv.addEventListener('mousemove', (e) => { const h = cpHit(e); if (h && h.id !== 'cdu_SCREEN') PANEL.setHover(h, 'pop', e.clientX, e.clientY); else PANEL.clearHover(); });
+CP.cv.addEventListener('mouseleave', () => PANEL.clearHover());
+CP.el.addEventListener('keydown', (e) => { if (e.key === 'Escape' || e.key === 'F2') { cduToggle(false); e.preventDefault(); return; } if (CDU.type(e)) { PANEL.sound && AU.click('detent'); e.preventDefault(); } });
+document.getElementById('cduclose').onclick = () => cduToggle(false);
+PANEL.define(Object.fromEntries(CduUnit.KEYS.map((k) => [`cdu_${k}`, k === 'SCREEN'
+  ? { label: 'FMS CDU', kind: 'button', act: () => cduToggle(true), help: 'click to open the CDU large (F2), where you can type' }
+  : { label: CduUnit.label(k), kind: 'button', act: () => CDU.press(k), help: 'click · in the CDU pop-out (F2) you can type' }])));
+
 // the control (hit) under the mouse: the 3D cockpit's instrument quads, else the 2D panel
 function controlAt(x, y) {
   if (x < 0 || !G) return null;
@@ -1050,7 +1091,7 @@ IN.onHover = (x, y) => {
 IN.onDragMove = (x, y) => PANEL.dragMove(x, y);
 IN.onDragEnd = () => PANEL.dragEnd();
 IN.onWheel = (x, y, dy, shift) => { const c = controlAt(x, y); return !!(c && PANEL.wheel(c.hit, dy, shift)); };
-window.SIM = { get G() { return G; }, R, ATC, SETTINGS, IN, FF, CK, H, toggle: toggleSwitch, get NEX() { return NEX; } };   // debug / flight-data access from the console
+window.SIM = { get G() { return G; }, R, ATC, SETTINGS, IN, FF, CK, H, CDU, CP, toggle: toggleSwitch, get NEX() { return NEX; } };   // debug / flight-data access from the console
 // debug inspection shots: #shot=x,y,z,yaw,pitch,fov[,nex 0/1[,t]]  (starts the reconstruction paused at t with a free camera)
 if (location.hash.startsWith('#shot=')) {
   const v = location.hash.slice(6).split(',').map(Number);

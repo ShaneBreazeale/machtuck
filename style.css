@@ -102,3 +102,10 @@ button.sm { font-size: 12px; padding: 4px 10px; margin-right: 4px; }
 .ctltip.hidden { display: none; }
 .ctltip b { color: #7fd7ff; }
 .ctltip span { display: block; color: #8fa3b5; font-size: 11px; }
+/* the FMS CDU pop-out (js/cdu.js) */
+#cdupop { position: absolute; right: 16px; top: 60px; z-index: 23; background: #15181c; border: 1px solid #3a4a5c; border-radius: 8px; padding: 6px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); outline: none; }
+#cdupop.hidden { display: none; }
+#cdupop:focus { border-color: #5cf; }
+#cdupop .cbar { display: flex; align-items: center; gap: 8px; font: 12px ui-monospace, Menlo, monospace; color: #9fb0c0; margin-bottom: 4px; }
+#cdupop .cbar b { color: #7fd7ff; } #cdupop .cbar span { flex: 1; }
+#cdupop canvas { position: static; inset: auto; display: block; width: min(390px, 42vw); height: auto; cursor: pointer; }
