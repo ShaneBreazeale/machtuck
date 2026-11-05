@@ -93,8 +93,16 @@ is active. Otherwise they show the FMS leg in magenta. See [Cockpit and instrume
 ## Minimums
 
 `tools/fetch_plates.py` reads the straight-in minimums from each FAA d-TPP plate's text layer, at every airport in the
-data: 280 of the 329 approach plates at the 72 airports in cycle 2611 give minimums. The other 49 are military plates
-(KCOF, KHST, KMCF, KNQX: a different layout), circling-only approaches (the `-A` / `-B` ones) and one visual approach.
+data: 312 of the 329 approach plates at the 72 airports in cycle 2611 give minimums. The other 17 are
+circling-only approaches (the `-A` / `-B` ones), one visual approach and one helicopter-only (COPTER) approach.
+
+The military fields' plates (KCOF, KHST, KMCF, KNQX) have no usable text layer: most are images, and the rest use a
+font without a character map, so their text comes out as noise. For those the fetcher reads the minimums by OCR
+(`tesseract`): it finds `CATEGORY` on the rendered plate, renders the minimums table alone at 600 dpi, and rebuilds
+the text lines from the word positions. It repairs the misreads this typeface causes (4 read as A, 0 as O, "S-10C" for
+S-LOC, "5-03" for S-03, "INAV" for LNAV) and fills in column letters it missed. 31 plates are read this way; the plates viewer
+says so, because OCR can still misread a digit. The FAA CIFP has no procedures (and no ILS) at these four fields, so
+their approaches can't be flown in the sim yet: the minimums show in the viewer only.
 Short labels are named from the chart title ("S-8L" on a LOC plate is S-LOC, "S-4" on a VOR plate S-VOR), and the
 category letters are found right of the `CATEGORY` label even when the text layer scatters them over the lines either
 side. The parser finds each line of minimums by its label (S-ILS, S-LOC, LPV, LNAV/VNAV, LNAV, RNP

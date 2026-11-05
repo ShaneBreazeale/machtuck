@@ -236,7 +236,7 @@ python3 tools/fetch_plates.py [--cycle 2611] [--apt DJT] [--out data/plates] [--
 python3 tools/fetch_plates.py [--cycle 2611] --all [--cache DIR] [--delay 0.3]            # every airport, minimums only
 ```
 
-Needs `pdftoppm` and `pdftotext` from poppler on your `PATH`. The script:
+Needs `pdftoppm` and `pdftotext` from poppler on your `PATH`, and `tesseract` for the OCR fallback. The script:
 
 1. Downloads the d-TPP metafile for the cycle from `https://aeronav.faa.gov/d-tpp/<cycle>/`.
 2. Finds the airport by its FAA identifier. KPBI is `DJT` from cycle 2611 on.
@@ -251,12 +251,17 @@ plate at a time `--delay` seconds apart, renders nothing, and writes `minimums.j
 plate's title, PDF name, amendment and minimums. It ends with the list of plates it read no straight-in minimums from.
 `--cache DIR` keeps the PDFs, so a parser change can be re-run without downloading again.
 
+A plate whose text layer gives no minimums (the military fields': scanned images, or a font without a character
+map) is read by OCR when `tesseract` is on your `PATH`: the minimums table is rendered alone at 600 dpi and its words
+are laid back out in columns for the same parser. Those charts carry `"ocr": true`. Helicopter-only (COPTER)
+plates are listed without minimums.
+
 CIFP carries the procedures but not their minimums, which is why the plates are parsed at all. Circling minimums are
 skipped: in the text layer they wrap across lines and can't be assigned to categories. The sim uses the Category C
 line. See [Approaches and minimums](approaches.md).
 
 The repository ships the KDJT charts as images (12 approach plates and the diagram) and every airport's minimums
-(280 of 329 plates), for one cycle. The charts and the nav
+(312 of 329 plates), for one cycle. The charts and the nav
 data are **not for navigation**.
 
 ## Models and livery
