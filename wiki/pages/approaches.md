@@ -141,13 +141,30 @@ plate is in the viewer, but the CIFP has no matching procedure, so it can't be f
 
 ### Without a plate
 
-At every other airport the minimums bug falls back to a height above the touchdown zone elevation (the runway's
-elevation in the CIFP):
+At other airports, an RNAV (GPS) approach takes its minimums from the FAA's
+[All Approaches - Master RNAVs](https://www.faa.gov/about/officeorg/headquartersoffices/ato/all-approaches-master-rnavs)
+spreadsheet (`data/nav/rnav_minimums.json`, built by `tools/fetch_rnav_minimums.py`): the LNAV/VNAV DA if there is one
+(the airplane has baro-VNAV), else the LNAV MDA, straight-in. It covers 154 of the 193 RNAV (GPS) approaches in the
+data directly, and more where an approach has been renamed since (a Y or Z suffix added) and the list has exactly one
+RNAV (GPS) approach to that runway; the log then says "listed as" the list's name.
+
+> **Warning:** The list is old. Its LNAV and LNAV/VNAV sheets say "Published Effective 01/31/2019". Against the current
+> KDJT plates (the airport was KPBI in the list) it is off by up to 260 ft, mostly higher (RNAV Y 14: LNAV 720 vs 460
+> today, LNAV/VNAV 475 vs 338), once 20 ft lower (RNAV X 28R LNAV 560 vs 580). The log always names the source and date.
+
+Everything else falls back to a height above the touchdown zone elevation (the runway's elevation in the CIFP):
 
 - **200 ft** on an ILS approach with a glideslope
-- **400 ft** on LOC, RNAV and every other approach
+- **400 ft** on LOC, RNP, VOR and every other approach, and on an RNAV approach the list doesn't have
 
-For example, the KMCO ILS 18R start logs:
+For example, a KMCO RNAV (GPS) Y RWY 18R start logs:
+
+```
+Minimums: LNAV/VNAV DA 390 ft (298 above touchdown, straight-in; listed as RNAV (GPS) RWY 18R, FAA master RNAV list
+effective 2019-01-31: older than the current chart).
+```
+
+And the KMCO ILS 18R start logs:
 
 ```
 I-TFE 111.90, course 186°, glideslope 3.0°. Minimums: 292 ft (no plate minimums for this approach:

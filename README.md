@@ -128,14 +128,16 @@ its VREF at maximum landing weight is 139 kt. The line used depends on the appro
 - RNAV (RNP): RNP 0.30.
 
 Circling minimums aren't read: in the text layer they wrap across lines and can't be assigned to categories. With no
-plate, the bug falls back to 200 ft above touchdown on an ILS approach with a glideslope and 400 ft on LOC, RNAV and
-others. `~` (or **Approach plates** on the sortie screen) shows the loaded approach's chart: KDJT (the former KPBI) has
+plate, an RNAV (GPS) approach uses the FAA master RNAV list (LNAV/VNAV, else LNAV; that list's sheets are effective
+31 Jan 2019, so the values can be off by a few hundred feet and the log says so), and the rest fall back to 200 ft
+above touchdown on an ILS with a glideslope and 400 ft otherwise. `~` (or **Approach plates** on the sortie screen) shows the loaded approach's chart: KDJT (the former KPBI) has
 all 12 approach plates and the airport diagram. At other airports `~` logs that no plates ship for them. The charts
 and the nav data are public domain and **not for navigation**. Refresh them with:
 
 ```bash
 python3 tools/fetch_cifp.py            # FAA CIFP -> data/nav (airports, runways, ILS, procedures, airways)
 python3 tools/fetch_markers.py         # FAA NASR (eNASR) -> data/nav/markers.json (operational ILS marker beacons)
+python3 tools/fetch_rnav_minimums.py   # FAA master RNAV list -> data/nav/rnav_minimums.json (RNAV minimums, no plates)
 python3 tools/fetch_plates.py --cycle <cycle>
 ```
 
@@ -321,6 +323,7 @@ breaks up). At 5 seconds it is marginal: the tail-stall case loses about 11,000 
 | `data/ground/` | USGS orthoimagery (NAIP), NASA Blue Marble, USGS NHD water | Terrain texture and water |
 | `data/nav/` | FAA CIFP cycle 261029 (ARINC 424, public domain) | Airports, runways, ILS, SID / STAR / approach procedures, navaids, airways |
 | `data/nav/markers.json` | FAA NASR via eNASR (public domain) | The operational ILS marker beacons (the CIFP has none) |
+| `data/nav/rnav_minimums.json` | FAA "All Approaches - Master RNAVs" list (effective 31 Jan 2019, public domain) | RNAV straight-in minimums where no plate is loaded |
 | KPBI boundary (in `js/ground.js`) | OpenStreetMap (ODbL) | Keeps imagery-driven houses off the airport |
 | `data/plates/` | FAA d-TPP cycle 2611 (public domain) | Approach plates, airport diagram, straight-in minimums |
 | `data/ground/buildings.bin` | Overture Maps (OpenStreetMap + Microsoft) | 62,192 buildings with measured heights |

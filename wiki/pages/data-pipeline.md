@@ -32,6 +32,7 @@ it. For what the sim does with the data, see [Real weather and ATC data](weather
 | `data/ground/trees.bin`, `trees.json` | 511,964 trees with heights and crown radii | `tools/fetch_canopy_trees.py` |
 | `data/nav/index.json`, `enroute.json`, `runways.json`, `apt/<ICAO>.json` | FAA CIFP nav database: 72 airports | `tools/fetch_cifp.py` |
 | `data/nav/markers.json` | Operational ILS marker beacons from the FAA NASR | `tools/fetch_markers.py` |
+| `data/nav/rnav_minimums.json` | RNAV straight-in minimums from the FAA master RNAV list | `tools/fetch_rnav_minimums.py` |
 | `data/plates/*.png`, `plates.json` | KDJT approach plates, airport diagram and straight-in minimums | `tools/fetch_plates.py` |
 | `data/ext/` | Exterior model (`ext.json`, `ext.bin`, textures) and the N722BD livery textures | `tools/fs9_ext.py`, `tools/livery.py` |
 | `data/vc/` | Virtual cockpit model (`vc.json`, `vc.bin`, textures) | `tools/fs9_vc.py` |
@@ -213,6 +214,20 @@ after `fetch_cifp.py`: it reads the ILS already in `data/nav` and looks up only 
 A failed lookup leaves that ILS without markers. The file is optional: without it the sim simply has no markers.
 The shipped file holds four markers, at KFMY, KPIE and KTPA; see
 [Approaches and minimums](approaches.md#marker-beacons).
+
+### RNAV minimums list
+
+`tools/fetch_rnav_minimums.py` downloads the FAA's "All Approaches - Master RNAVs" spreadsheet
+(`MasterRNAVs-20211222.xlsx`, linked from
+https://www.faa.gov/about/officeorg/headquartersoffices/ato/all-approaches-master-rnavs), reads its `LNAVs` and
+`LNAV-VNAVs` sheets with the standard library (it refuses any XML part with a DOCTYPE), keeps the airports in
+`data/nav/index.json` (FAA id = the ICAO id without its K) and writes `data/nav/rnav_minimums.json`: per airport and
+chart name, the LNAV MDA and LNAV/VNAV DA with HAT and visibility, plus each sheet's effective date (31 Jan 2019 in this
+file). `--xlsx FILE` uses a copy you already have. The LPV sheet isn't used: the airplane has no WAAS.
+
+```bash
+python3 tools/fetch_rnav_minimums.py
+```
 
 ### Plates and minimums
 

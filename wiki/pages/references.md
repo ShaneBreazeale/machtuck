@@ -107,6 +107,7 @@ All are fetched by scripts in `tools/`. See [Data pipeline](data-pipeline.md).
 |---|---|---|
 | Procedures, runways, ILS, navaids, airways | **FAA CIFP** (ARINC 424-18), cycle 261029: https://aeronav.faa.gov/Upload_313-d/cifp/CIFP_261029.zip | Public domain, not for navigation |
 | ILS marker beacons | **FAA NASR** (National Airspace System Resource), read through eNASR, current cycle: https://enasr.faa.gov/eNASR/nasr/ | Public domain, not for navigation |
+| RNAV minimums where no plate is loaded | **FAA "All Approaches - Master RNAVs"** spreadsheet (Air Traffic Organization; LNAV and LNAV/VNAV sheets effective 31 Jan 2019): https://www.faa.gov/about/officeorg/headquartersoffices/ato/all-approaches-master-rnavs | Public domain, informational only, not for navigation |
 | Approach plates, airport diagram, minimums | **FAA d-TPP**, cycle 2611: https://aeronav.faa.gov/d-tpp/2611/ | Public domain, not for navigation |
 
 Flight-plan import reads **MSFS** `.pln` files and the **SimBrief** API (`https://www.simbrief.com/api/xml.fetcher.php`),

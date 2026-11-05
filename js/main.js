@@ -12,7 +12,7 @@ import { FreeEnv, setupStart, setWeight, configureGuidance, frameFor, approachRu
 import { takeoffSpeeds, vref, MAX_LANDING_LB } from './afm.js';
 import { runwayAt } from './ground.js';
 import { nearestIls } from './nav.js';
-import { NavDB, procedureLegs, procedureList } from './navdb.js';
+import { NavDB, procedureLegs, procedureList, rnavListMinimums } from './navdb.js';
 import { parseRoute, buildPlan, parsePln } from './route.js';
 import { FMS } from './fms.js';
 import { Audio } from './audio.js';
@@ -128,6 +128,8 @@ function approachSummary(apt, legs) {
 // Line of minimums by procedure: ILS -> S-ILS, LOC -> S-LOC, LDA -> S-LDA, RNAV (GPS) -> LNAV/VNAV (baro-VNAV, no
 // WAAS), else LNAV; RNAV (RNP) -> RNP 0.30. Returns { alt (ft MSL), type, chart } or null.
 const APPROACH_CAT = 'C';
+// RNAV straight-in minimums from the FAA master RNAV list where no plate is loaded (js/navdb.js rnavListMinimums)
+function rnavMinimums(app, aptId) { return app && app[0] === 'R' ? rnavListMinimums(DB.rnavMins, aptId, procName(app)) : null; }
 function plateMinimums(app, rwy, aptId) {
   if (!PL.meta || !app || !rwy || (aptId && PL.meta.icao !== aptId)) return null;   // plates are fetched for one airport
   const k = app[0], want = { I: ['S-ILS'], L: ['S-LOC'], X: ['S-LDA'], R: ['LNAV/VNAV', 'LNAV'], H: ['RNP 0.30', 'RNP 0.11'] }[k] || [];
@@ -172,7 +174,7 @@ function newFreeFlight(o) {
   Object.assign(G, { mode: 'free', free: o, ac, env, ap, fms, apt: o.start === 'rwy' ? dep : arr, legs, hypKey: 'free', vsp: { ...V, ref: vref(Math.min(lb, 23100)) }, co: {}, failAt: o.fail === 'climb' ? 400 + Math.random() * 1100 : null, autoSb: true,
     mins: null, minsFrom: null, legI: -1,
     hypName: `SORTIE · ${routeTxt}${o.app ? ' · ' + o.app + (o.trans && o.trans !== 'auto' ? '.' + o.trans : '') : ''}${cruise ? ' · ' + (cruise >= 18000 ? 'FL' + cruise / 100 : cruise.toLocaleString() + ' ft') : ''} · ${STARTS[o.start].name.split(',')[0]} · ${WEATHER[o.wx].name.split(':')[0]} · ${WEIGHTS[o.weight].name.split(' (')[0]}` });
-  const pm = hasApp ? plateMinimums(o.app, rwy, arr.id) : null;
+  const pm = hasApp ? plateMinimums(o.app, rwy, arr.id) || rnavMinimums(o.app, arr.id) : null;
   const precision = !!(il && il.gs && /^I/.test(o.app || ''));   // an ILS with a glideslope: DA 200 ft above touchdown; LOC, RNAV and the rest 400
   G.mins = pm ? pm.alt : hasApp ? tdze + (precision ? 200 : 400) : null; G.minsFrom = pm;
   log('SYS', r.msg);
@@ -181,7 +183,7 @@ function newFreeFlight(o) {
     if (P.errors.length) log('SYS', `Not in the plan: ${P.errors.join('; ')}`);
   }
   if (hasApp) {
-    const minTxt = pm ? `${pm.type} ${/MDA|LOC|LNAV$|LDA/.test(pm.type) && !/VNAV/.test(pm.type) ? 'MDA' : 'DA'} ${pm.alt} ft (${Math.round(pm.alt - tdze)} above touchdown, Cat ${APPROACH_CAT}${pm.rvr ? `, RVR ${pm.rvr}` : ''}; ${pm.chart})`
+    const minTxt = pm ? `${pm.type} ${/MDA|LOC|LNAV$|LDA/.test(pm.type) && !/VNAV/.test(pm.type) ? 'MDA' : 'DA'} ${pm.alt} ft (${Math.round(pm.alt - tdze)} above touchdown, ${pm.straightIn ? 'straight-in' : `Cat ${APPROACH_CAT}`}${pm.rvr ? `, RVR ${pm.rvr}` : ''}; ${pm.chart})`
       : `${Math.round(G.mins)} ft (no plate minimums for this approach: ${precision ? 200 : 400} ft above touchdown)`;
     if (il) log('SYS', `${il.id.replace(/^I/, 'I-')} ${il.freq.toFixed(2)}, course ${magOf(arr, il.crsT)}°, ${o.app[0] === 'I' ? `glideslope ${il.gs.toFixed(1)}°` : 'localizer only: no glideslope (GP flies the FMS path)'}. Minimums: ${minTxt}.${PL.meta && PL.meta.icao === arr.id ? ' Press ~ for the plates.' : ''}`);
     else log('SYS', `Minimums: ${minTxt}.`);
@@ -735,7 +737,8 @@ const $ = (id) => document.getElementById(id);
 const SORTIE = $('sortie');
 const PROC_KIND = { I: 'ILS', L: 'LOC', R: 'RNAV (GPS)', H: 'RNAV (RNP)', V: 'VOR', S: 'VOR', D: 'VOR/DME', N: 'NDB', Q: 'NDB/DME', B: 'LOC BC', X: 'LDA', U: 'SDF', P: 'GPS', J: 'GLS' };
 // procedure ident -> chart-style name: I10L -> ILS RWY 10L, R10LY -> RNAV (GPS) Y RWY 10L, H14-Z -> RNAV (RNP) Z RWY 14
-const procName = (id) => { const m = id.slice(1).match(/^(\d\d[LRC]?)-?([A-Z]?)$/); return m ? `${PROC_KIND[id[0]] || id[0]} ${m[2] ? m[2] + ' ' : ''}RWY ${m[1]}` : `${PROC_KIND[id[0]] || ''} ${id.slice(1)}`.trim(); };
+const procName = (id) => { const c = id.slice(1).match(/^[A-Z]{2}-([A-Z])$/); if (c) return `${PROC_KIND[id[0]] || id[0]}-${c[1]}`;   // circling: RNV-A -> RNAV (GPS)-A
+  const m = id.slice(1).match(/^(\d\d[LRC]?)-?([A-Z]?)$/); return m ? `${PROC_KIND[id[0]] || id[0]} ${m[2] ? m[2] + ' ' : ''}RWY ${m[1]}` : `${PROC_KIND[id[0]] || ''} ${id.slice(1)}`.trim(); };
 const setOpts = (el, list, want) => { el.innerHTML = ''; for (const [v, t] of list) { const o = document.createElement('option'); o.value = v; o.textContent = t; el.appendChild(o); } el.value = list.some((x) => x[0] === want) ? want : list.length ? list[0][0] : ''; };
 const SK = (() => { try { return JSON.parse(localStorage.getItem(FREE_KEY) || '{}'); } catch { return {}; } })();
 setOpts($('sstart'), Object.entries(STARTS).map(([k, v]) => [k, v.name]), SK.start || 'rwy');

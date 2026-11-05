@@ -190,8 +190,8 @@ departure that is no longer in the database falls back to KDJT, and a missing ar
 4. **The localizer**, if the approach is flown on one: ident, frequency, magnetic course, and either the glideslope
    angle or "localizer only: no glideslope (GP flies the FMS path)". The minimums follow, with "Press ~ for the
    plates." when plates are loaded for that airport.
-5. **Minimums**: the plate's DA or MDA, or the fallback height above touchdown (200 ft on an ILS with a glideslope,
-   400 ft on LOC, RNAV and the rest). See
+5. **Minimums**: the plate's DA or MDA; for an RNAV (GPS) approach without a plate, the FAA master RNAV list's (dated
+   2019); otherwise the fallback height above touchdown (200 ft on an ILS with a glideslope, 400 ft on the rest). See
    [Approaches and minimums](approaches.md#minimums).
 6. **Speeds**: the AFM V1, VR and V2 for your weight and the departure runway's elevation on a runway start, or
    VREF flaps 40 on a final start (with a warning above the 19,500 lb maximum landing weight).
