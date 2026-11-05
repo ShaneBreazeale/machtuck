@@ -115,6 +115,8 @@ The autopilot and flight director modes follow FAA [AC 25.1329-1C](https://www.f
   altitude.
 
 `X` engages the autopilot, `|` toggles the flight director, `(` arms LNAV, `)` arms VNAV, `@` is direct to and `\` arms the approach.
+The same controls are on the glareshield's flight guidance panel (and the 2D panel's bottom bar): click its buttons,
+scroll its HDG and ALT knobs and VS wheel. Hovering any cockpit control outlines it and says what it is and does.
 `{` `}` move the heading bug and `<` `>` set the preselected altitude. There is no autothrottle on the Learjet 60, so
 speed stays yours.
 
@@ -162,6 +164,7 @@ python3 tools/fetch_plates.py --cycle <cycle> --all    # every airport's minimum
 | Brakes (free flight) | Hold Shift; toe brakes bind in the controls panel | D-pad left |
 | Thrust reversers (on the ground) | `−` past idle, `=` to stow; or a bound button | L2 past idle |
 | Camera | C, right-drag to orbit | Triangle |
+| Cockpit buttons and knobs | Click; scroll a knob (Shift: faster); hover for a tooltip | |
 | Tablet (map and procedure cards) | Tab, then 1 to 6 for a card | |
 | Real weather on or off | U | |
 | Pause, restart, sim rate | P, R, `[` `]` | Options |

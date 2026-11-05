@@ -92,26 +92,56 @@ export const GAUGES = {
     h.fgcModes(S).forEach(([m, act], i) => txt(ctx, m, 606 + i * 64, 22, 17, act ? '#6cff6c' : '#3b434d'));
     txt(ctx, h.fgcText(S), 734, 52, 15, S.ap.on ? '#7fd7ff' : '#ffb000', 'center', '');
   } },
-  // flight-guidance push-buttons on the glareshield face either side of the trim display (4x the 512 panel
-  // space from x 100, y 466): labelled caps, the green bar lit for the selected or armed mode; each cap is its own button
-  apLights: { w: 1168, h: 92, every: 3, bg: null, at: [['$panup', 100, 466, 292, 23]], draw(ctx, S, h) {
-    const a = S.ap, g = a.on || a.fd, cs = a.climbSpd && a.vert === 'VNAV';
-    const groups = [[8, 84, [['HDG', g && a.lat === 'HDG', 'fgc_hdg'], ['NAV', g && (a.lat === 'LNAV' || a.lat === 'LOC' || a.latArm === 'LNAV' || a.latArm === 'LOC'), 'fgc_nav'],
-      ['APR', g && a.appr, 'fgc_apr'], ['ALT', g && (a.vert === 'ALT' || a.vert === 'ALTS'), 'fgc_alt'], ['VS', g && a.vert === 'VS', 'fgc_vs']]],
-      [670, 97, [['AP', a.on, 'ap'], ['YD', S.ac.ctl.yd, 'yd'], ['FD', !!a.fd, 'fgc_fd'], ['IAS', g && cs && !a.climbMach, 'fgc_ias'], ['MACH', g && cs && a.climbMach, 'fgc_mach']]]];
-    for (const [x0, bw, btns] of groups) {
-      const gw = btns.length * bw + 12;
-      ctx.fillStyle = '#1b1d21'; ctx.strokeStyle = '#4a4e56'; ctx.lineWidth = 3; ctx.beginPath(); ctx.roundRect(x0, 2, gw, 88, 8); ctx.fill(); ctx.stroke();
-      btns.forEach(([lab, on, id], i) => {
-        const x = x0 + 6 + i * bw;
-        const g = ctx.createLinearGradient(0, 8, 0, 84); g.addColorStop(0, '#5a5e66'); g.addColorStop(1, '#30333a');
-        ctx.fillStyle = g; ctx.beginPath(); ctx.roundRect(x + 4, 8, bw - 8, 76, 6); ctx.fill();
-        ctx.fillStyle = on ? '#5dff6a' : '#16301a'; ctx.shadowColor = '#5dff6a'; ctx.shadowBlur = on ? 16 : 0;
-        ctx.fillRect(x + 18, 14, bw - 36, 12); ctx.shadowBlur = 0;
-        txt(ctx, lab, x + bw / 2, 56, 24, '#eef2f6');
-        h.hits.push({ x: x + 4, y: 8, w: bw - 8, h: 76, id });
-      });
-    }
+  // Flight guidance panel on the glareshield face (js/panel.js makes every part clickable). 4 canvas px per texel of
+  // the 512 px glareshield texture, placed from x 56 to 436 so it clears the ENG FIRE handles at both ends and leaves
+  // the model's own trim indicator (x 213-267) showing through the gap. Left: HDG knob (push: sync to the heading), the
+  // selected heading, HDG / NAV / APR. Right: AP YD FD over VNAV ALT VS, the VS wheel, the preselected altitude and
+  // vertical speed, ALT knob (push: hold the current altitude). Each cap's green bar shows its mode selected or armed.
+  fgp: { w: 1520, h: 148, every: 2, bg: null, at: [['$panup', 56, 463, 380, 37]], draw(ctx, S, h) {
+    const a = S.ap, g = a.on || a.fd, ft = (m) => Math.round(m / 0.3048);
+    const plate = (x0, x1) => { ctx.fillStyle = '#1b1d21'; ctx.strokeStyle = '#4a4e56'; ctx.lineWidth = 3; ctx.beginPath(); ctx.roundRect(x0, 2, x1 - x0, 144, 8); ctx.fill(); ctx.stroke(); };
+    const cap = (x, y, w, hh, lab, on, id) => {
+      const gr = ctx.createLinearGradient(0, y, 0, y + hh); gr.addColorStop(0, '#5a5e66'); gr.addColorStop(1, '#30333a');
+      ctx.fillStyle = gr; ctx.beginPath(); ctx.roundRect(x + 3, y + 3, w - 6, hh - 6, 6); ctx.fill();
+      ctx.fillStyle = on ? '#5dff6a' : '#16301a'; ctx.shadowColor = '#5dff6a'; ctx.shadowBlur = on ? 14 : 0;
+      ctx.fillRect(x + w * 0.22, y + 9, w * 0.56, 9); ctx.shadowBlur = 0;
+      txt(ctx, lab, x + w / 2, y + hh * 0.62, Math.min(26, hh * 0.38), '#eef2f6');
+      h.hits.push({ x: x + 3, y: y + 3, w: w - 6, h: hh - 6, id });
+    };
+    const knob = (cx, cy, r, ang, lab, id) => {
+      ctx.fillStyle = '#0d0e10'; ctx.beginPath(); ctx.arc(cx, cy, r + 6, 0, 7); ctx.fill();
+      ctx.strokeStyle = '#2b2e33'; ctx.lineWidth = 3; for (let k = 0; k < 36; k++) { const t = ang + k * Math.PI / 18; ctx.beginPath(); ctx.moveTo(cx + Math.cos(t) * r * 0.86, cy + Math.sin(t) * r * 0.86); ctx.lineTo(cx + Math.cos(t) * r, cy + Math.sin(t) * r); ctx.stroke(); }
+      const gr = ctx.createRadialGradient(cx - r * 0.3, cy - r * 0.35, r * 0.1, cx, cy, r); gr.addColorStop(0, '#6b7079'); gr.addColorStop(1, '#25282d');
+      ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(cx, cy, r * 0.84, 0, 7); ctx.fill();
+      ctx.strokeStyle = '#f2f4f6'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(cx + Math.sin(ang) * r * 0.3, cy - Math.cos(ang) * r * 0.3); ctx.lineTo(cx + Math.sin(ang) * r * 0.8, cy - Math.cos(ang) * r * 0.8); ctx.stroke();
+      txt(ctx, lab, cx, cy + r * 0.05, 15, '#c9ced6');
+      h.hits.push({ x: cx - r - 6, y: cy - r - 6, w: 2 * r + 12, h: 2 * r + 12, id });
+    };
+    const win = (x, y, w, hh, rows) => {
+      ctx.fillStyle = '#050607'; ctx.strokeStyle = '#3a3e44'; ctx.lineWidth = 2; ctx.beginPath(); ctx.roundRect(x, y, w, hh, 5); ctx.fill(); ctx.stroke();
+      rows.forEach(([lab, val, col], k) => { const yy = y + hh * (k + 0.5) / rows.length; txt(ctx, lab, x + 10, yy, 15, '#8c96a3', 'left'); txt(ctx, val, x + w - 10, yy, 28, col, 'right'); });
+    };
+    // left: heading
+    plate(0, 628);
+    const hdg = Math.round(a.hdgTgt ?? 0) % 360 || 360;
+    knob(68, 74, 50, (a.hdgTgt || 0) * Math.PI / 180, 'HDG', 'fgp_hdg');
+    win(132, 26, 118, 96, [['HDG', String(hdg).padStart(3, '0') + '°', g && a.lat === 'HDG' ? '#5dff6a' : '#e8eef4']]);
+    const L = [['HDG', g && a.lat === 'HDG', 'fgc_hdg'], ['NAV', g && (a.lat === 'LNAV' || a.lat === 'LOC' || a.latArm === 'LNAV' || a.latArm === 'LOC'), 'fgc_nav'], ['APR', g && a.appr, 'fgc_apr']];
+    L.forEach(([lab, on, id], k) => cap(258 + k * 122, 8, 122, 132, lab, on, id));
+    // right: modes, VS wheel, altitude
+    plate(844, 1520);
+    const R = [['AP', a.on, 'ap'], ['YD', S.ac.ctl.yd, 'yd'], ['FD', !!a.fd, 'fgc_fd'],
+      ['VNAV', g && (a.vert === 'VNAV' || a.vertArm === 'VNAV'), 'fgc_vnav'], ['ALT', g && (a.vert === 'ALT' || a.vert === 'ALTS'), 'fgc_alt'], ['VS', g && a.vert === 'VS', 'fgc_vs']];
+    R.forEach(([lab, on, id], k) => cap(850 + (k % 3) * 112, 6 + Math.floor(k / 3) * 69, 112, 69, lab, on, id));
+    // VS wheel: ridged, turns up / down
+    ctx.fillStyle = '#0d0e10'; ctx.fillRect(1192, 10, 48, 128);
+    const ph = ((a.vsTgt || 0) * 40) % 16;
+    for (let y = 14 + ((ph % 16) + 16) % 16; y < 136; y += 16) { ctx.fillStyle = '#4a4f57'; ctx.fillRect(1196, y, 40, 8); }
+    txt(ctx, '▲', 1216, 22, 14, '#c9ced6'); txt(ctx, '▼', 1216, 128, 14, '#c9ced6');
+    h.hits.push({ x: 1190, y: 8, w: 52, h: 132, id: 'fgp_vs' });
+    const vs = a.vert === 'VS' && g ? `${a.vsTgt >= 0 ? '+' : '−'}${Math.round(Math.abs(a.vsTgt) * 196.85 / 100) * 100}` : '----';
+    win(1248, 14, 146, 120, [['ALT', String(Math.round(ft(a.altTgt || 0) / 100) * 100), '#00e5ff'], ['VS', vs, a.vert === 'VS' && g ? '#5dff6a' : '#6b7480']]);
+    knob(1456, 74, 52, ft(a.altTgt || 0) / 1000 * Math.PI / 5, 'ALT', 'fgp_alt');
   } },
   // MASTER WARNING / MASTER CAUTION pair at the top of the pilot's panel
   master: { w: 164, h: 112, every: 2, at: [['$panL', 625, 140, 41, 28]], draw(ctx, S, h, blink) {

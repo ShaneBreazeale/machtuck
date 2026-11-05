@@ -14,7 +14,11 @@ export class Input {
     // Browsers expose a device only after one of its buttons is pressed or an axis moves.
     this.pad = { rumbleAt: 0 }; this.onPad = null;
     this.zoom = 1;   // cockpit field-of-view scale, mouse wheel
-    canvas.addEventListener('wheel', (e) => { this.zoom = clamp(this.zoom * Math.exp(e.deltaY * 0.0012), 0.42, 1.22); e.preventDefault(); }, { passive: false });
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      if (this.onWheel && this.onWheel(e.clientX, e.clientY, e.deltaY, e.shiftKey)) return;   // a knob under the mouse turns instead of zooming
+      this.zoom = clamp(this.zoom * Math.exp(e.deltaY * 0.0012), 0.42, 1.22);
+    }, { passive: false });
     window.addEventListener('gamepadconnected', (e) => {
       const gp = e.gamepad, k = deviceKind(gp), name = gp.id.replace(/\s*\(.*$/, '').slice(0, 40), mine = Object.values(this.hw.bind).some((b) => b.id === gp.id);
       if (!this.onPad) return;
@@ -38,6 +42,8 @@ export class Input {
     const move = (x, y) => { if (!this.mouse.down) return; this.mouse.dx = (x - this.mouse.x0) / 220; this.mouse.dy = (y - this.mouse.y0) / 220; };
     const up = () => { this.mouse.down = false; this.mouse.dx = 0; this.mouse.dy = 0; };
     canvas.addEventListener('mousedown', (e) => { if (e.button === 0) { if (this.onClick && this.onClick(e.clientX, e.clientY)) return; down(e.clientX, e.clientY); } if (e.button === 2) this.rdrag = { x: e.clientX, y: e.clientY, yaw: this.orbit.yaw, pitch: this.orbit.pitch }; });
+    canvas.addEventListener('mousemove', (e) => { if (this.onHover && !this.mouse.down && !this.rdrag) this.onHover(e.clientX, e.clientY); });
+    canvas.addEventListener('mouseleave', () => { if (this.onHover) this.onHover(-1, -1); });
     window.addEventListener('mousemove', (e) => { move(e.clientX, e.clientY); if (this.rdrag) { this.orbit.yaw = this.rdrag.yaw + (e.clientX - this.rdrag.x) * 0.01; this.orbit.pitch = clamp(this.rdrag.pitch + (e.clientY - this.rdrag.y) * 0.01, -1.2, 1.2); } });
     window.addEventListener('mouseup', (e) => { if (e.button === 2) this.rdrag = null; else up(); });
     canvas.addEventListener('touchstart', (e) => { const t = e.touches[0]; if (this.onClick && this.onClick(t.clientX, t.clientY)) { e.preventDefault(); return; } down(t.clientX, t.clientY); e.preventDefault(); }, { passive: false });

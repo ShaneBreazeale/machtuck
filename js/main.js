@@ -4,6 +4,7 @@ import { Renderer } from './render.js';
 import { scenarioSun } from './sun.js';
 import { PilotControls } from './controls.js';
 import { HUD } from './hud.js';
+import { Panel } from './panel.js';
 import { Cockpit } from './cockpit.js';
 import { Input } from './input.js';
 import { HardwarePanel } from './hwui.js';
@@ -287,7 +288,7 @@ function stepSim(h, held) {
   const out = ac.step(h, { wind, dT: env.dT });   // the accident day from the KMFL sounding (js/scenario.js Environment); free flight per weather
   const ir = env.iceRates(env.L, ac);
   ac.ice = clamp(ac.ice + ir.wing * h, 0, 1); ac.iceTail = clamp(ac.iceTail + ir.tail * h, 0, 1); ac.engIce = clamp(ac.engIce + ir.eng * h, 0, 1);
-  if (G.mode === 'accident') ap.hdgTgt = t < 25 ? 58 : Math.min(100, 58 + (t - 25) * (42 / 45));
+  if (G.mode === 'accident' && !G.hdgByPilot) ap.hdgTgt = t < 25 ? 58 : Math.min(100, 58 + (t - 25) * (42 / 45));   // the reported turn, until you set the bug yourself
   else if (ap.on && ac.wow) ap.disconnect('ON GROUND');
   ap.step(ac, h, out);
   if (ap.on) { ac.ctl.elev = surf.elev; ac.ctl.ail = surf.ail; }   // AP wrote its servo command; the surfaces are where the forces put them
@@ -352,7 +353,7 @@ function toggleSwitch(id) {
     case 'fgc_hdg': if (ap.on || ap.fd) { ap.lat = 'HDG'; ap.latArm = null; ap.setHdg(wrap360(ac.out.psi * RAD)); log('SYS', `HDG ${String(Math.round(ap.hdgTgt)).padStart(3, '0')}°`); } else log('SYS', 'HDG: engage the autopilot (X) or flight director (|) first'); break;
     case 'fgc_alt': if (ap.on || ap.fd) { ap.vert = 'ALT'; ap.vertArm = null; ap.altTgt = ac.out.h; log('SYS', `ALT hold ${Math.round(ac.out.h / FT).toLocaleString()} ft`); } else log('SYS', 'ALT: engage the autopilot (X) or flight director (|) first'); break;
     case 'fgc_vs': if (ap.on || ap.fd) { ap.vert = 'VS'; ap.vertArm = null; ap.vsTgt = clamp(Math.round(ac.out.vs / 0.508) * 0.508, -20, 20); log('SYS', `VS ${Math.round(ap.vsTgt * 196.85)} ft/min, to the preselected altitude`); } else log('SYS', 'VS: engage the autopilot (X) or flight director (|) first'); break;
-    case 'fgc_ias': case 'fgc_mach': log('SYS', `${id === 'fgc_ias' ? 'IAS' : 'MACH'}: speed modes come with VNAV's climb (no autothrottle); press ) for VNAV`); break;
+    case 'fgc_vnav': IN.events.push('vnav'); break;
     case 'machTrim': if (!sys.machTrimFail) { sys.machTrim = !sys.machTrim; log('SYS', `MACH TRIM ${sys.machTrim ? 'ON' : 'OFF'}`); } else log('SYS', 'MACH TRIM — FAIL (inop this scenario)'); break;
     case 'trimMode': sys.trimMode = sys.trimMode === 'PRI' ? 'SEC' : sys.trimMode === 'SEC' ? 'OFF' : 'PRI'; log('SYS', `PITCH TRIM selector — ${sys.trimMode}`); break;
     case 'ap': if (ap.on) ap.disconnect('PILOT'); else if (ac.wow) log('SYS', 'AP will not engage on the ground'); else if (ap.engage(ac.out)) log('SYS', 'AUTOPILOT ENGAGED — ALT/HDG hold'); else log('SYS', 'AP will not engage: attitude out of limits'); break;
@@ -570,7 +571,7 @@ function handleEvents() {
     else if (e === 'idle') { ac.ctl.thr = 0; ac.ctl.rev = 0; }
     else if (e === 'mute') AU.muted = !AU.muted;
     else if (e === 'controls') HP.toggle();
-    else if (e === 'hdg_up' || e === 'hdg_dn') { ap.bumpHdg(e === 'hdg_up' ? 5 : -5, ac.out.psi * RAD); log('SYS', `HDG bug ${String(Math.round(ap.hdgTgt)).padStart(3, '0')}°${ap.on ? '' : ' (AP off)'}`); }
+    else if (e === 'hdg_up' || e === 'hdg_dn') { G.hdgByPilot = true; ap.bumpHdg(e === 'hdg_up' ? 5 : -5, ac.out.psi * RAD); log('SYS', `HDG bug ${String(Math.round(ap.hdgTgt)).padStart(3, '0')}°${ap.on ? '' : ' (AP off)'}`); }
     else if (e === 'alt_up' || e === 'alt_dn') { const a = Math.max(1000, Math.round(ap.altTgt / FT / 500) * 500 + (e === 'alt_up' ? 500 : -500)); ap.setAlt(a * FT, ac.out); log('SYS', `ALT preselect ${a.toLocaleString()} ft${ap.on ? (ap.vert === 'VS' ? ` — ${ap.vsTgt > 0 ? 'climbing' : 'descending'} ${Math.round(Math.abs(ap.vsTgt) * 196.85)} ft/min` : '') : ' (AP off)'}`); }
     else if (e === 'plates') togglePlates();
     else if (e === 'fd') { ap.fd = !ap.fd; if (ap.fd && !ap.on) { if (ac.wow) ap.takeoff(ac.out.psi * RAD, Math.max(ap.altTgt, ac.out.h + 1000 * FT)); else { ap.lat = 'HDG'; ap.vert = 'ALT'; ap.hdgTgt = wrap360(ac.out.psi * RAD); ap.altTgt = ac.out.h; ap.thRef = null; } } log('SYS', `FLIGHT DIRECTOR ${ap.fd ? 'ON' : 'OFF'}`); }
@@ -974,12 +975,63 @@ document.getElementById('continue').addEventListener('click', () => { document.g
 document.getElementById('brief-again').addEventListener('click', () => { document.getElementById('debrief').classList.add('hidden'); (G && G.mode === 'free' ? SORTIE : document.getElementById('brief')).classList.remove('hidden'); });
 document.getElementById('nexbox').checked = true; document.getElementById('atcbox').checked = false;   // Chrome restores form state on reload
 newGame('combined'); G.paused = true;
+// ---------- interactive cockpit controls (js/panel.js): hover, tooltips, clicks, knobs ----------
+const PANEL = new Panel({ sound: (k) => AU.click(k) });
+H.controls = PANEL; if (CK) CK.controls = PANEL;
+const onOff = (v) => (v ? 'ON' : 'OFF');
+const fmtHdg = (d) => String(Math.round(d) % 360 || 360).padStart(3, '0') + '°';
+const ftOf = (m) => Math.round(m / FT);
+const apReady = () => G.ap.on || G.ap.fd;
+const sw = (label, state) => ({ label, kind: 'switch', act: function () { toggleSwitch(this.id); }, state });
+PANEL.define({
+  // switch panel (js/hud.js switches), in the 3D cockpit and on the 2D panel
+  wingHeat: sw('Wing and stab heat', () => onOff(G.ac.sys.wingHeat)), stabHeat: sw('Wing and stab heat', () => onOff(G.ac.sys.stabHeat)),
+  nacelleHeat: sw('Nacelle heat L/R', () => onOff(G.ac.sys.nacelleHeat)), pitotHeat: sw('Pitot and windshield heat', () => onOff(G.ac.sys.pitotHeat)),
+  stallWarn: sw('Stall warning (shaker)', () => onOff(G.ac.sys.stallWarn)), machTrim: sw('Mach trim', () => G.ac.sys.machTrimFail ? 'FAIL' : onOff(G.ac.sys.machTrim)),
+  trimMode: sw('Pitch trim selector', () => G.ac.sys.trimMode), yd: sw('Yaw damper', () => onOff(G.ac.ctl.yd)),
+  sb: sw('Spoilers', () => (G.ac.ctl.sb ? 'EXTENDED' : 'RETRACTED')), gear: sw('Landing gear', () => (G.ac.ctl.gear ? 'DOWN' : 'UP')),
+  flaps: sw('Flaps', () => `${Math.round(G.ac.ctl.flaps * 40)}°`),
+  ap: { label: 'Autopilot', kind: 'button', act: () => toggleSwitch('ap'), state: () => (G.ap.on ? `ENGAGED ${G.ap.lat} / ${G.ap.vert}` : 'OFF') },
+  efb: { label: 'Tablet page', kind: 'button', act: () => toggleSwitch('efb'), state: () => SETTINGS.efb },
+  ckback: { label: 'Back to the procedure list', kind: 'button', act: () => toggleSwitch('ckback') },
+  ...Object.fromEntries([0, 1, 2, 3, 4, 5].map((i) => [`ck${i}`, { label: `Procedure card ${i + 1}`, kind: 'button', act: () => toggleSwitch(`ck${i}`) }])),
+  // flight guidance panel on the glareshield (js/vcgauges.js fgp): the same actions as the keys
+  fgc_hdg: { label: 'HDG mode', kind: 'button', act: () => toggleSwitch('fgc_hdg'), state: () => (G.ap.lat === 'HDG' && apReady() ? 'selected' : '') },
+  fgc_nav: { label: 'NAV (LNAV) mode', kind: 'button', help: 'click · key (', act: () => toggleSwitch('fgc_nav'), state: () => (G.ap.lat === 'LNAV' ? 'active' : G.ap.latArm === 'LNAV' ? 'armed' : '') },
+  fgc_apr: { label: 'Approach mode', kind: 'button', help: 'click · key \\', act: () => toggleSwitch('fgc_apr'), state: () => (G.ap.appr ? `armed / active: ${G.ap.latArm || G.ap.lat} ${G.ap.vertArm || G.ap.vert}` : '') },
+  fgc_fd: { label: 'Flight director', kind: 'button', help: 'click · key |', act: () => toggleSwitch('fgc_fd'), state: () => onOff(G.ap.fd) },
+  fgc_vnav: { label: 'VNAV mode', kind: 'button', help: 'click · key )', act: () => toggleSwitch('fgc_vnav'), state: () => (G.ap.vert === 'VNAV' ? 'active' : G.ap.vertArm === 'VNAV' ? 'armed' : '') },
+  fgc_alt: { label: 'ALT hold', kind: 'button', act: () => toggleSwitch('fgc_alt'), state: () => (G.ap.vert === 'ALT' && apReady() ? `holding ${ftOf(G.ap.altTgt).toLocaleString()} ft` : '') },
+  fgc_vs: { label: 'Vertical speed mode', kind: 'button', act: () => toggleSwitch('fgc_vs'), state: () => (G.ap.vert === 'VS' && apReady() ? `${Math.round(G.ap.vsTgt * 196.85)} ft/min` : '') },
+  fgp_hdg: { label: 'Heading knob', kind: 'knob', help: 'scroll: 1° (Shift 10°) · click left / right: 1° · click the centre: sync to the heading',
+    turn: (n, big) => { G.hdgByPilot = true; G.ap.bumpHdg(n * (big ? 10 : 1), G.ac.out.psi * RAD); }, push: () => { G.hdgByPilot = true; G.ap.setHdg(wrap360(G.ac.out.psi * RAD)); log('SYS', `HDG bug synced: ${fmtHdg(G.ap.hdgTgt)}`); },
+    state: () => `bug ${fmtHdg(G.ap.hdgTgt)}` },
+  fgp_alt: { label: 'Altitude preselect knob', kind: 'knob', help: 'scroll: 100 ft (Shift 1,000) · click left / right: 100 ft · click the centre: hold this altitude',
+    turn: (n, big) => { const a = Math.max(0, Math.round(G.ap.altTgt / FT / 100) * 100 + n * (big ? 1000 : 100)); G.ap.setAlt(a * FT, G.ac.out); },
+    push: () => toggleSwitch('fgc_alt'), state: () => `${ftOf(G.ap.altTgt).toLocaleString()} ft` },
+  fgp_vs: { label: 'Vertical speed wheel', kind: 'knob', axis: 'y', help: 'scroll or click top / bottom: 100 ft/min (Shift 500)',
+    turn: (n, big) => { if (!apReady()) { log('SYS', 'VS: engage the autopilot (X) or flight director (|) first'); return; } const ap = G.ap;
+      if (ap.vert !== 'VS') { ap.vert = 'VS'; ap.vertArm = null; ap.vsTgt = Math.round(G.ac.out.vs / 0.508) * 0.508; }
+      ap.vsTgt = clamp(ap.vsTgt + n * (big ? 5 : 1) * 0.508, -30.48, 30.48); },
+    state: () => (G.ap.vert === 'VS' ? `${Math.round(G.ap.vsTgt * 196.85)} ft/min` : 'not in VS') },
+});
+// the control (hit) under the mouse: the 3D cockpit's instrument quads, else the 2D panel
+function controlAt(x, y) {
+  if (x < 0 || !G) return null;
+  if (CK && CK.ready && !G.ext && G.head) { const p = CK.pick(2 * x / innerWidth - 1, 1 - 2 * y / innerHeight, G.head, G.lastFov || 64 * DEG, innerWidth / innerHeight); return p && p.hit ? { hit: p.hit, key: p.key } : null; }
+  const h = H.hit(x, y); return h ? { hit: h, key: 'hud' } : null;
+}
 IN.onClick = (x, y) => {
-  let h = null;
-  if (CK && CK.ready && !G.ext && G.head) { const p = CK.pick(2 * x / innerWidth - 1, 1 - 2 * y / innerHeight, G.head, G.lastFov || 64 * DEG, innerWidth / innerHeight); h = p && p.hit; }
-  else h = H.hit(x, y);
-  if (!h) return false; toggleSwitch(h.id); return true;
+  const c = controlAt(x, y); if (!c) return false;
+  if (PANEL.click(c.hit)) return true;
+  toggleSwitch(c.hit.id); return true;   // a hit with no registry entry: its switch action
 };
+IN.onHover = (x, y) => {
+  const c = controlAt(x, y), s = c && PANEL.setHover(c.hit, c.key, x, y);
+  if (!s) PANEL.clearHover();
+  hc.style.cursor = s ? (s.kind === 'knob' ? 'ns-resize' : 'pointer') : '';
+};
+IN.onWheel = (x, y, dy, shift) => { const c = controlAt(x, y); return !!(c && PANEL.wheel(c.hit, dy, shift)); };
 window.SIM = { get G() { return G; }, R, ATC, SETTINGS, IN, FF, CK, H, toggle: toggleSwitch, get NEX() { return NEX; } };   // debug / flight-data access from the console
 // debug inspection shots: #shot=x,y,z,yaw,pitch,fov[,nex 0/1[,t]]  (starts the reconstruction paused at t with a free camera)
 if (location.hash.startsWith('#shot=')) {
