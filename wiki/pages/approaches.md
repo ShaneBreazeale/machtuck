@@ -1,0 +1,241 @@
+# Approaches and minimums
+
+Every approach in the sim comes from the FAA CIFP: the transitions, the final approach, the missed approach and the
+hold at the end of it. The minimums come from the FAA approach plates, because the CIFP carries the procedures but
+not their minimums. This page covers the approach types, how the guidance arms and captures them, the ILS model,
+the minimums and the go-around.
+
+## Approach types
+
+The CIFP names an approach by a letter, the runway and an optional suffix. The planner shows it the way the chart
+does:
+
+| Ident | Shown as | Count in the shipped data (72 airports) |
+|---|---|---|
+| `I10L` | ILS RWY 10L | 48 |
+| `L10L` | LOC RWY 10L | 52 |
+| `R10LY` | RNAV (GPS) Y RWY 10L | 193 |
+| `H14-Z` | RNAV (RNP) Z RWY 14 | 26 |
+| `B…` | LOC BC | 1 |
+| `S…`, `V…` | VOR | 1 each |
+| `X…` | LDA | none in this region |
+
+The database also holds 52 ILS facilities, each with its localizer, glideslope and DME data (`data/nav/apt/<ID>.json`).
+
+Each approach is a set of transitions plus its final and missed-approach legs. Its legs carry three flags from the
+CIFP: the final approach fix (FAF), the missed-approach point (MAP), and fly-over. How the planner joins an approach
+to the route (a named transition, **Auto**, or vectors to final) is on
+[IFR routes](routes.md#vectors-to-final).
+
+## Arming and capture
+
+`\` arms the approach once the AP or FD is on. The modes it arms depend on the type:
+
+| Approach | Lateral | Vertical |
+|---|---|---|
+| ILS | LOC | GS |
+| LOC, LDA (flown on a localizer) | LOC | GP |
+| RNAV (GPS), RNAV (RNP) | LNAV | GP |
+| No approach loaded, a localizer ahead | LOC | GS |
+
+LOC captures inside 1.5 dots and GS inside 0.4 dot. GP engages once the FMS has sequenced past the FAF, and then
+flies the CIFP's final path angle (the `-3.00` vertical angle on the KDJT finals). The full capture rules are on
+[Autopilot and flight director](flight-guidance.md#capture-criteria).
+
+The Learjet 60 has baro-VNAV, not WAAS. An RNAV (GPS) approach is flown to LNAV/VNAV or LNAV, never LPV.
+
+`test/fms_test.mjs` flies the KDJT ILS 10L via GULLO from the approach start with the autopilot. The modes go:
+
+```
+LNAV/VNAV > LNAV(LOC)/VNAV(GS) > LOC/VNAV(GS) > LOC/GS
+VNAV: WILBA at 4,235 ft (at or above 3,000), ZISUR at 2,010 ft (glideslope intercept 2,000)
+coupled from 1,000 to 250 ft within 0.18 dot
+```
+
+## ILS deviations
+
+`js/nav.js` computes the localizer and glideslope for any ILS in the database. It uses the localizer antenna
+position and course, the runway threshold and its elevation, the glideslope angle and threshold crossing height, and
+the DME antenna. Nothing in it is specific to an airport.
+
+### Scaling
+
+| Indication | Full scale (2 dots) | Usable |
+|---|---|---|
+| Localizer | Half the CIFP localizer width either side (±2.04° for I-DJT, width 4.08°). 2.5° if no width is published. | In front of the antenna, within 18 nm and ±35° of the course, and no more than 2,000 m past the threshold |
+| Glideslope | 0.7° (0.35° per dot) above or below the published angle | Within 10 nm of the glidepath origin and ±8° of the localizer course, with a valid localizer |
+
+The glidepath meets the runway past the threshold, at the threshold crossing height divided by `tan` of the
+glideslope angle. The needles are drawn up to ±2.5 dots. DME is measured from the DME antenna, or from the localizer
+if there is none.
+
+`test/nav_test.mjs` checks the signs and the scaling on KDJT runway 10L:
+
+```
+5 nm final, on the centreline and glidepath:   LOC 0.00, G/S 0.00 dots, I-DJT 6.6 DME
+200 m right of the centreline at 5 nm:         LOC -0.92 dots (fly left)
+60 m above / below the glidepath at 5 nm:      G/S -1.02 / +1.02 dots (fly down / up)
+glidepath over ZISUR:                          within 60 ft of the published 2,000 ft intercept
+25 nm out:                                     no localizer; 5 km off the centreline: no glideslope
+```
+
+### Which ILS
+
+`ilsDeviation` gives the deviations from one ILS. `nearestIls` picks the ILS whose localizer you are most nearly
+lined up with: a valid localizer within 40 nm, with your track within 90° of its course. A sortie tunes:
+
+1. the localizer the loaded approach's final approach fix references, if there is one,
+2. otherwise the best-aligned ILS among all the airports loaded so far.
+
+The PFD's course pointer and deviation show the localizer in green while LOC is active or armed, or when no FMS leg
+is active. Otherwise they show the FMS leg in magenta. See [Cockpit and instruments](instruments.md).
+
+## Minimums
+
+`tools/fetch_plates.py` downloads the FAA d-TPP charts for one airport and reads the straight-in minimums from each
+plate's text layer. The parser finds each line of minimums by its label (S-ILS, S-LOC, LPV, LNAV/VNAV, LNAV, RNP
+0.30 and so on). It assigns the DA or MDA, and the RVR, to categories A to E using the column positions under the
+`CATEGORY` header. The results go into `data/plates/plates.json`.
+
+**Circling minimums are skipped.** In the text layer their entries wrap across several lines and can't be assigned
+to categories reliably, so the parser stops at `CIRCLING`.
+
+### Category C and the line used
+
+The Learjet 60 is approach Category C: its VREF at the 19,500 lb maximum landing weight is 139 kt, inside the
+121–140 kt band. `plateMinimums` in `js/main.js` reads the Category C value from the line that matches the approach:
+
+| Approach | Minimums line | Why |
+|---|---|---|
+| ILS | S-ILS | |
+| LOC | S-LOC | Flown LOC + GP to an MDA |
+| LDA | S-LDA | |
+| RNAV (GPS) | LNAV/VNAV, else LNAV | Baro-VNAV, no WAAS: no LPV |
+| RNAV (RNP) | RNP 0.30, else RNP 0.11 | |
+
+S-LOC, S-LDA and LNAV values are reported as an MDA. The rest are reported as a DA.
+
+### KDJT minimums
+
+Plates ship for one airport only: **KDJT** (the former KPBI), FAA d-TPP cycle 2611, valid 29 October to
+26 November 2026. These are the minimums the sim uses there (Category C, ft MSL, height above touchdown in brackets):
+
+| Approach | Line | Minimums | RVR |
+|---|---|---|---|
+| ILS RWY 10L | S-ILS | DA 216 (200) | 2400 |
+| LOC RWY 10L | S-LOC | MDA 380 (364) | 3500 |
+| ILS RWY 28R | S-ILS | DA 218 (200) | 4000 |
+| LOC RWY 28R | S-LOC | MDA 460 (442) | |
+| RNAV (GPS) Y RWY 10L | LNAV | MDA 440 (424) | 6000 |
+| RNAV (GPS) Y RWY 14 | LNAV/VNAV | DA 338 (321) | |
+| RNAV (GPS) Y RWY 28R | LNAV/VNAV | DA 342 (324) | 5000 |
+| RNAV (GPS) Y RWY 32 | LNAV/VNAV | DA 342 (326) | |
+| RNAV (RNP) Z RWY 10L | RNP 0.30 | DA 355 (339) | 2600 |
+| RNAV (RNP) Z RWY 14 | RNP 0.30 | DA 354 (337) | |
+| RNAV (RNP) W RWY 28R | RNP 0.30 | DA 725 (707) | |
+| RNAV (RNP) Z RWY 28R | RNP 0.30 | DA 404 (386) | 6000 |
+| RNAV (RNP) Z RWY 32 | RNP 0.30 | DA 376 (360) | |
+
+`test/fms_test.mjs` checks six of these against the charts: 216, 380, 218, 460, 338 and 440. The RNAV (GPS) X RWY 28R
+plate is in the viewer, but the CIFP has no matching procedure, so it can't be flown.
+
+### Without a plate
+
+At every other airport the minimums bug falls back to a height above the touchdown zone elevation (the runway's
+elevation in the CIFP):
+
+- **200 ft** when the approach is flown on a localizer (ILS, and LOC approaches whose FAF references the localizer)
+- **400 ft** on other approaches
+
+For example, the KMCO ILS 18R start logs:
+
+```
+I-TFE 111.90, course 186°, glideslope 3.0°. Minimums: 292 ft (no plate minimums for this approach:
+200 ft above touchdown).
+```
+
+At KDJT the same line shows the plate's value, the chart and its amendment:
+
+```
+I-DJT 111.90, course 099°, glideslope 3.0°. Minimums: S-ILS DA 216 ft (200 above touchdown, Cat C,
+RVR 2400; ILS OR LOC RWY 10L Amdt 29A). Press ~ for the plates.
+```
+
+### Callouts
+
+With the gear down, descending and airborne, the barometric altitude is compared with the minimums:
+
+| Height | Callout | Log |
+|---|---|---|
+| Minimums + 100 ft | "Approaching minimums" | |
+| Minimums | "Minimums" | `MINIMUMS 216 ft: runway in sight to continue, otherwise go around (?)` |
+
+The callouts reset when you climb more than 400 ft above the minimums, so a second approach gets them again. The
+radio altitude is also called at 500, 100, 50, 40, 30, 20 and 10 ft with the gear down.
+
+### Marker beacons
+
+The PFD and HUD can show OM, MM and IM lights, the audio has the three marker tones (400 Hz dashes, 1,300 Hz
+dot-dash, 3,000 Hz dots), and the log announces each passage. However, `ilsDeviation` currently always reports no
+marker, so in practice no marker is ever received.
+
+## Go-around and missed approach
+
+Press `?` in the air for a go-around (see [Autopilot and flight director](flight-guidance.md#to-and-ga)):
+
+- The autopilot disconnects and the FD commands 10° nose-up, wings level, on the current heading (or the localizer
+  course if you were on LOC).
+- LNAV arms for the published missed approach. It engages above 400 ft.
+- The climb continues until the preselected altitude is above you and captured.
+
+The log gives the procedure and the missed approach in full:
+
+```
+GO AROUND — T/O thrust, pitch to the FD (10°), flaps 20, positive rate gear up. LNAV armed (400 ft):
+course 099° to ≥600 ft, then left heading 323° to intercept, then course 343° to MORGA ≥3,000,
+then hold at MORGA, inbound 343°, right turns ≥3,000. Climbing to 3,000 ft.
+```
+
+The missed approach is part of the flight plan, so the FMS reaches it either way. If you go around before the MAP,
+LNAV keeps you on the final approach course to the MAP and turns there. `test/nav_test.mjs` goes around 6 nm out on
+the KDJT 10L: the airplane stays within 9 m of the runway course and turns 142 m past the threshold, which is the MAP.
+When the FMS sequences past the MAP, the log prints the `MISSED APPROACH:` legs. The hold at the end is an HM leg,
+which you leave with direct-to (see [FMS and navigation](fms.md#holds)).
+
+### The missed-approach altitude
+
+The pilot monitoring sets the missed-approach altitude once you are established on final (AC 25.1329-1C 67a). When
+GS or GP captures, the highest altitude in the missed approach is preselected if it is above the current preselect:
+
+```
+PM   Missed-approach altitude 3,000 set
+```
+
+GS and GP aren't bounded by the preselected altitude, so this doesn't stop the descent. The 6 nm final start
+preselects the missed-approach altitude from the beginning.
+
+`test/fms_test.mjs` flies the whole sequence on the KDJT ILS 10L. It goes around at 200 ft, climbs straight ahead
+to 600 ft and turns left, sequences `CA > VI > CF MORGA > HM MORGA`, and enters the MORGA hold direct. It then holds
+an inbound track of 339° true (published 340°) within a 77 ft altitude spread. On the ILS 28R missed approach in
+`test/nav_test.mjs`, the airplane climbs to 500 ft, turns right, and tracks 347° true to MORGA (course 340° true).
+
+## The plates viewer
+
+`~`, or **Approach plates** on the sortie screen, opens the FAA charts:
+
+- In the air it opens on the chart for the loaded approach. On the ground, or with no approach, it opens on the
+  airport diagram.
+- A tab for each chart along the top, **Rotate** (90° steps) and **Close**. `Esc` also closes it.
+- The airport diagram is printed sideways, so it opens rotated a quarter turn to put north up.
+- The footer gives the airport, the d-TPP cycle and validity, and "public domain · NOT FOR NAVIGATION".
+
+The viewer only holds the KDJT set: all 12 approach plates and the airport diagram. At other airports it still opens
+on a KDJT chart.
+
+To refresh the charts for a new cycle (this needs `pdftoppm` and `pdftotext` from poppler):
+
+```bash
+python3 tools/fetch_plates.py --cycle <cycle>
+```
+
+The default airport is `DJT` (`--apt`), the FAA ident KPBI took from cycle 2611. See [Data pipeline](data-pipeline.md).

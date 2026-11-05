@@ -5,7 +5,7 @@ core at FL350 over Palm Beach County, and lets you try to fly it out. The storm 
 satellite and lightning data for those minutes. The airplane is a 6-DOF model checked against the Airplane Flight
 Manual (AFM). It is pure WebGL2 and ES modules with no build step.
 
-**[Fly it in your browser](https://shanebreazeale.github.io/machtuck/)**
+**[Fly it in your browser](https://shanebreazeale.github.io/machtuck/)** · **[Read the wiki](https://shanebreazeale.github.io/machtuck/wiki/)**
 
 ![Four views from the sim: the anvil top from above, the jet entering the radar core at FL350, the virtual cockpit with weather radar, and Greenacres from 300 m](docs/img/screenshot.jpg)
 
@@ -26,7 +26,8 @@ Manual (AFM). It is pure WebGL2 and ES modules with no build step.
   column forces, an autopilot that trims against you, and Part 25 structural limits.
 - **Four upset hypotheses.** Fly the combined convective-core case, a tailplane stall, Mach tuck with a failed Mach
   trim, or a runaway nose-down trim, each "as flown" or in trainer mode. Both modes fly the same airplane through the
-  same storm: trainer only gives the autopilot a gentler auto-trim and doesn't hand over the airplane trimmed nose-down.
+  same storm: trainer only gives the autopilot a gentler auto-trim and, in the iced-tail cases, doesn't hand over the
+  airplane trimmed nose-down. The Mach-tuck and trim-runaway failures trim nose-down in both modes: that is the failure.
 - **A reconstruction mode.** Watch the reported ADS-B track replayed with chase, cockpit and ground cameras.
 - **Free flight sorties and IFR routes.** Separate from the accident: plan a local flight or a route between any of the
   72 IFR airports within 160 nm of Palm Beach. Choose a departure procedure, airways and fixes, an arrival and an
@@ -126,7 +127,7 @@ its VREF at maximum landing weight is 139 kt. The line used depends on the appro
 - RNAV (RNP): RNP 0.30.
 
 Circling minimums aren't read: in the text layer they wrap across lines and can't be assigned to categories. With no
-plate, the bug falls back to 200 ft above touchdown on an ILS and 400 ft on other approaches. `~` (or **Approach
+plate, the bug falls back to 200 ft above touchdown on an approach flown on a localizer (ILS or LOC) and 400 ft on others. `~` (or **Approach
 plates** on the sortie screen) shows the loaded approach's chart: KDJT (the former KPBI) has all 12 approach plates
 and the airport diagram. The charts and the nav data are public domain and **not for navigation**. Refresh them with:
 
@@ -142,7 +143,7 @@ python3 tools/fetch_plates.py --cycle <cycle>
 | Pitch and roll | Arrow keys or WASD, or drag the mouse. Down or S pulls. | Left stick |
 | Rudder | Q / E | Right stick |
 | Throttle | `-` / `=`, `0` for idle | R2 / L2, square for idle |
-| Pitch trim | `,` nose-down, `.` nose-up | R1 / L1 |
+| Pitch trim | `,` nose-down, `.` nose-up | L1 nose-down, R1 nose-up |
 | Autopilot off or on | X | Cross |
 | Heading bug, altitude preselect, approach (APR) | `{` `}`, `<` `>`, `\` | |
 | LNAV, VNAV, direct to | `(`, `)`, `@` | |
@@ -218,11 +219,12 @@ Beach. The accident keeps the flat frame it was calibrated in: across its 30 km 
 
 [`js/ground.js`](js/ground.js) models three oleo struts (stiffness and damping set so each sits about a third into its
 stroke), tyres with rolling and cornering friction, anti-skid brakes, and nosewheel steering that narrows from 45° at
-taxi speed to 7° at takeoff speed. The geometry comes from the exterior model: the nose wheel carries 7.7 % of the
+taxi speed to 7° at takeoff speed. The geometry comes from the exterior model: the nose wheel carries 7.8 % of the
 weight, and the tail and wingtips touch at 11.3° of pitch and 14.5° of bank. Touchdown follows Part 25: 10 ft/s is the
 limit, more than 12 ft/s damages the gear, and about 16 ft/s collapses it. Ground effect cuts induced drag, adds lift
-and pitches the nose down below one wingspan. Runways come from OpenStreetMap, are painted with FAA markings over a
-1.25 m/px NAIP image of the airport, and the imagery-driven 3D houses are kept off the aerodrome.
+and pitches the nose down below one wingspan. Runways come from the FAA CIFP (146 runway pairs at 72 airports); the three nearest
+are painted with FAA markings, KPBI over a 1.25 m/px NAIP image, and an OpenStreetMap boundary keeps the
+imagery-driven 3D houses off the aerodrome.
 
 Takeoff and landing are checked against the AFM tables (see Validation). That pinned down four things:
 - **Flaps.** Slotted flaps shift the whole lift curve up by more than they raise maximum lift: +0.27 CL at flaps 8,
@@ -258,7 +260,8 @@ In the sim's breakups the killer is negative g. When the iced tail stalls, the p
 - **Aircraft:** the textured Premier Aircraft Design Learjet 60 with live control surfaces, gear and beacon, in the
   N722BD livery, drawn with 4× multisample anti-aliasing.
 - **Post-processing:** temporal anti-aliasing and upsampling, bloom, sun glare, eye adaptation and an ACES tone map.
-  Dynamic resolution keeps the frame rate near 55 fps.
+  Dynamic resolution aims for 55 fps; on an Apple M4 at 2560×1320 `tools/bench.mjs` measured 20 to 51 fps by view,
+  with resolution at its 0.45 floor.
 
 [`docs/visual_comparison.md`](docs/visual_comparison.md) compares it with MSFS 2024 and X-Plane 12, feature by feature.
 
@@ -277,7 +280,7 @@ the all-engine distance, and the landing from 50 ft at VREF.
 | Max g at the 20 certified VA points | 2.90 to 3.11 g | 3.0 g, EASA TCDS IM.A.212 |
 | Max-continuous N1 | rms ~1.5% | AFM Fig 5-31, 5-32 |
 | Single-engine climb gradient | rms 0.7% | AFM Fig 5-62, 5-65 |
-| Time to climb, MTOW to FL410 | ~18 min | 18 to 18.5 min published |
+| Time to climb, MTOW to FL410 | 16.9 min | 18 to 18.5 min published (from brake release) |
 | NBAA IFR range, 4 passengers | 2,455 nm | 2,405 nm published |
 | Max level speed | 458 KTAS | 453 to 466 KTAS published |
 | Takeoff field length, flaps 8, 15 cases (sea level 60 °F and 90 °F, 5,000 ft) | rms 4.1 %, all within 7 % | AFM Fig 5-38 |
@@ -307,7 +310,7 @@ on, the wing fails before the recovery takes hold.
 
 | Data | Source | Used for |
 |---|---|---|
-| `data/kamx_*` | KAMX NEXRAD Level II at 17:40, 17:45 and 17:51Z, gridded to 500 m | Clouds, cores, icing, updrafts, weather radar |
+| `data/kamx_*` | KAMX NEXRAD Level II at 17:45 and 17:51Z, gridded to 500 m (a 17:40Z volume is included but not loaded) | Clouds, cores, icing, updrafts, weather radar |
 | `data/goes/` | GOES-19 ABI visible and infrared, parallax-corrected | Cloud-top height and deck thickness |
 | `data/glm_flashes.json` | GOES-19 Geostationary Lightning Mapper, 17:44 to 17:52Z | Lightning times and positions |
 | `data/metar.json`, `data/sounding_kmfl.json` | KPBI METARs, KMFL 12Z radiosonde | Cumulus layer, deck base, freezing level |
@@ -357,6 +360,7 @@ node tools/bench.mjs 2560x1320 8080
 | `js/hud.js`, `js/cockpit.js`, `js/vcgauges.js` | Instruments, 3D cockpit, standby gauges |
 | `test/` | Flight-test card, AFM table validation, upset, recovery, force, ground, performance, ILS, hardware and force-feedback checks |
 | `tools/` | Data fetchers, model and livery converters, benchmark |
+| `wiki/` | The documentation site: Markdown pages in `wiki/pages`, rendered in the browser by `wiki/wiki.js` |
 
 Debug views load the reconstruction paused at a given time:
 

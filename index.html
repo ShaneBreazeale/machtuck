@@ -38,13 +38,13 @@
         <label>Upset hypothesis (all are speculation): <select id="hyp"></select></label>
         <label class="chk"><input type="checkbox" id="nexbox" checked> Real weather: NEXRAD storm (KAMX Level II, 17:45:48Z → 17:51:04Z, gridded 500 m) drives the clouds, icing zones and the cockpit weather radar; GOES-19 cloud tops, GLM lightning and the KPBI METAR shape the rest</label>
         <label class="chk"><input type="checkbox" id="atcbox"> Real ATC audio (LiveATC recording via the posted clip, synced to the clock). <b>Listener discretion:</b> contains the crew's final transmissions. Off by default; T toggles in flight.</label>
-        <label>Difficulty: <select id="diff"><option value="hard">As flown — the autopilot trims hard against the balloon and hands over trimmed nose-down</option><option value="trainer">Trainer — a gentler autopilot trim and no nose-down handover; same airplane, same storm</option></select></label>
+        <label>Difficulty: <select id="diff"><option value="hard">As flown — the autopilot trims hard against the balloon and hands over trimmed nose-down</option><option value="trainer">Trainer — a gentler autopilot trim and no nose-down handover with an iced tail; same airplane, same storm</option></select></label>
       </div>
     </div>
     <div class="freebox">
       <h3>Free flight sortie <span class="dim">(not the accident: no storm, no script)</span></h3>
       <p class="sub2">Plan your own flight: airport, runway, approach and transition from the FAA nav database, weather, weight and failures. The FMS flies the procedure through the autopilot and flight director.</p>
-      <button id="tosortie" class="alt">Plan a sortie →</button>
+      <button id="tosortie" class="alt">Plan a sortie →</button> <a class="doclink" href="wiki/" target="_blank" rel="noopener">Documentation (wiki)</a>
     </div>
     <p class="keys"><b>Fly:</b> ↑↓←→ / WASD or mouse-drag · Q/E rudder · −/= throttle · 0 idle · B spoilers · , . trim · X autopilot (stays engaged and trims against you until disconnected) · C camera (right-drag orbits) · T ATC audio · U NEXRAD · O/J weather radar · N skip to core entry · / controls &amp; hardware (yoke, pedals, throttle, stick) · H all keys</p>
     <button id="begin">Fly it · 12:47:00 EST</button><button id="watch" class="alt">Watch the reconstruction (no flying)</button><button id="hwbtn" class="alt">Controls &amp; hardware</button>
@@ -82,7 +82,7 @@
     </div>
     <p class="plan" id="splan"></p>
     <p class="keys"><b>X</b> autopilot · <b>|</b> flight director · <b>?</b> TOGA · <b>(</b> LNAV · <b>)</b> VNAV · <b>@</b> direct to · <b>\</b> APR · <b>{ }</b> heading bug · <b>&lt; &gt;</b> altitude preselect · <b>Shift</b> brakes. Armed modes show white, active green. VNAV climbs to the cruise altitude and descends on the arrival's constraints, never through the preselected altitude except on final. No autothrottle: thrust is yours.</p>
-    <button id="ffgo">Fly the sortie</button><button id="platebtn" class="alt">Approach plates</button><button id="sback" class="alt">← The accident</button>
+    <button id="ffgo">Fly the sortie</button><button id="platebtn" class="alt">Approach plates</button><button id="sback" class="alt">← The accident</button> <a class="doclink" href="wiki/#/sorties" target="_blank" rel="noopener">How to plan a sortie</a>
   </div>
 </div>
 

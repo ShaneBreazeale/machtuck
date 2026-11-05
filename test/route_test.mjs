@@ -1,6 +1,6 @@
 // IFR routes (js/route.js) on the FAA CIFP: route-string parsing (SID / STAR with and without versions and FAA-style
 // transitions, airways, coordinates), MSFS .pln import, plan assembly, and a whole flight flown from the plan:
-// KDJT runway 10L, TBIRD8 departure to CHEFS, MUNGI1 arrival, ILS 18R at KMCO (183 nm), with a test pilot on the
+// KDJT runway 10L, TBIRD8 departure to CHEFS, MUNGI1 arrival, ILS 18R at KMCO (176 nm), with a test pilot on the
 // thrust levers and the configuration. Altitudes are above the curved surface (js/aircraft.js curved), so the airport
 // 230 km away sits where its elevation says.
 import { readFileSync } from 'node:fs';

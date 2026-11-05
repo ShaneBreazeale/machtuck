@@ -1,0 +1,38 @@
+[
+  { "section": "Start here", "pages": [
+    { "slug": "home", "title": "Home" },
+    { "slug": "getting-started", "title": "Getting started" },
+    { "slug": "controls", "title": "Controls" },
+    { "slug": "faq", "title": "FAQ" }
+  ] },
+  { "section": "The accident", "pages": [
+    { "slug": "accident", "title": "The N722BD flight" },
+    { "slug": "hypotheses", "title": "Upset hypotheses and difficulty" },
+    { "slug": "weather-data", "title": "Real weather and ATC data" }
+  ] },
+  { "section": "Free flight", "pages": [
+    { "slug": "sorties", "title": "Planning a sortie" },
+    { "slug": "routes", "title": "IFR routes" },
+    { "slug": "flight-guidance", "title": "Autopilot and flight director" },
+    { "slug": "fms", "title": "FMS and navigation" },
+    { "slug": "approaches", "title": "Approaches and minimums" },
+    { "slug": "instruments", "title": "Cockpit and instruments" }
+  ] },
+  { "section": "Under the hood", "pages": [
+    { "slug": "flight-model", "title": "Flight model" },
+    { "slug": "ground", "title": "Ground handling and performance" },
+    { "slug": "validation", "title": "Validation" },
+    { "slug": "renderer", "title": "Renderer" },
+    { "slug": "hardware", "title": "Hardware and force feedback" }
+  ] },
+  { "section": "Development", "pages": [
+    { "slug": "architecture", "title": "Architecture" },
+    { "slug": "data-pipeline", "title": "Data pipeline" },
+    { "slug": "testing", "title": "Testing" },
+    { "slug": "contributing", "title": "Contributing" }
+  ] },
+  { "section": "Reference", "pages": [
+    { "slug": "glossary", "title": "Glossary" },
+    { "slug": "references", "title": "Sources and references" }
+  ] }
+]
