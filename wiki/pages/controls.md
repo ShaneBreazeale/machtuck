@@ -59,6 +59,7 @@ comes back up.
 | `(` | Arm LNAV (needs a flight plan) |
 | `)` | Arm VNAV (needs a flight plan) |
 | `@` | DIRECT TO box (free flight with a flight plan). See [Direct to](#direct-to). |
+| `F2` | The FMS CDU, large, where you can type (again or `Esc` to close). See [FMS and navigation](fms.md#the-cdu). |
 | `?` | Go-around (TOGA) in the air; takeoff mode on the runway. Free flight only. |
 
 The full mode logic is on [Autopilot and flight director](flight-guidance.md). The mode band at the top of the PFD and
@@ -151,6 +152,8 @@ What you can click:
   20 and 40°, pulling down (aft) for more. The **spoiler lever** is retracted up, extended down. The wheel over a lever
   steps it from detent to detent (never into reverse).
 - **Parking brake**: the red handle at the front of the pedestal; click to set it (stopped) or release it.
+- **FMS CDU** (the captain's, on the pedestal; a `CDU` button on the 2D panel): every key. Click its screen, the
+  button or press `F2` for the large pop-out, where the keyboard types into it. See [FMS and navigation](fms.md#the-cdu).
 
 In the 3D cockpit a click is ray-cast onto the panel, so it works from any head position. If you click empty space,
 the click becomes a stick drag instead.

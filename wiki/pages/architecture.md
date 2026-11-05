@@ -40,6 +40,7 @@ The README's Development table, extended to every file in `js/`:
 | `js/cockpit.js` | `Cockpit`: the 3D virtual cockpit, with live instruments mapped onto its panel |
 | `js/vcgauges.js` | Standby and secondary gauges of the virtual cockpit, and the flight guidance panel |
 | `js/panel.js` | The cockpit control layer: one registry for every clickable control, hover outline and tooltip, click sound and press flash, knobs |
+| `js/cdu.js` | The FMS control display unit: pages, scratchpad and keys over the FMS of `js/fms.js` |
 | `js/audio.js` | WebAudio: wind, engines, warnings, thunder, rain, voice callouts |
 | `js/util.js` | Math: quaternions, matrices, `nedToWorld`, `clamp`, `lerp`, angle wrapping |
 

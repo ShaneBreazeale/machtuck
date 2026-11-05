@@ -223,6 +223,10 @@ export const GAUGES = {
   // anti-ice / stall / trim / flight-control switch panel (clickable), outboard of the pilot's PFD
   sw: { w: 400, h: 340, every: 4, at: [['$panL', 132, 124, 134, 113]], draw: (ctx, S, h) => h.switches(S, 0, 0, 400, 340) },
   // EFB tablet clamped to the left side window frame
+  // the captain's CDU on the pedestal (js/cdu.js): laid over the painted one (the yoke texture's pedestal art, px 183-277
+  // x 240-350, mapped to the model's flat pedestal face at y -0.293 m); its top edge forward, toward the throttles
+  cdu: { w: 520, h: 796, every: 2, bg: null, quad: [[-0.1714, -0.2915, 6.0637], [0.0018, -0.2915, 6.0637], [0.0018, -0.2915, 5.7983], [-0.1714, -0.2915, 5.7983]],
+    draw: (ctx, S, h) => { if (S.cdu) S.cdu.draw(ctx, 0, 0, 520, 796, h); } },
   efb: { w: 560, h: 760, every: 4, quad: [[-0.9, 0.16, 5.98], [-0.75, 0.16, 6.16], [-0.75, -0.08, 6.12], [-0.9, -0.08, 5.94]], draw: (ctx, S, h) => h.efb(S, 0, 0, 560, 760) },
 };
 

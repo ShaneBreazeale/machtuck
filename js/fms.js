@@ -52,7 +52,22 @@ export class FMS {
     this.activate(k, pos);
     return k;
   }
-  // course of a leg for turn anticipation (deg true), or null
+  // A fix inserted before leg k (the CDU): the plan flies to it, then on to leg k. At the active leg it becomes the
+  // active leg (flown from the previous fix, or direct from where the airplane is). Returns k.
+  insertFix(k, fx, pos) {
+    k = Math.max(this.i, Math.min(k, this.legs.length));
+    this.legs.splice(k, 0, { pt: 'TF', fix: { id: fx.id, ne: fx.ne }, alt: null, kind: 'ENR', proc: null, turn: null, inserted: true });
+    if (k === this.i) this.activate(k, pos);
+    return k;
+  }
+  // Delete leg k (the CDU); the active leg can't be deleted (use direct-to). The next leg is then flown from the fix
+  // before the deleted one. Returns true if deleted.
+  deleteLeg(k) {
+    if (k <= this.i || k >= this.legs.length) return false;
+    this.legs.splice(k, 1);
+    return true;
+  }
+
   legCourse(leg, fromNe) {
     if (!leg) return null;
     if (leg.pt === 'TF' && leg.fix && fromNe) return brg(fromNe, leg.fix.ne);

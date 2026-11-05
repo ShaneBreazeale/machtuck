@@ -203,6 +203,31 @@ direct WILBA (reversal hold): DF WILBA, HF WILBA, CF ZISUR, ...
 direct PBI, flown on LNAV:   passes 0.08 nm from PBI, then resumes the plan at GULLO
 ```
 
+## The CDU
+
+The captain's control display unit (CDU) on the pedestal runs this FMS (`js/cdu.js`). It is laid over the CDU painted
+on the cockpit model, and every key is a live control. Click its screen, the `CDU` button on the 2D panel, or press
+`F2` for a large pop-out on the right. While it has focus the keyboard types into it (letters, digits, `.`, `/`,
+`-` for +/−, Backspace for CLR, Delete for DEL) and the flight keys rest; `Esc` or `F2` closes it.
+
+> **Note:** The Learjet 60's FMS is the Collins FMS-4200 (Pro Line 4). The pages below are a provisional, generic
+> Collins-style set. They will be matched to the FMS-4200 pilot's guide: page names, key labels and line layout.
+
+The screen is 24 columns by 14 rows: a title, six label and data line pairs next to the line-select keys L1 to L6 and
+R1 to R6, and the scratchpad at the bottom, where messages appear in amber.
+
+| Page (key) | Shows | Line-select keys |
+|---|---|---|
+| IDX | The pages | L1 to L4 open them |
+| FPL | The active flight plan from the active leg, six legs a page (PREV / NEXT): ident (magenta: active), the course and distance to it above, the altitude constraint on the right | L: an empty scratchpad copies the ident; an ident goes **direct** on L1 of page 1 and is **inserted** before the leg on any other line; `DELETE` (the DEL key) removes the leg. R: an altitude sets the constraint: `5000`, `FL240`, `5000A` (at or above), `5000B` (at or below); `DELETE` clears it |
+| DIR | The fixes ahead with bearing and distance | L1 to L6: direct to that fix; an ident in the scratchpad and L1: direct to it |
+| PROG | The active fix, the next one and the destination (the missed-approach point), each with distance along the plan and time at the current ground speed; GS, TAS, fuel, altitude | |
+| DEP ARR | The origin, destination, runway, approach, SID and STAR as planned on the sortie screen (read-only) | |
+
+Changes take effect at once; EXEC and MSG only answer. A typed ident is looked up in the plan ahead first, then in the
+nav database (nearest wins), as for the [DIRECT TO box](#direct-to). Direct-to, insert and delete are the FMS's own
+`directTo`, `insertFix` and `deleteLeg`, so the CDU, the `@` box and the map always agree.
+
 ## VNAV
 
 The FMS gives VNAV an altitude to be at now, and on a descent a path altitude. The autopilot flies it within the
