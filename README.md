@@ -25,7 +25,8 @@ Manual (AFM). It is pure WebGL2 and ES modules with no build step.
 - **An airplane that fights back.** Mach tuck, shock buffet, ice on the wing and T-tail, unboosted controls with real
   column forces, an autopilot that trims against you, and Part 25 structural limits.
 - **Four upset hypotheses.** Fly the combined convective-core case, a tailplane stall, Mach tuck with a failed Mach
-  trim, or a runaway nose-down trim, each "as flown" or in a forgiving trainer mode.
+  trim, or a runaway nose-down trim, each "as flown" or in trainer mode. Both modes fly the same airplane through the
+  same storm: trainer only gives the autopilot a gentler auto-trim and doesn't hand over the airplane trimmed nose-down.
 - **A reconstruction mode.** Watch the reported ADS-B track replayed with chase, cockpit and ground cameras.
 - **Free flight sorties.** Separate from the accident: plan a flight at any of the 72 IFR airports within 160 nm of
   Palm Beach, using runways, ILS and approach procedures from the FAA nav database (CIFP). An FMS flies the
@@ -242,7 +243,7 @@ In the sim's breakups the killer is negative g. When the iced tail stalls, the p
 
 ## Validation
 
-Run `node test/flight_test.mjs`, `node test/afm_validate.mjs` and `node test/performance_test.mjs` to reproduce these.
+Run `node test/flight_test.mjs`, `node test/afm_validate.mjs`, `node test/aero_validate.mjs` and `node test/performance_test.mjs` to reproduce these.
 The performance test flies the AFM procedures: accelerate-go with an engine failure at V1, accelerate-stop, 115 % of
 the all-engine distance, and the landing from 50 ft at VREF.
 
@@ -250,6 +251,8 @@ the all-engine distance, and the landing from 50 ft at VREF.
 |---|---|---|
 | Clean and flapped stall speeds, 2 weights | within 2 kt | AFM Fig 5-22 |
 | Buffet onset lift vs Mach | rms error 0.019 | SAE 932534 flight test |
+| Buffet onset vs the AFM, FL400 18,000 lb worked example | 8 kt early at low speed, 1.63 g vs 1.56 g at M0.70 | AFM Fig 5-24 (known bias, see below) |
+| Mach-tuck trim gradient reversal | M0.785 with Mach trim failed, M0.83 working | after the AFM's 0.77 (Mach trim inop) and Mmo 0.81 |
 | Max g at the 20 certified VA points | 2.90 to 3.11 g | 3.0 g, EASA TCDS IM.A.212 |
 | Max-continuous N1 | rms ~1.5% | AFM Fig 5-31, 5-32 |
 | Single-engine climb gradient | rms 0.7% | AFM Fig 5-62, 5-65 |
@@ -258,6 +261,20 @@ the all-engine distance, and the landing from 50 ft at VREF.
 | Max level speed | 458 KTAS | 453 to 466 KTAS published |
 | Takeoff field length, flaps 8, 15 cases (sea level 60 °F and 90 °F, 5,000 ft) | rms 4.1 %, all within 7 % | AFM Fig 5-38 |
 | Landing distance from 50 ft, 6 cases | rms 1.3 %, all within 2.2 % | AFM Fig 5-74 |
+
+`node test/aero_validate.mjs` checks the aerodynamics against what the AFM publishes. The AFM has no lift, drag or
+moment curves, so they are checked through the buffet boundary, the Mach-tuck limits and the stall and VA charts
+(the last two in `flight_test.mjs`). Two caveats apply to every upset result:
+- **The buffet boundary is optimistic.** It follows the SAE 932534 flight test, which sits 0.03 to 0.08 in lift
+  coefficient above the AFM boundary (Fig 5-24). At FL350 and 20,700 lb that puts high-speed buffet onset about 6 to
+  12 KIAS too fast, and elevator authority (which fades past buffet onset) lasts too long into a dive. The test
+  reports this as a known bias; `AERO_STRICT=1` makes it fail. Refitting needs Fig 5-24 digitized at several W/δ lines.
+- **The Mach tuck is hand-set.** Its pitching moment is not derived from the pressure model. Only its ordering against
+  the AFM's Mach limits is checked, not its size.
+
+The difficulty mode never changes the physics: `aero_validate.mjs` flies both modes through the storm with the same
+seed and inputs and requires identical trajectories. `MODE=trainer` runs `force_test.mjs` and `recovery_test.mjs` with
+the trainer's autopilot.
 
 `node test/force_test.mjs` flies the upset with a force-limited pilot following the AFM procedure. Starting the
 recovery 2 seconds after the autopilot lets go saves the airplane in three of the four hypotheses (the trim runaway

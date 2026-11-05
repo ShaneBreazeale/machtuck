@@ -9,7 +9,7 @@ console.log('ghost pts', ghost.length, 'impact t', last.t, 'at n,e (km)', (last.
 console.log('ghost @142 alt ft', (-ghostAt(ghost,142).d/FT).toFixed(0), '@108', (-ghostAt(ghost,108).d/FT).toFixed(0));
 
 function run(hyp, pilot, label, hard = true) {
-  const ac = new Learjet60(), env = new Environment(hyp, hard), ap = new Autopilot(hard); ac.hard = hard;
+  const ac = new Learjet60(), env = new Environment(hyp, hard), ap = new Autopilot(hard);
   ac.failures.tailIce = env.hyp.tailIce; ac.failures.tuck = env.hyp.tuck;
   const g0 = ghost[0];
   ac.setState({ n: g0.n, e: g0.e, d: g0.d, psi: g0.hdg, theta: 1.95 * DEG, phi: 0, V: 232 });

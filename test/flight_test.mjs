@@ -13,7 +13,7 @@ const MTOW = 23500 * LB, MLW = 19500 * LB;
 
 function make({ m = 9400, h = 35000 * FT, V = 232, dT = 0, flaps = 0, gear = 0 } = {}) {
   const ac = new Learjet60();
-  ac.m = m; ac.fuel = 3000; ac.failures = { tailIce: false, tuck: false }; ac.hard = false; ac.ice = 0; ac.iceTail = 0;
+  ac.m = m; ac.fuel = 3000; ac.failures = { tailIce: false, tuck: false }; ac.ice = 0; ac.iceTail = 0;
   ac.ctl.flaps = flaps; ac.ctl.gear = gear;
   ac.setState({ n: 0, e: 0, d: -h, psi: 0, theta: 0, phi: 0, V });
   ac.dT = dT;
