@@ -137,7 +137,7 @@ function plateMinimums(app, rwy, aptId) {
     (k === 'I' ? /^ILS/.test(c.title) : k === 'L' ? /LOC/.test(c.title) : c.title === title));
   for (const t of want) for (const c of charts) {
     const m = (c.minimums || []).find((x) => x.type === t && (!x.rwy || x.rwy === rwy));
-    if (m && m.cat[APPROACH_CAT]) return { alt: m.cat[APPROACH_CAT].alt, rvr: m.cat[APPROACH_CAT].rvr, type: t, chart: `${c.title}${c.amdt ? ' Amdt ' + c.amdt : ''}` };
+    if (m && m.cat[APPROACH_CAT]) return { alt: m.cat[APPROACH_CAT].alt, rvr: m.cat[APPROACH_CAT].rvr, type: t, chart: `${c.title}${c.amdt ? ' Amdt ' + c.amdt : ''}${c.ocr ? ', read from the chart image by OCR' : ''}` };
   }
   return null;
 }
@@ -891,7 +891,7 @@ function showPlate(i) {
     img.classList.add('hidden'); link.classList.remove('hidden'); link.textContent = '';
     const mins = (c.minimums || []).filter((x) => x.cat && x.cat[APPROACH_CAT]).map((x) => `${x.type}${x.rwy ? ' ' + x.rwy : ''} ${x.cat[APPROACH_CAT].alt}`).join(' · ');
     const a = document.createElement('a'); a.href = PL.meta.source + c.pdf; a.target = '_blank'; a.rel = 'noopener'; a.textContent = `Open ${c.title} (FAA PDF, cycle ${PL.meta.cycle})`;
-    link.append(a, document.createElement('br'), `Straight-in minimums, Cat ${APPROACH_CAT}: ${mins || 'none read from the plate'}.`);
+    link.append(a, document.createElement('br'), `Straight-in minimums, Cat ${APPROACH_CAT}: ${mins || 'none read from the plate'}${mins && c.ocr ? ' (read from the chart image by OCR: check the chart)' : ''}.`);
     return;
   }
   img.classList.remove('hidden'); link.classList.add('hidden');

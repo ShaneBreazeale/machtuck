@@ -104,7 +104,7 @@ Rendering every chart at the 72 airports (376 of them) would add about 64 MB to 
 KDJT's 12 approach plates and diagram ship as images. Everywhere else `~` lists the airport's plates with a link to the
 FAA PDF for the cycle.
 
-The minimums are read from every plate anyway (CIFP has the procedures but not their minimums): 280 of the 329
+The minimums are read from every plate anyway (CIFP has the procedures but not their minimums): 312 of the 329
 approach plates give them. Where a plate gives none, RNAV (GPS) approaches use the FAA master RNAV list (dated 2019)
 and the rest fall back to 200 ft above touchdown on an ILS with a glideslope and 400 ft on other approaches. See
 [Approaches and minimums](approaches.md) and [Data pipeline](data-pipeline.md#plates-and-minimums).

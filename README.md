@@ -119,8 +119,10 @@ The autopilot and flight director modes follow FAA [AC 25.1329-1C](https://www.f
 speed stays yours.
 
 The minimums bug is set from the FAA plate, because CIFP carries the procedures but not their minimums. The plate
-fetcher reads the straight-in DA or MDA for each category from the chart's text layer, at all 72 airports (280 of
-the 329 approach plates; the rest are military, circling-only or visual). The Learjet 60 is Category C:
+fetcher reads the straight-in DA or MDA for each category from the chart's text layer, at all 72 airports (312 of
+the 329 approach plates; the military fields' plates, which have no usable text layer, are read by OCR with tesseract and shown in the viewer,
+since the CIFP has no procedures there;
+the rest are circling-only, visual or helicopter-only). The Learjet 60 is Category C:
 its VREF at maximum landing weight is 139 kt. The line used depends on the approach:
 
 - ILS: S-ILS (ILS 10L: DA 216 ft).

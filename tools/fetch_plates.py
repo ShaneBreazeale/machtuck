@@ -11,7 +11,7 @@ Two outputs:
               ~64 MB of PNGs per cycle): data/plates/minimums.json, which also records each chart's PDF for a link
 
 Usage: python tools/fetch_plates.py [--cycle 2611] [--apt DJT | --all] [--out data/plates] [--dpi 170] [--delay 0.3]
-Needs pdftotext (and pdftoppm for --apt) from poppler on PATH.
+Needs pdftotext and pdftoppm (poppler) on PATH; tesseract for the OCR fallback (plates with no usable text layer).
 """
 import argparse, json, os, re, subprocess, sys, tempfile, time, urllib.request
 
@@ -32,15 +32,15 @@ def get(url):
 # line below its label (superscript fractions push it down) and LNAV/VNAV is split over three lines, so each label
 # takes the entries on its own line, else the next, else the previous, never from a line holding another label.
 # Circling is skipped: its entries wrap across several lines and cannot be assigned to categories reliably.
-LABEL = re.compile(r'(S-ILS|S-LOC|S-LDA|LPV|LNAV/VNAV|LNAV/(?!VNAV)|LNAV|LP|S-VOR/DME|S-VOR|S-NDB|RNP\s*0?\.\d+)(?:\s(\d\d[LRC]?)(?![\d/-]))?\*?')
-STOP = re.compile(r'CIRCLING|CATEGORY|LPV|LNAV|S-ILS|S-LOC|S-LDA|S-VOR|S-NDB|RNP\s*0?\.\d|^\s*VNAV')
-ENTRY = re.compile(r'(?<![(\d/-])(\d{3,5})(?:/(\d{2,3})|-(\d+)?)(?=\s|$)')
+LABEL = re.compile(r'(S-ILS|S-LOC|S-LDA|LPV|LNAV/VNAV|LNAV/(?!VNAV)|LNAV|LP|S-VOR/DME|S-VOR|S-NDB|S-TACAN|RNP\s*0?\.\d+)(?:\s(\d{1,2}[LRC]?)(?![\d/-]))?\*?')
+STOP = re.compile(r'CIRCLING|CATEGORY|LPV|LNAV|S-ILS|S-LOC|S-LDA|S-VOR|S-NDB|S-TACAN|RNP\s*0?\.\d|^\s*VNAV')
+ENTRY = re.compile(r'(?<![(\d/-])(\d{3,5})(?:/(\d{2,3})|-(\d+)?\S*)(?=\s|$)')   # MDA-visibility: OCR mangles the fraction, the MDA is what counts
 
 
 def kind(title):
     """the straight-in label a chart's short form ("S-8L", "S-4") stands for, from the chart title"""
     t = title.upper()
-    for pat, k in ((r'\bILS\b', 'S-ILS'), (r'\bLDA\b', 'S-LDA'), (r'\bLOC\b', 'S-LOC'), (r'VOR/DME', 'S-VOR/DME'), (r'\bVOR\b', 'S-VOR'), (r'\bNDB\b', 'S-NDB')):
+    for pat, k in ((r'\bILS\b', 'S-ILS'), (r'\bLDA\b', 'S-LDA'), (r'\bLOC\b', 'S-LOC'), (r'VOR/DME', 'S-VOR/DME'), (r'\bVOR\b', 'S-VOR'), (r'\bNDB\b', 'S-NDB'), (r'TACAN', 'S-TACAN')):
         if re.search(pat, t):
             return k
     return None
@@ -65,6 +65,13 @@ def minimums(text, title=''):
                             if c.start() > m.end() and c.group(0) not in cats:
                                 cats[c.group(0)] = c.start()
                 cats = dict(sorted(cats.items()))
+                # letters OCR missed between two it found: evenly spaced (the columns are equal width)
+                have = [L for L in 'ABCDE' if L in cats]
+                for a, b in zip(have, have[1:]):
+                    ia, ib = 'ABCDE'.index(a), 'ABCDE'.index(b)
+                    for k in range(ia + 1, ib):
+                        cats['ABCDE'[k]] = round(cats[a] + (cats[b] - cats[a]) * (k - ia) / (ib - ia))
+                cats = dict(sorted(cats.items()))
             continue
         for lm in LABEL.finditer(ln):
             typ = 'LNAV/VNAV' if lm.group(1) == 'LNAV/' else re.sub(r'\s+', ' ', lm.group(1))
@@ -80,14 +87,21 @@ def minimums(text, title=''):
                 ents = [(e.start(), int(e.group(1)), e.group(2)) for e in ENTRY.finditer(l2[:x1]) if e.start() >= x0 - 2]
                 if ents:
                     break
-            if not ents or not cats:
+            if not ents or cats is None:
                 continue
             per = {}
+            if not cats:   # no column letters read (OCR): one entry spans every category, two are A-B and C-D
+                if len(ents) not in (1, 2):
+                    continue
+                for c in 'ABCD':
+                    e = ents[0] if len(ents) == 1 or c in 'AB' else ents[1]
+                    per[c] = {'alt': e[1], 'rvr': int(e[2]) * 100 if e[2] else None}
             for c, cx in cats.items():
                 cand = [e for e in ents if e[0] <= cx + 12]
                 e = cand[-1] if cand else ents[0]
                 per[c] = {'alt': e[1], 'rvr': int(e[2]) * 100 if e[2] else None}
-            out.append({'type': typ, 'rwy': lm.group(2), 'cat': per})
+            rw = lm.group(2)
+            out.append({'type': typ, 'rwy': ('0' + rw if rw and not rw[1:2].isdigit() else rw), 'cat': per})   # 3 -> 03, 8L -> 08L
         if re.search(r'CIRCLING', ln):
             break   # circling and anything after it: not parsed
     return out
@@ -106,7 +120,66 @@ def airport(meta, faa):
     return re.search(r'<airport_name ID="([^"]+)"', blk).group(1), re.search(r'icao_ident="([^"]*)"', blk).group(1), recs
 
 
+def tesseract_words(png, psm):
+    """tesseract word boxes: [(left, top, width, height, line key, text)]"""
+    r = subprocess.run(['tesseract', png, '-', '--psm', str(psm), 'tsv'], capture_output=True, text=True)
+    out = []
+    for ln in r.stdout.split('\n')[1:]:
+        f = ln.split('\t')
+        if len(f) == 12 and f[0] == '5' and f[11].strip():
+            out.append((int(f[6]), int(f[7]), int(f[8]), int(f[9]), (int(f[2]), int(f[3]), int(f[4])), f[11].strip()))
+    return out
+
+
+def layout(words):
+    """tesseract words -> monospaced text lines, each word at its x position, so minimums() can line entries up under the
+    category columns as it does with pdftotext -layout"""
+    if not words:
+        return ''
+    cw = sorted(w[2] / len(w[5]) for w in words if len(w[5]) >= 3)
+    cw = cw[len(cw) // 2] if cw else 20
+    lines = {}
+    for w in words:
+        lines.setdefault(w[4], []).append(w)
+    rows = []
+    for ws in sorted(lines.values(), key=lambda ws: min(w[1] for w in ws)):
+        row = ''
+        for w in sorted(ws):
+            col = round(w[0] / cw)
+            row = row.ljust(col) + (' ' if row and len(row) >= col else '') + w[5]
+        rows.append(row)
+    text = '\n'.join(rows)
+    text = re.sub(r'(?<=\s)C[cC]?(?=\s|$)', 'C', text)          # the C header often reads "Cc"
+    # labels as tesseract misreads them in the charts' typeface: S-10C (S-LOC), S-1LS / S-LS (S-ILS), 5-03 (S-03),
+    # INAV (LNAV), "LNAV /VNAV"; and a runway run into its label (S-LOC5)
+    for pat, rep in ((r'S-[1lI|][0Oo]C', 'S-LOC'), (r'S-[1lI|]?LS\b', 'S-ILS'), (r'(?m)^(\W{0,3})5-(?=\d)', r'\1S-'), (r'\b[I1l|]NAV\b', 'LNAV'),
+                     (r'LNAV\s*/\s*VNAV', 'LNAV/VNAV'), (r'\b(S-(?:ILS|LOC|LDA|VOR/DME|VOR|NDB|TACAN))(\d)', r'\1 \2'), (r'\bM[DP][AaP]\b', 'MDA')):
+        text = re.sub(pat, rep, text)
+    # the charts' typeface makes tesseract read 4 as A and 0 as O inside numbers ("AAO-3/4" is 440-3/4)
+    text = re.sub(r'(?<![A-Za-z])[0-9AOo]{3,5}(?=[-/(\s]|$)', lambda m: m.group(0) if m.group(0).isalpha() and not re.search(r'[-/]', text[m.end():m.end() + 1]) else m.group(0).replace('A', '4').replace('O', '0').replace('o', '0'), text)
+    return text
+
+
+def ocr_minimums(path, title, dpi=300):
+    """Plates whose text layer is missing (scanned) or unreadable (a font without a character map), as the military
+    fields' plates are: find CATEGORY on a rendered page, render the minimums table alone at twice the resolution, OCR it
+    (tesseract, one column of text: --psm 4) and parse the result like a text layer."""
+    with tempfile.TemporaryDirectory() as td:
+        page = os.path.join(td, 'p')
+        subprocess.run(['pdftoppm', '-r', str(dpi), '-gray', '-png', '-singlefile', path, page], check=True)
+        hits = [w for w in tesseract_words(page + '.png', 11) if re.fullmatch(r'CATEGORY', w[5], re.I)]
+        if not hits:
+            return []
+        x, y = hits[-1][0], hits[-1][1]                              # the minimums table is at the bottom of the plate
+        k = 2
+        crop = os.path.join(td, 't')
+        subprocess.run(['pdftoppm', '-r', str(dpi * k), '-gray', '-png', '-singlefile', '-x', str(max(0, x - 12) * k), '-y', str(max(0, y - 12) * k),
+                        '-W', str(int(5.2 * dpi) * k), '-H', str(int(1.0 * dpi) * k), path, crop], check=True)
+        return minimums(layout(tesseract_words(crop + '.png', 4)), title)
+
+
 CACHE = None   # --cache DIR: keep the downloaded PDFs (re-parsing then needs no network)
+OCR = bool(subprocess.run(['which', 'tesseract'], capture_output=True).stdout.strip())   # OCR fallback when tesseract is installed
 
 
 def plate_text(base, pdf, td):
@@ -137,11 +210,15 @@ def all_minimums(a, base, meta, head):
                 time.sleep(a.delay)
             try:
                 with tempfile.TemporaryDirectory() as td:
-                    mins = minimums(plate_text(base, r['pdf'], td)[1], r['title'])
+                    path, text = plate_text(base, r['pdf'], td)
+                    copter = 'COPTER' in r['title']                         # helicopter-only minimums: not for the airplane
+                    mins, ocr = ([] if copter else minimums(text, r['title'])), False
+                    if not mins and OCR and 'RWY' in r['title'] and not copter:            # no usable text layer: read the table by OCR
+                        mins = ocr_minimums(path, r['title']); ocr = bool(mins)
             except Exception as e:                                      # a failed chart keeps the rest
                 print(f'  {icao} {r["title"]}: {e}', file=sys.stderr)
                 continue
-            charts.append({'code': 'IAP', 'title': r['title'], 'pdf': r['pdf'], 'amdt': r['amdt'], 'amdt_date': r['amdt_date'], 'minimums': mins})
+            charts.append({'code': 'IAP', 'title': r['title'], 'pdf': r['pdf'], 'amdt': r['amdt'], 'amdt_date': r['amdt_date'], 'minimums': mins, **({'ocr': True} if ocr else {})})
             n += 1
             if not mins:
                 empty.append(f'{icao} {r["title"]}')

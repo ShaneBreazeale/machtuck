@@ -46,7 +46,11 @@ const speedHold = (ac, o, kias) => { ac.ctl.thr = clamp(ac.ctl.thr + (kias - o.K
   const get = (apt, title, type) => { const c = M.airports[apt].charts.find((x) => x.title === title), m = c && c.minimums.find((x) => x.type === type); return m ? m.cat.C.alt : null; };
   const got = [get('KMCO', 'ILS OR LOC RWY 18R', 'S-ILS'), get('KMIA', 'LOC RWY 08L', 'S-LOC'), get('KPIE', 'VOR RWY 04', 'S-VOR'), get('KFLL', 'RNAV (GPS) RWY 10R', 'LNAV/VNAV'), get('KFLL', 'RNAV (GPS) RWY 10R', 'LNAV')];
   const n = Object.values(M.airports).reduce((s, a) => s + a.charts.filter((c) => c.minimums.length).length, 0);
-  expect(got.join() === '294,440,1000,355,460' && n >= 275, `cycle ${M.cycle}: KMCO ILS 18R ${got[0]}, KMIA LOC 8L ${got[1]} ("S-8L" on the plate), KPIE VOR 4 ${got[2]} ("S-4"), KFLL RNAV 10R LNAV/VNAV ${got[3]} / LNAV ${got[4]} (split header); ${n} plates with straight-in minimums`);
+  const ocr = [get('KCOF', 'ILS OR LOC RWY 03', 'S-ILS'), get('KCOF', 'ILS OR LOC RWY 03', 'S-LOC'), get('KMCF', 'ILS OR LOC RWY 05', 'S-LOC'), get('KNQX', 'RNAV (GPS) RWY 26', 'LNAV/VNAV'), get('KNQX', 'RNAV (GPS) RWY 26', 'LNAV'), get('KNQX', 'VOR/DME RWY 26', 'S-VOR/DME')];
+  const copter = M.airports.KNQX.charts.find((c) => /COPTER/.test(c.title));
+  expect(ocr.join() === '205,460,420,383,520,520' && M.airports.KCOF.charts[0].ocr && copter && !copter.minimums.length,
+    `military plates by OCR (no usable text layer): KCOF ILS 3 ${ocr[0]} / LOC ${ocr[1]}, KMCF LOC 5 ${ocr[2]} (read "S-10C5"), KNQX RNAV 26 LNAV/VNAV ${ocr[3]} / LNAV ${ocr[4]}, VOR/DME 26 ${ocr[5]} (no column letters read); helicopter-only minimums skipped`);
+  expect(got.join() === '294,440,1000,355,460' && n >= 310, `cycle ${M.cycle}: KMCO ILS 18R ${got[0]}, KMIA LOC 8L ${got[1]} ("S-8L" on the plate), KPIE VOR 4 ${got[2]} ("S-4"), KFLL RNAV 10R LNAV/VNAV ${got[3]} / LNAV ${got[4]} (split header); ${n} plates with straight-in minimums`);
 }
 
 // ---- RNAV minimums where no plate is loaded: the FAA master RNAV list (tools/fetch_rnav_minimums.py) ----
