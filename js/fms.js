@@ -34,7 +34,24 @@ export class FMS {
     if (leg.turn && pos && !/^H/.test(leg.pt)) this.turnDir = leg.turn === 'L' ? -1 : 1;   // published turn direction: the first turn of the leg goes that way
     this.events.push({ type: 'leg', i, leg });
   }
-  directTo(fixLeg, pos) { const k = this.legs.findIndex((l, j) => j >= this.i && l.fix && l.fix.id === fixLeg.fix.id); if (k >= 0) { this.legs[k] = { ...this.legs[k], pt: 'DF' }; this.activate(k, pos); } else { this.legs.splice(this.i, 0, { ...fixLeg, pt: 'DF' }); this.activate(this.i, pos); } }
+  // Direct to a fix (the pilot's DIR key, or ATC). fx = { id, ne }. A fix the plan ends a leg at, ahead (missed approach
+  // included), is flown direct and the legs before it are dropped from the active sequence; any other fix is inserted
+  // ahead of the plan, which resumes from it. The leg keeps its altitude constraint and approach flags (FAF, MAP, the
+  // localizer); a published turn direction is cleared: the pilot asked for the short way. Holds stay holds: the direct
+  // goes to the holding fix and the entry follows. Returns the index of the direct leg.
+  directTo(fx, pos) {
+    const ends = (l) => l.fix && /^(IF|TF|CF|DF|RF|AF|HA|HF|HM)$/.test(l.pt);
+    let k = this.legs.findIndex((l, j) => j >= this.i && ends(l) && l.fix.id === fx.id);
+    const leg = k >= 0 ? this.legs[k] : null;
+    const df = { ...(leg || { kind: 'ENR', proc: null, alt: null }), pt: 'DF', fix: leg ? leg.fix : { id: fx.id, ne: fx.ne }, turn: null, flyover: false, direct: true };
+    if (leg && !/^H/.test(leg.pt)) this.legs[k] = df;
+    else {
+      if (!leg) { k = this.i; const cur = this.legs[k]; if (cur && !ends(cur)) this.legs.splice(k, 1); }   // a heading, altitude or vector leg is over
+      this.legs.splice(k, 0, df);
+    }
+    this.activate(k, pos);
+    return k;
+  }
   // course of a leg for turn anticipation (deg true), or null
   legCourse(leg, fromNe) {
     if (!leg) return null;
@@ -59,7 +76,7 @@ export class FMS {
     // to the next fix after a minute
     if (this.atcVectors && (leg.pt === 'FM' || leg.pt === 'VM') && this.legT > 60) {
       const k = this.legs.findIndex((l, j) => j > this.i && l.fix);
-      if (k > 0) { this.legs[k] = { ...this.legs[k], pt: 'DF' }; this.events.push({ type: 'atc', txt: `proceed direct ${this.legs[k].fix.id}` }); this.activate(k, ctx.ne); return this.update({ ...ctx, dt: 0 }); }
+      if (k > 0) { this.events.push({ type: 'atc', txt: `proceed direct ${this.legs[k].fix.id}` }); this.directTo(this.legs[k].fix, ctx.ne); return this.update({ ...ctx, dt: 0 }); }
     }
     const had = this.turnDir;
     let g = this.guide(leg, ctx, R);
