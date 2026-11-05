@@ -130,7 +130,8 @@ instead (see [Mouse and touch](#mouse-and-touch)).
 Every control you can operate with the mouse works the same way (`js/panel.js`). Hovering it outlines it in cyan,
 turns the pointer into a hand (or an up-down arrow on a knob) and shows a tooltip with its name, its state and how to
 use it. A click gives a click sound and the button presses in. Knobs turn with the wheel (Shift: bigger steps); a
-click on a knob's left or right third steps it, a click in its middle pushes it. The mouse actions are the same as the
+click on a knob's left or right third steps it, a click in its middle pushes it. Levers move with a press and drag,
+clicking through their detents. The mouse actions are the same as the
 keys, so a button and its key never disagree.
 
 What you can click:
@@ -144,6 +145,12 @@ What you can click:
   reads `click`.
 - **EFB tablet**: the header bar cycles the mode, the procedure titles open their cards, and **‹ list** goes back.
 - **3D cockpit gear lever**: raises or lowers the gear.
+- **Levers** (the model's own in the 3D cockpit, highlighted cyan under the mouse; the pedestal slots on the 2D panel):
+  press and drag. The **thrust levers** move together: up is more thrust, with detents at idle and full; on the
+  ground, dragging back past idle lifts the reversers (the 2D slot turns amber). The **flap lever** steps through 0, 8,
+  20 and 40°, pulling down (aft) for more. The **spoiler lever** is retracted up, extended down. The wheel over a lever
+  steps it from detent to detent (never into reverse).
+- **Parking brake**: the red handle at the front of the pedestal; click to set it (stopped) or release it.
 
 In the 3D cockpit a click is ray-cast onto the panel, so it works from any head position. If you click empty space,
 the click becomes a stick drag instead.

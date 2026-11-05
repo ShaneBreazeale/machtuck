@@ -164,7 +164,7 @@ python3 tools/fetch_plates.py --cycle <cycle> --all    # every airport's minimum
 | Brakes (free flight) | Hold Shift; toe brakes bind in the controls panel | D-pad left |
 | Thrust reversers (on the ground) | `−` past idle, `=` to stow; or a bound button | L2 past idle |
 | Camera | C, right-drag to orbit | Triangle |
-| Cockpit buttons and knobs | Click; scroll a knob (Shift: faster); hover for a tooltip | |
+| Cockpit buttons, knobs and levers | Click; scroll a knob (Shift: faster); drag a lever (thrust, flaps, spoilers); click the parking brake; hover for a tooltip | |
 | Tablet (map and procedure cards) | Tab, then 1 to 6 for a card | |
 | Real weather on or off | U | |
 | Pause, restart, sim rate | P, R, `[` `]` | Options |

@@ -995,6 +995,22 @@ PANEL.define({
   efb: { label: 'Tablet page', kind: 'button', act: () => toggleSwitch('efb'), state: () => SETTINGS.efb },
   ckback: { label: 'Back to the procedure list', kind: 'button', act: () => toggleSwitch('ckback') },
   ...Object.fromEntries([0, 1, 2, 3, 4, 5].map((i) => [`ck${i}`, { label: `Procedure card ${i + 1}`, kind: 'button', act: () => toggleSwitch(`ck${i}`) }])),
+  // levers: the model's thrust, flap and spoiler levers in the 3D cockpit (js/cockpit.js LEVERS), the pedestal's on the
+  // 2D panel. Thrust: both levers together; on the ground, back past idle lifts the reversers (the lever's lower range)
+  lever_thr: { label: 'Thrust levers', kind: 'lever', min: -0.3, max: 1, detents: [0, 1],
+    get: () => (G.ac.ctl.rev > 0 ? -0.3 * G.ac.ctl.rev : G.ac.ctl.thr),
+    set: (v) => { const c = G.ac.ctl, was = c.rev;
+      if (v < 0 && G.ac.wow) { c.thr = 0; c.rev = clamp(-v / 0.3, 0, 1); } else { c.rev = 0; c.thr = Math.max(0, v); }
+      if (!was && c.rev > 0) log('SYS', 'THRUST REVERSERS deployed'); else if (was && !c.rev) log('SYS', 'THRUST REVERSERS stowed'); },
+    state: () => (G.ac.ctl.rev > 0 ? `REVERSE ${Math.round(G.ac.ctl.rev * 100)}%` : `${Math.round(G.ac.ctl.thr * 100)}%${G.ac.ctl.thr <= 0 ? ' (idle)' : ''} · N1 ${Math.round(lerp(28, 98, G.ac.n1))}%`),
+    help: 'drag up / down · back past idle on the ground: reverse · scroll: idle / full' },
+  lever_flaps: { label: 'Flap lever', kind: 'lever', min: 0, max: 1, detents: [0, 0.2, 0.5, 1], snap: true, invert: true,
+    get: () => G.ac.ctl.flaps, set: (v) => { if (v !== G.ac.ctl.flaps) { G.ac.ctl.flaps = v; log('SYS', `FLAPS ${Math.round(v * 40)}°`); } },
+    state: () => `${Math.round(G.ac.ctl.flaps * 40)}°`, help: 'drag down for more flap (0, 8, 20, 40°) · scroll to step' },
+  lever_sb: { label: 'Spoiler lever', kind: 'lever', min: 0, max: 1, detents: [0, 1], snap: true, invert: true,
+    get: () => G.ac.ctl.sb, set: (v) => { if (v !== G.ac.ctl.sb) { G.ac.ctl.sb = v; log('SYS', `SPOILERS ${v ? 'EXTENDED' : 'RETRACTED'}`); } },
+    state: () => (G.ac.ctl.sb ? 'EXTENDED' : 'RETRACTED'), help: 'drag down to extend, up to retract · scroll' },
+  park: { label: 'Parking brake', kind: 'switch', act: () => IN.events.push('park'), state: () => (G.ac.ctl.park ? 'SET' : 'OFF'), help: 'click to set (stopped) or release' },
   // flight guidance panel on the glareshield (js/vcgauges.js fgp): the same actions as the keys
   fgc_hdg: { label: 'HDG mode', kind: 'button', act: () => toggleSwitch('fgc_hdg'), state: () => (G.ap.lat === 'HDG' && apReady() ? 'selected' : '') },
   fgc_nav: { label: 'NAV (LNAV) mode', kind: 'button', help: 'click · key (', act: () => toggleSwitch('fgc_nav'), state: () => (G.ap.lat === 'LNAV' ? 'active' : G.ap.latArm === 'LNAV' ? 'armed' : '') },
@@ -1023,7 +1039,7 @@ function controlAt(x, y) {
 }
 IN.onClick = (x, y) => {
   const c = controlAt(x, y); if (!c) return false;
-  if (PANEL.click(c.hit)) return true;
+  const r = PANEL.click(c.hit, x, y); if (r) return r;   // 'drag' when a lever was grabbed
   toggleSwitch(c.hit.id); return true;   // a hit with no registry entry: its switch action
 };
 IN.onHover = (x, y) => {
@@ -1031,6 +1047,8 @@ IN.onHover = (x, y) => {
   if (!s) PANEL.clearHover();
   hc.style.cursor = s ? (s.kind === 'knob' ? 'ns-resize' : 'pointer') : '';
 };
+IN.onDragMove = (x, y) => PANEL.dragMove(x, y);
+IN.onDragEnd = () => PANEL.dragEnd();
 IN.onWheel = (x, y, dy, shift) => { const c = controlAt(x, y); return !!(c && PANEL.wheel(c.hit, dy, shift)); };
 window.SIM = { get G() { return G; }, R, ATC, SETTINGS, IN, FF, CK, H, toggle: toggleSwitch, get NEX() { return NEX; } };   // debug / flight-data access from the console
 // debug inspection shots: #shot=x,y,z,yaw,pitch,fov[,nex 0/1[,t]]  (starts the reconstruction paused at t with a free camera)

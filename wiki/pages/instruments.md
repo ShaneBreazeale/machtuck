@@ -255,7 +255,8 @@ The force model is described on [Hardware and force feedback](hardware.md#column
 The 3D cockpit is the virtual cockpit of the Premier Aircraft Design FSX Learjet 60 (FS2004 MDL8 format), converted by
 `tools/fs9_vc.py`.
 The yokes, rudder pedals, thrust levers (which lift into reverse), flap lever and spoiler lever move with your
-controls. Right-drag to look around and use the mouse wheel to zoom.
+controls. Its thrust, flap and spoiler levers and the red parking-brake handle are live too: drag a lever, click
+the handle (see [Controls](controls.md#cockpit-controls)). Right-drag to look around and use the mouse wheel to zoom.
 
 The pilot's and copilot's PFDs and MFDs and the engine column are live, drawn by the code above. The other gauges are
 the sim's own artwork from `js/vcgauges.js`, placed where the original panel had them:

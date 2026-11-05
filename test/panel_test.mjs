@@ -34,5 +34,22 @@ P.setHover(hit('ap'), 'fgp', 5, 5); P.decorate({ hits: [{ id: 'ap', x: 20, y: 30
 const rects = ops.filter((o) => o[0] === 'roundRect');
 expect(rects.length === 1 && rects[0][1] === 21 && P.busy(), `decorate: the outline goes round the hovered control only (${rects.length} outline), and recent presses keep it redrawing`);
 
+// levers: press-and-drag, detents, inverted (pull down for more), snapping, wheel steps
+{
+  const L = { thr: 0.5, flaps: 0 }, Q = new Panel({ sound: (k) => sounds.push(k) });
+  Q.define({
+    thr: { label: 'Thrust', kind: 'lever', min: -0.3, max: 1, detents: [0, 1], get: () => L.thr, set: (v) => { L.thr = v; } },
+    flaps: { label: 'Flaps', kind: 'lever', min: 0, max: 1, detents: [0, 0.2, 0.5, 1], snap: true, invert: true, get: () => L.flaps, set: (v) => { L.flaps = v; } },
+  });
+  const g = (id) => ({ id, x: 0, y: 0, w: 1, h: 1, dragPx: 130 });
+  expect(Q.click(g('thr'), 500, 400) === 'drag', 'a lever press grabs it (drag)');
+  Q.dragMove(500, 350); const up = L.thr; Q.dragMove(500, 470); const back = L.thr; Q.dragMove(500, 450); const near = L.thr; Q.dragEnd();
+  expect(Math.abs(up - 1) < 1e-9 && Math.abs(back + 0.2) < 1e-9 && near === 0, `drag: up 50 px -> ${up} (the full detent holds it), down 70 px -> ${back.toFixed(2)}, 50 px -> ${near} (the idle detent holds it)`);
+  const n0 = sounds.length; Q.click(g('flaps'), 0, 0); Q.dragMove(0, 30); const f1 = L.flaps; Q.dragMove(0, 70); const f2 = L.flaps; Q.dragMove(0, 200); const f3 = L.flaps; Q.dragEnd();
+  expect(f1 === 0.2 && f2 === 0.5 && f3 === 1 && sounds.length - n0 >= 4, `inverted, snapping lever: pulling down steps 0 -> ${f1} -> ${f2} -> ${f3}, a click at each detent`);
+  Q.wheel(g('flaps'), -100); const w1 = L.flaps; Q.wheel(g('thr'), 100); const w2 = L.thr; Q.wheel(g('thr'), 100);
+  expect(w1 === 0.5 && w2 === 0 && L.thr === 0, `wheel: flaps up a detent (${w1}); thrust down to the idle detent (${w2}) and no further`);
+}
+
 console.log(fail ? `\n${fail} FAILED` : '\nall panel tests passed');
 process.exit(fail ? 1 : 0);
