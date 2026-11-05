@@ -16,7 +16,8 @@ export class Input {
     this.zoom = 1;   // cockpit field-of-view scale, mouse wheel
     canvas.addEventListener('wheel', (e) => {
       e.preventDefault();
-      if (this.onWheel && this.onWheel(e.clientX, e.clientY, e.deltaY, e.shiftKey)) return;   // a knob under the mouse turns instead of zooming
+      const dy = e.deltaY * (e.deltaMode === 1 ? 33 : e.deltaMode === 2 ? 400 : 1);   // lines / pages -> px
+      if (this.onWheel && this.onWheel(e.clientX, e.clientY, dy, e.shiftKey)) return;   // a knob under the mouse turns instead of zooming
       this.zoom = clamp(this.zoom * Math.exp(e.deltaY * 0.0012), 0.42, 1.22);
     }, { passive: false });
     window.addEventListener('gamepadconnected', (e) => {
@@ -41,14 +42,25 @@ export class Input {
     const down = (x, y) => { this.mouse.down = true; this.mouse.x0 = x; this.mouse.y0 = y; this.mouse.dx = 0; this.mouse.dy = 0; };
     const move = (x, y) => { if (!this.mouse.down) return; this.mouse.dx = (x - this.mouse.x0) / 220; this.mouse.dy = (y - this.mouse.y0) / 220; };
     const up = () => { this.mouse.down = false; this.mouse.dx = 0; this.mouse.dy = 0; };
-    canvas.addEventListener('mousedown', (e) => { if (e.button === 0) { const r = this.onClick && this.onClick(e.clientX, e.clientY); if (r === 'drag') this.ctlDrag = true; if (r) return; down(e.clientX, e.clientY); } if (e.button === 2) this.rdrag = { x: e.clientX, y: e.clientY, yaw: this.orbit.yaw, pitch: this.orbit.pitch }; });
-    canvas.addEventListener('mousemove', (e) => { if (this.onHover && !this.mouse.down && !this.rdrag) this.onHover(e.clientX, e.clientY); });
+    // a press on a cockpit control (onClick, any button: right-click steps a knob down, middle-click pushes it) is
+    // the control's; 'drag' means it was grabbed (a lever, or a knob held / spun) until the button or finger lifts
+    canvas.addEventListener('mousedown', (e) => {
+      const r = this.onClick && this.onClick(e.clientX, e.clientY, { button: e.button, alt: e.altKey });
+      if (r) { if (r === 'drag') this.ctlDrag = true; if (e.button === 1) e.preventDefault(); return; }   // no middle-click autoscroll
+      if (e.button === 0) down(e.clientX, e.clientY);
+      if (e.button === 2) this.rdrag = { x: e.clientX, y: e.clientY, yaw: this.orbit.yaw, pitch: this.orbit.pitch };
+    });
+    canvas.addEventListener('auxclick', (e) => { if (e.button === 1) e.preventDefault(); });   // middle-click paste (Linux)
+    canvas.addEventListener('mousemove', (e) => { if (this.onHover && !this.mouse.down && !this.rdrag && !this.ctlDrag) this.onHover(e.clientX, e.clientY); });
     canvas.addEventListener('mouseleave', () => { if (this.onHover) this.onHover(-1, -1); });
     window.addEventListener('mousemove', (e) => { if (this.ctlDrag && this.onDragMove) this.onDragMove(e.clientX, e.clientY); move(e.clientX, e.clientY); if (this.rdrag) { this.orbit.yaw = this.rdrag.yaw + (e.clientX - this.rdrag.x) * 0.01; this.orbit.pitch = clamp(this.rdrag.pitch + (e.clientY - this.rdrag.y) * 0.01, -1.2, 1.2); } });
-    window.addEventListener('mouseup', (e) => { if (e.button === 2) this.rdrag = null; else { if (this.ctlDrag) { this.ctlDrag = false; if (this.onDragEnd) this.onDragEnd(); } up(); } });
-    canvas.addEventListener('touchstart', (e) => { const t = e.touches[0]; if (this.onClick && this.onClick(t.clientX, t.clientY)) { e.preventDefault(); return; } down(t.clientX, t.clientY); e.preventDefault(); }, { passive: false });
-    canvas.addEventListener('touchmove', (e) => { const t = e.touches[0]; move(t.clientX, t.clientY); e.preventDefault(); }, { passive: false });
-    canvas.addEventListener('touchend', up);
+    const release = () => { if (this.ctlDrag) { this.ctlDrag = false; if (this.onDragEnd) this.onDragEnd(); } };
+    window.addEventListener('mouseup', (e) => { release(); if (e.button === 2) this.rdrag = null; else up(); });
+    window.addEventListener('blur', release);
+    canvas.addEventListener('touchstart', (e) => { const t = e.touches[0]; const r = this.onClick && this.onClick(t.clientX, t.clientY, { button: 0 }); if (r) { if (r === 'drag') this.ctlDrag = true; e.preventDefault(); return; } down(t.clientX, t.clientY); e.preventDefault(); }, { passive: false });
+    canvas.addEventListener('touchmove', (e) => { const t = e.touches[0]; if (this.ctlDrag && this.onDragMove) this.onDragMove(t.clientX, t.clientY); else move(t.clientX, t.clientY); e.preventDefault(); }, { passive: false });
+    canvas.addEventListener('touchend', () => { release(); up(); });
+    canvas.addEventListener('touchcancel', () => { release(); up(); });
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
   }
   pressed(...ks) { return ks.some(k => this.keys.has(k)); }

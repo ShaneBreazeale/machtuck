@@ -146,7 +146,7 @@ the flight director on.
 
 | Control | Shows / lit when | Use |
 |---|---|---|
-| HDG knob | Its pointer turns with the bug | Scroll: 1° (Shift 10°). Click its left / right third: 1°. Click the centre: sync the bug to the heading |
+| HDG knob | Its pointer turns with the bug | Click its left / right half, hold, drag or scroll: 1° steps (10° when held or spun fast, or Shift-scroll). Middle-click (Alt+click): sync the bug to the heading |
 | HDG window | The selected heading, green in HDG mode | |
 | HDG | Lateral mode HDG | HDG on the current heading |
 | NAV | LNAV or LOC engaged or armed | Arm LNAV, like `(` |
@@ -157,9 +157,9 @@ the flight director on.
 | VNAV | VNAV engaged or armed | Arm VNAV, like `)` |
 | ALT | ALT hold or altitude capture | Hold the current altitude |
 | VS | Vertical mode VS | VS at the current vertical speed, to the preselected altitude |
-| VS wheel | The VS window shows the target in VS mode | Scroll or click its top / bottom: 100 ft/min (Shift 500); from another mode it enters VS at the current rate |
+| VS wheel | The VS window shows the target in VS mode | Click its top / bottom half, hold, drag or scroll: 100 ft/min (500 when held or spun fast, or Shift-scroll), ±6,000 ft/min; from another mode it enters VS at the current rate |
 | ALT / VS window | The preselected altitude (cyan) and the VS target | |
-| ALT knob | Its pointer turns with the preselected altitude | Scroll: 100 ft (Shift 1,000). Click its left / right third: 100 ft. Click the centre: hold the current altitude. Like `<` `>`, a new altitude away from yours starts a VS climb or descent toward it |
+| ALT knob | Its pointer turns with the preselected altitude | Click its left / right half, hold, drag or scroll: 100 ft steps (1,000 ft when held or spun fast, or Shift-scroll), never below 0. Middle-click (Alt+click): ALT hold. Like `<` `>`, a new altitude away from yours starts a VS climb or descent toward it |
 
 HDG, ALT, VS and the VS wheel need the autopilot or the flight director on; otherwise the log says to engage one
 first. In the accident the heading bug follows the crew's reported turn until you set it yourself (HDG knob, `{` `}`).

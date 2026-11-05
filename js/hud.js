@@ -20,8 +20,20 @@ export class HUD {
     if (this.c.width !== Math.floor(W * dpr) || this.c.height !== Math.floor(H * dpr)) { this.c.width = Math.floor(W * dpr); this.c.height = Math.floor(H * dpr); }
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0); this.W = W; this.H = H;
   }
-  // the control at canvas x, y, with where in its box (fx, fy: 0..1) for knobs
-  hit(x, y) { const h = this.hits.find(h => x >= h.x && x <= h.x + h.w && y >= h.y && y <= h.y + h.h); return h ? { ...h, fx: (x - h.x) / h.w, fy: (y - h.y) / h.h } : null; }
+  // the control at canvas x, y, with where in its box (fx, fy: 0..1) for knobs. minPx: a control smaller than that
+  // (in canvas px) also takes a click up to (minPx - its size) / 2 outside its box, as long as no other control is
+  // nearer, so a tiny knob in the 3D cockpit stays easy to hit without stealing its neighbours' clicks
+  hit(x, y, minPx = 0) {
+    let h = this.hits.find(h => x >= h.x && x <= h.x + h.w && y >= h.y && y <= h.y + h.h);
+    if (!h && minPx > 0) {
+      let bd = Infinity;
+      for (const b of this.hits) {
+        const d = Math.hypot(Math.max(b.x - x, 0, x - b.x - b.w), Math.max(b.y - y, 0, y - b.y - b.h));
+        if (d < bd) { bd = d; h = d <= Math.max(0, (minPx - Math.min(b.w, b.h)) / 2) ? b : null; }
+      }
+    }
+    return h ? { ...h, fx: clamp((x - h.x) / h.w, 0, 1), fy: clamp((y - h.y) / h.h, 0, 1) } : null;
+  }
   text(s, x, y, size, color, align = 'left', weight = '') { const ctx = this.ctx; ctx.font = `${weight} ${size}px ${FONT}`; ctx.fillStyle = color; ctx.textAlign = align; ctx.textBaseline = 'middle'; ctx.fillText(s, x, y); }
   box(x, y, w, h, fill = COL.panel, stroke = '#2d313a', r = 5) { const ctx = this.ctx; ctx.fillStyle = fill; ctx.strokeStyle = stroke; ctx.lineWidth = 1; ctx.beginPath(); ctx.roundRect(x, y, w, h, r); ctx.fill(); ctx.stroke(); }
 
