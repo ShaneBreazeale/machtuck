@@ -7,6 +7,7 @@
 import { HUD } from './hud.js';
 import { clamp, lerp, RAD, wrap360 } from './util.js';
 import { GAUGES } from './vcgauges.js';
+import { MIN_PICK } from './panel.js';
 import { drawPfd } from './pfd.js';
 import { I4, mul4, quatM, track } from './anim.js';
 
@@ -254,21 +255,29 @@ export class Cockpit {
     }
     gl.depthMask(true); gl.disable(gl.BLEND); gl.disable(gl.DEPTH_TEST); gl.bindVertexArray(null);
   }
-  // Click: ray from the eye through the pixel, onto the instrument quads; returns { key, hit } for a HUD hit-test
+  // Click: ray from the eye through the pixel, onto the instrument quads; returns { key, hit } for a HUD hit-test.
+  // A control that projects smaller than MIN_PICK screen px (js/panel.js) is picked within that radius, even a little
+  // past its canvas's edge, unless another control is nearer (js/hud.js hit)
   pick(nx, ny, head, fov, aspect) {
     const tf = Math.tan(fov / 2), d0 = [nx * tf * aspect, ny * tf, 1];
     const d = v3.norm(v3.add(v3.add(v3.mul(head.right, d0[0]), v3.mul(head.up, d0[1])), v3.mul(head.fwd, d0[2])));
-    let best = null;
+    let best = null, slop = null;
     for (const sf of this.surfaces) {
       const tl = v3.sub(sf.tl, EYE), ex = v3.sub(sf.tr, sf.tl), ey = v3.sub(sf.bl, sf.tl), n = v3.cross(ex, ey), den = v3.dot(n, d);
       if (Math.abs(den) < 1e-9) continue;
-      const t = v3.dot(n, tl) / den; if (t <= 0 || (best && t >= best.t)) continue;
+      const t = v3.dot(n, tl) / den; if (t <= 0) continue;
       const p = v3.sub(v3.mul(d, t), tl);
-      const uu = v3.dot(p, ex) / v3.dot(ex, ex), vv = v3.dot(p, ey) / v3.dot(ey, ey);
-      if (uu < 0 || uu > 1 || vv < 0 || vv > 1) continue;
-      const it = this.inst[sf.key];
-      best = { t, key: sf.key, hit: it.hud.hit(uu * it.c.width, vv * it.c.height) };
+      const uu = v3.dot(p, ex) / v3.dot(ex, ex), vv = v3.dot(p, ey) / v3.dot(ey, ey), it = this.inst[sf.key], W = it.c.width, H = it.c.height;
+      // canvas px per screen px here: the canvas's px per metre over the screen's px per metre at this depth
+      const k = (W / Math.hypot(...ex)) * (tf * t * v3.dot(d, head.fwd)) / ((globalThis.innerHeight || 800) / 2), m = MIN_PICK / 2 * k;
+      const inside = uu >= 0 && uu <= 1 && vv >= 0 && vv <= 1;
+      if (!inside && (uu < -m / W || uu > 1 + m / W || vv < -m / H || vv > 1 + m / H)) continue;
+      if (inside && best && t >= best.t) continue;
+      const hit = it.hud.hit(uu * W, vv * H, MIN_PICK * k);
+      if (inside) best = { t, key: sf.key, hit };
+      else if (hit && (!slop || t < slop.t)) slop = { t, key: sf.key, hit, slop: true };
     }
+    if ((!best || !best.hit) && slop) best = slop;
     // the levers: the ray in each part's own (animated) frame against its local box
     if (this.levers && this.W) {
       for (const L of this.levers) for (const p of L.parts) {
@@ -280,7 +289,7 @@ export class Cockpit {
           let ta = (p.lo[a] - o[a]) / dl[a], tb = (p.hi[a] - o[a]) / dl[a]; if (ta > tb) [ta, tb] = [tb, ta];
           t0 = Math.max(t0, ta); t1 = Math.min(t1, tb);
         }
-        if (t0 <= t1 && t0 < 1e9 && (!best || t0 < best.t)) best = { t: t0, key: '3d', hit: { id: L.id, x: 0, y: 0, w: 1, h: 1, fx: 0.5, fy: 0.5, dragPx: 240 } };
+        if (t0 <= t1 && t0 < 1e9 && (!best || best.slop || t0 < best.t)) best = { t: t0, key: '3d', hit: { id: L.id, x: 0, y: 0, w: 1, h: 1, fx: 0.5, fy: 0.5, dragPx: 240 } };
       }
     }
     return best;

@@ -123,16 +123,33 @@ instead (see [Mouse and touch](#mouse-and-touch)).
 | Right-drag | Look around in the cockpit; orbit the chase camera |
 | Mouse wheel | Turns the knob under the mouse; elsewhere zooms the 3D cockpit view |
 | Left-click | Operates switches, buttons and knobs (below) |
+| Right-click | On a knob: one step down (elsewhere a right-drag looks around) |
+| Middle-click (or Alt+click) | Pushes a knob: HDG syncs the bug to the heading, ALT engages ALT hold |
 | Hover | Outlines the control under the mouse and shows its name, state and how to use it |
 | Touch drag | Flies the airplane, like a left-drag |
 
 ### Cockpit controls
 
 Every control you can operate with the mouse works the same way (`js/panel.js`). Hovering it outlines it in cyan,
-turns the pointer into a hand (or an up-down arrow on a knob) and shows a tooltip with its name, its state and how to
-use it. A click gives a click sound and the button presses in. Knobs turn with the wheel (Shift: bigger steps); a
-click on a knob's left or right third steps it, a click in its middle pushes it. Levers move with a press and drag,
-clicking through their detents. The mouse actions are the same as the
+turns the pointer into a hand (or a left-right / up-down arrow on a knob) and shows a tooltip with its name, its state
+and how to use it. A click gives a click sound and the button presses in. Levers move with a press and drag, clicking
+through their detents.
+
+Knobs have two halves: left = down, right = up (the VS thumbwheel: bottom = down, top = up). Hovering a knob draws
+− and + on its halves, lights the one under the pointer, and the tooltip says what a click there does right now
+("click: −100 ft → 14,900 ft").
+
+| Gesture on a knob | Action |
+|---|---|
+| Click a half | One step that way. A plain click never pushes the knob |
+| Right-click | One step down |
+| Press and hold | One step, then after 0.4 s it repeats, speeding up; after another second it takes the big step (1,000 ft, 10°, 500 ft/min). Release stops. Mouse or touch |
+| Press and drag | Spins it: right (up on the VS wheel) is up, one step per 10 px |
+| Wheel | One step per notch; Shift, or a fast spin of the wheel, takes the big step |
+| Middle-click, or Alt+click | Push (HDG: sync to the heading; ALT: ALT hold) |
+
+Each step clicks a detent, turns the knob's pointer, and a bubble by the pointer shows the new value. In the 3D cockpit
+a knob that looks smaller than 28 px on screen still takes clicks within 28 px, unless another control is nearer. The mouse actions are the same as the
 keys, so a button and its key never disagree.
 
 What you can click:

@@ -4,7 +4,7 @@ import { Renderer } from './render.js';
 import { scenarioSun } from './sun.js';
 import { PilotControls } from './controls.js';
 import { HUD } from './hud.js';
-import { Panel } from './panel.js';
+import { Panel, MIN_PICK } from './panel.js';
 import { CDU as CduUnit } from './cdu.js';
 import { Cockpit } from './cockpit.js';
 import { Input } from './input.js';
@@ -984,6 +984,11 @@ H.controls = PANEL; if (CK) CK.controls = PANEL;
 const onOff = (v) => (v ? 'ON' : 'OFF');
 const fmtHdg = (d) => String(Math.round(d) % 360 || 360).padStart(3, '0') + '°';
 const ftOf = (m) => Math.round(m / FT);
+// the preselect after n knob steps: whole 100s of feet, never below 0
+const altNext = (n, big) => Math.max(0, Math.round(G.ap.altTgt / FT / 100) * 100 + n * (big ? 1000 : 100));
+// the VS target after n wheel steps (m/s): from the current target in VS mode, else the current vertical speed; ±6,000 ft/min
+const vsNext = (n, big) => clamp((G.ap.vert === 'VS' ? G.ap.vsTgt : Math.round(G.ac.out.vs / 0.508) * 0.508) + n * (big ? 5 : 1) * 0.508, -30.48, 30.48);
+const fmtVs = (v) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(Math.round(v * 196.85)).toLocaleString()} ft/min`;
 const apReady = () => G.ap.on || G.ap.fd;
 const sw = (label, state) => ({ label, kind: 'switch', act: function () { toggleSwitch(this.id); }, state });
 PANEL.define({
@@ -1022,17 +1027,19 @@ PANEL.define({
   fgc_vnav: { label: 'VNAV mode', kind: 'button', help: 'click · key )', act: () => toggleSwitch('fgc_vnav'), state: () => (G.ap.vert === 'VNAV' ? 'active' : G.ap.vertArm === 'VNAV' ? 'armed' : '') },
   fgc_alt: { label: 'ALT hold', kind: 'button', act: () => toggleSwitch('fgc_alt'), state: () => (G.ap.vert === 'ALT' && apReady() ? `holding ${ftOf(G.ap.altTgt).toLocaleString()} ft` : '') },
   fgc_vs: { label: 'Vertical speed mode', kind: 'button', act: () => toggleSwitch('fgc_vs'), state: () => (G.ap.vert === 'VS' && apReady() ? `${Math.round(G.ap.vsTgt * 196.85)} ft/min` : '') },
-  fgp_hdg: { label: 'Heading knob', kind: 'knob', help: 'scroll: 1° (Shift 10°) · click left / right: 1° · click the centre: sync to the heading',
+  // knobs (js/panel.js): click a half for − / +, hold to repeat, drag or scroll to spin, middle-click (Alt+click) to push.
+  // turn and peek share one function each, so the tooltip's "click: −100 ft → 14,900 ft" is what the click does
+  fgp_hdg: { label: 'Heading knob', kind: 'knob', step: ['1°', '10°'], help: 'push: sync the bug to the heading',
     turn: (n, big) => { G.hdgByPilot = true; G.ap.bumpHdg(n * (big ? 10 : 1), G.ac.out.psi * RAD); }, push: () => { G.hdgByPilot = true; G.ap.setHdg(wrap360(G.ac.out.psi * RAD)); log('SYS', `HDG bug synced: ${fmtHdg(G.ap.hdgTgt)}`); },
-    state: () => `bug ${fmtHdg(G.ap.hdgTgt)}` },
-  fgp_alt: { label: 'Altitude preselect knob', kind: 'knob', help: 'scroll: 100 ft (Shift 1,000) · click left / right: 100 ft · click the centre: hold this altitude',
-    turn: (n, big) => { const a = Math.max(0, Math.round(G.ap.altTgt / FT / 100) * 100 + n * (big ? 1000 : 100)); G.ap.setAlt(a * FT, G.ac.out); },
+    peek: (n, big) => fmtHdg(wrap360(G.ap.hdgTgt + n * (big ? 10 : 1))), state: () => `bug ${fmtHdg(G.ap.hdgTgt)}` },
+  fgp_alt: { label: 'Altitude preselect knob', kind: 'knob', step: ['100 ft', '1,000 ft'], help: 'push: ALT hold',
+    turn: (n, big) => G.ap.setAlt(altNext(n, big) * FT, G.ac.out), peek: (n, big) => `${altNext(n, big).toLocaleString()} ft`,
     push: () => toggleSwitch('fgc_alt'), state: () => `${ftOf(G.ap.altTgt).toLocaleString()} ft` },
-  fgp_vs: { label: 'Vertical speed wheel', kind: 'knob', axis: 'y', help: 'scroll or click top / bottom: 100 ft/min (Shift 500)',
+  fgp_vs: { label: 'Vertical speed wheel', kind: 'knob', axis: 'y', step: ['100 ft/min', '500 ft/min'], help: 'top half: up, bottom half: down · turning it selects VS mode',
     turn: (n, big) => { if (!apReady()) { log('SYS', 'VS: engage the autopilot (X) or flight director (|) first'); return; } const ap = G.ap;
-      if (ap.vert !== 'VS') { ap.vert = 'VS'; ap.vertArm = null; ap.vsTgt = Math.round(G.ac.out.vs / 0.508) * 0.508; }
-      ap.vsTgt = clamp(ap.vsTgt + n * (big ? 5 : 1) * 0.508, -30.48, 30.48); },
-    state: () => (G.ap.vert === 'VS' ? `${Math.round(G.ap.vsTgt * 196.85)} ft/min` : 'not in VS') },
+      if (ap.vert !== 'VS') { ap.vert = 'VS'; ap.vertArm = null; } ap.vsTgt = vsNext(n, big); },
+    peek: (n, big) => (apReady() ? fmtVs(vsNext(n, big)) : 'needs AP or FD'),
+    state: () => (G.ap.vert === 'VS' ? fmtVs(G.ap.vsTgt) : 'not in VS') },
 });
 // ---------- the FMS CDU (js/cdu.js): on the pedestal, and a 2D pop-out you can type into (F2) ----------
 const CDU = new CduUnit({ G: () => G, findFix: (id, ne) => DB.findFix(id, ne), log: (t) => log('SYS', t), magvar: () => (G && G.apt ? G.apt.magvar : -6),
@@ -1063,7 +1070,7 @@ function cduPopDraw() {
   CP.hud.hits = []; CP.ctx.clearRect(0, 0, 520, 796); CDU.draw(CP.ctx, 0, 0, 520, 796, CP.hud); PANEL.decorate(CP.hud, CP.ctx, 'pop');
 }
 const cpHit = (e) => { const r = CP.cv.getBoundingClientRect(), x = (e.clientX - r.left) * 520 / r.width, y = (e.clientY - r.top) * 796 / r.height; const h = CP.hud.hits.find((b) => x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h); return h ? { ...h, fx: (x - h.x) / h.w, fy: (y - h.y) / h.h } : null; };
-CP.cv.addEventListener('mousedown', (e) => { const h = cpHit(e); if (h && h.id !== 'cdu_SCREEN') PANEL.click(h); CP.el.focus(); e.preventDefault(); });
+CP.cv.addEventListener('mousedown', (e) => { const h = cpHit(e); if (h && h.id !== 'cdu_SCREEN') PANEL.click(h, e.clientX, e.clientY, { button: e.button }); CP.el.focus(); e.preventDefault(); });
 CP.cv.addEventListener('mousemove', (e) => { const h = cpHit(e); if (h && h.id !== 'cdu_SCREEN') PANEL.setHover(h, 'pop', e.clientX, e.clientY); else PANEL.clearHover(); });
 CP.cv.addEventListener('mouseleave', () => PANEL.clearHover());
 CP.el.addEventListener('keydown', (e) => { if (e.key === 'Escape' || e.key === 'F2') { cduToggle(false); e.preventDefault(); return; } if (CDU.type(e)) { PANEL.sound && AU.click('detent'); e.preventDefault(); } });
@@ -1076,21 +1083,22 @@ PANEL.define(Object.fromEntries(CduUnit.KEYS.map((k) => [`cdu_${k}`, k === 'SCRE
 function controlAt(x, y) {
   if (x < 0 || !G) return null;
   if (CK && CK.ready && !G.ext && G.head) { const p = CK.pick(2 * x / innerWidth - 1, 1 - 2 * y / innerHeight, G.head, G.lastFov || 64 * DEG, innerWidth / innerHeight); return p && p.hit ? { hit: p.hit, key: p.key } : null; }
-  const h = H.hit(x, y); return h ? { hit: h, key: 'hud' } : null;
+  const h = H.hit(x, y, MIN_PICK); return h ? { hit: h, key: 'hud' } : null;
 }
-IN.onClick = (x, y) => {
+IN.onClick = (x, y, opt = {}) => {
   const c = controlAt(x, y); if (!c) return false;
-  const r = PANEL.click(c.hit, x, y); if (r) return r;   // 'drag' when a lever was grabbed
+  const r = PANEL.click(c.hit, x, y, opt); if (r) return r;   // 'drag' when a lever or knob was grabbed
+  if (PANEL.has(c.hit.id) || (opt.button || 0) !== 0) return false;   // right / middle on a button: look around
   toggleSwitch(c.hit.id); return true;   // a hit with no registry entry: its switch action
 };
 IN.onHover = (x, y) => {
   const c = controlAt(x, y), s = c && PANEL.setHover(c.hit, c.key, x, y);
   if (!s) PANEL.clearHover();
-  hc.style.cursor = s ? (s.kind === 'knob' ? 'ns-resize' : 'pointer') : '';
+  hc.style.cursor = s ? (s.kind === 'knob' ? (s.axis === 'y' ? 'ns-resize' : 'ew-resize') : 'pointer') : '';
 };
 IN.onDragMove = (x, y) => PANEL.dragMove(x, y);
 IN.onDragEnd = () => PANEL.dragEnd();
-IN.onWheel = (x, y, dy, shift) => { const c = controlAt(x, y); return !!(c && PANEL.wheel(c.hit, dy, shift)); };
+IN.onWheel = (x, y, dy, shift) => { const c = controlAt(x, y); return !!(c && PANEL.wheel(c.hit, dy, shift, x, y)); };
 window.SIM = { get G() { return G; }, R, ATC, SETTINGS, IN, FF, CK, H, CDU, CP, toggle: toggleSwitch, get NEX() { return NEX; } };   // debug / flight-data access from the console
 // debug inspection shots: #shot=x,y,z,yaw,pitch,fov[,nex 0/1[,t]]  (starts the reconstruction paused at t with a free camera)
 if (location.hash.startsWith('#shot=')) {
